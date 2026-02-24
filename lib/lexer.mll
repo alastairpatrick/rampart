@@ -23,6 +23,7 @@ rule token = parse
     | "return"                          { RETURN }
     | "switch"                          { SWITCH }
     | "true"                            { TRUE }
+    | "typeof"                          { TYPEOF }
     | "void"                            { VOID }
     | "while"                           { WHILE }
     | (id_first id_subs*) as lxm        { ID(lxm) }

@@ -40,5 +40,6 @@ let string_of_token (token : token) : string = match token with
   | SWITCH -> "'switch' keyword"
   | TIMES -> "'*' symbol"
   | TRUE -> "'true' keyword"
+  | TYPEOF -> "'typeof' keyword"
   | VOID -> "'void' keyword"
   | WHILE -> "'while' keyword"

@@ -23,7 +23,7 @@
 %token QUESTION
 %token RARROW RETURN RINEQ RCURLY RPAREN
 %token SEMI SWITCH
-%token TIMES TRUE
+%token TIMES TRUE TYPEOF
 %token VOID
 %token WHILE
 
@@ -61,6 +61,7 @@ primary_expr
   | f=primary_expr LPAREN es=exprs0 RPAREN  { loc $loc, Call (f, es) }
   | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN b=compound_stat
                                             { loc $loc, Lambda (f, ps, b) }
+   | TYPEOF LPAREN e=expr RPAREN              { loc $loc, TypeOf e }
   (*| LAMBDA LPAREN ps=params0 RPAREN s=compound_stat
                                             { loc $loc, Lambda (None, ps, s) }*)
   ;

@@ -138,6 +138,9 @@ let%expect_test _ =
       ((@1 (Expression (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))))
     |}]
 
+let%expect_test _ =
+  parse "typeof(x);";
+  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (TypeOf (@1 (Identifier x))))))))) |}]
 
     (* Declarations *)
 

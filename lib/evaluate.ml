@@ -28,6 +28,9 @@ type thread = {
   top_frame: frame;
 }
 
+type evaluate_mode =
+  | Value                 (* evaluate normally *)
+  | PlaceholderValue      (* evaluate to a placeholder value of the correct type, without causing side effects *)
 
 let fork f = perform (Fork f)
 let defer pattern assignable = perform (Defer (pattern, assignable))
@@ -72,17 +75,17 @@ and strip_assignability (value : value) : value =
     Tuple (Array.map strip_assignability elements)
   | _ -> value
 
-and evaluate_unassignable thread expression : value = strip_assignability (evaluate thread expression)
+and evaluate_unassignable thread mode expression : value = strip_assignability (evaluate thread mode expression)
 
-and evaluate_binary_op machine _ op a b : value =
-  let a = evaluate_unassignable machine a in
-  let b = evaluate_unassignable machine b in
+and evaluate_binary_op thread mode _ op a b : value =
+  let a = evaluate_unassignable thread mode a in
+  let b = evaluate_unassignable thread mode b in
   match op, a, b with
   | Plus, Int a, Int b -> Int (a+b)
   | _ -> print_endline @@ Printf.sprintf "%s %s" (show_value a) (show_value b); assert false
 
-and evaluate_assignment thread _ a b : value =
-  let b = evaluate_unassignable thread b in
+and evaluate_assignment thread mode _ a b : value =
+  let b = evaluate_unassignable thread mode b in
   let rec assign a b =
     (match a, b with
     | (_, BoundIdentifier (_, slot)), _
@@ -97,36 +100,36 @@ and evaluate_assignment thread _ a b : value =
   assign a b;    
   b
 
-and evaluate_in thread _ a b : value =
-  ignore (evaluate_unassignable thread a);
-  evaluate_unassignable thread b
+and evaluate_in thread mode _ a b : value =
+  ignore (evaluate_unassignable thread mode a);
+  evaluate_unassignable thread mode b
 
-and evaluate_lambda thread return_type params body : value =
-  let return_type = evaluate_unassignable thread return_type |> value_to_type in
+and evaluate_lambda thread mode return_type params body : value =
+  let return_type = evaluate_unassignable thread mode return_type |> value_to_type in
   let param_types = List.map (fun (_loc, stmt) ->
     match stmt with
     | BoundDeclaration ({ type_expr=Some type_expr; _ }, _) ->
-      evaluate_unassignable thread type_expr |> value_to_type
+      evaluate_unassignable thread mode type_expr |> value_to_type
     | _ -> print_endline (show_statement (_loc, stmt)); assert false) params in
   Impl ( Singleton (Function (return_type, param_types)),
     ImplLambda body)
       
-and evaluate (thread : thread) ((location, expression) : expression) : value =
+and evaluate (thread : thread) (mode : evaluate_mode) ((location, expression) : expression) : value =
   try
     match expression with
     | IntLiteral l -> Int l
     | BoolLiteral b -> Bool b
     | Type Int -> SingletonType Int
     | Type Void -> void
-    | BinaryOp (op, a, b) -> evaluate_binary_op thread location op a b
+    | BinaryOp (op, a, b) -> evaluate_binary_op thread mode location op a b
     | Tuple exprs ->
-      let values = Array.of_list (List.map (evaluate thread) exprs) in
+      let values = Array.of_list (List.map (evaluate thread mode) exprs) in
       tuple_value values
-    | Assignment (a, b) -> evaluate_assignment thread location a b
+    | Assignment (a, b) -> evaluate_assignment thread mode location a b
     | BoundIdentifier (name, slot)
     | BoundLet (Identifier name, slot) -> Assignable (get_assignable thread.top_frame slot, name)
-    | In (a, b) -> evaluate_in thread location a b
-    | Lambda (return_type, params, body) -> evaluate_lambda thread return_type params body
+    | In (a, b) -> evaluate_in thread mode location a b
+    | Lambda (return_type, params, body) -> evaluate_lambda thread mode return_type params body
     | _ -> print_endline (show_expression (location, expression)); assert false
   with
     Error message -> raise (Located_error (location, message))
@@ -143,16 +146,16 @@ let evaluate_declaration thread _ declaration slot =
   try
     match declaration with
     | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
-      let typ = value_to_type (evaluate thread type_expr) in
-      let value = evaluate_unassignable thread init_expr in
+      let typ = value_to_type (evaluate thread Value type_expr) in
+      let value = evaluate_unassignable thread Value init_expr in
       set_assignable_value assignable (convert_implicit value typ)
 
     | { type_expr=Some type_expr; init_expr=None; _} ->
-      let typ = value_to_type (evaluate thread type_expr) in
+      let typ = value_to_type (evaluate thread Value type_expr) in
       set_assignable_value assignable (default_value typ)
 
     | { type_expr=None; init_expr=Some init_expr; _} ->
-      let value = evaluate_unassignable thread init_expr in
+      let value = evaluate_unassignable thread Value init_expr in
       set_assignable_value assignable value
 
     | _ -> assert false
@@ -169,7 +172,7 @@ let rec evaluate_order_independent (thread : thread) (statements : statement lis
 and evaluate_statement (thread : thread) ((location, statement) : statement) : unit = 
   try
     match statement with
-    | Expression expression -> ignore (evaluate thread expression)
+    | Expression expression -> ignore (evaluate thread Value expression)
     | BoundDeclaration (declaration, slot) -> evaluate_declaration thread location declaration slot
     | OrderIndependent statements -> evaluate_order_independent thread statements
     | _ -> print_endline @@ show_statement (location, statement); assert false
