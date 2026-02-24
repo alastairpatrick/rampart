@@ -1,0 +1,8 @@
+(executable
+ (public_name hello)
+ (name main)
+ (libraries hello sexplib))
+
+(executable
+ (public_name repro)
+ (name repro))

@@ -1,0 +1,26 @@
+open Ast
+open Location
+open Printf
+open Type
+
+exception Located_error of location * string
+exception Error of string
+exception Saw_failed_error
+
+let error_internal msg = Error (Printf.sprintf "internal error: %s" msg)
+let error_not_assignable location = Located_error (location, "expression is not assignable")
+(*let error_cyclic_dependency location names =
+  Error (location, (sprintf "found cyclic dependency: %s" (String.concat ", " (StringSet.to_list names))))*)
+let error_type_mismatch = Error "type mismatch"
+let error_no_implicit_conversion from_type to_type =
+  Error (sprintf "no implicit conversion from '%s' to '%s'" (show_type from_type) (show_type to_type))
+let error_incorrect_number_of_arguments expected actual = Error (Printf.sprintf "expected %d arguments but got %d" expected actual)
+let error_order_independent = Error "not allowed in an order independent context"
+let error_not_a_type = Error "not a type"
+let error_not_callable = Error "not callable"
+let error_unassigned_let (pattern : pattern) =
+  Error (match pattern with
+    | Identifier name -> (Printf.sprintf "'let' introduces variable '%s' but it is not assigned a value" name)
+    | Any -> "'let' expression is not assigned a value")
+let error_cyclic_dependency (dependencies : string list) =
+  Error (Printf.sprintf "cyclic dependencies detected: %s" (String.concat ", " dependencies))

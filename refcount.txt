@@ -1,0 +1,106 @@
+Procedure NewObject(size: Integer) : Object
+begin
+    // The object does not appear in ZCT or RCTable yet, so is considered to
+    // have a reference count of 1. It ought to have a reference count of
+    // zero, since it is currently not referenced by any object. To compensate,
+    // add a record to the buffer with null slot, telling the collector to decrement
+    // the reference count by one.
+    Buffer[m] = Buffer[m] + <null, obj>
+
+    return obj
+end
+
+Procedure Update(s: Slot, new: Object)
+begin
+    <old, modified> := atomic_exchange(s, <new, true>)
+    if !modified then
+        Buffer[m] := Buffer[m] + <s, old>
+end
+
+Procedure Collect()
+begin
+    for each mutator m do
+        Lock(Mutex)
+        assert HandshakeStatus[m] = Unsynchronized
+        HandshakeStatus[m] := Pending
+        while HandshakeStatus[m] != Synchronized do
+            Wait(CondVar, Mutex)
+
+        for each root in Roots(m) do
+            Shade(root)
+        saved := Buffer[m]
+        Buffer[m] := []
+
+        HandshakeStatus[m] := Unsynchronized
+        Signal(CondVar)
+        Unlock(Mutex)
+
+        for each record <s, old> in saved do
+            if s != null then
+                <new, modified> := atomic_fetch_and(s, <_, false>)
+                assert modified
+                Shade(new)
+                IncrementRC(new)
+            Shade(old)
+            DecrementRC(old)
+
+    ZCT' = []
+    for each obj in ZCT do
+        if obj in WhiteTable then
+            Reclaim(obj) # can append to ZCT
+        else
+            WhiteTable := WhiteTable + obj
+            ZCT' := ZCT' + obj
+
+    ZCT := ZCT'
+end
+
+Procedure Shade(obj: Object)
+begin
+    if obj in WhiteTable then
+        WhiteTable := WhiteTable - obj
+end
+
+Procedure Reclaim(obj: Object)
+begin
+    WhiteTable := WhiteTable - obj
+    for each slot in obj do
+        old = load(s)
+        DecrementRC(old)
+    // allocator frees memory associated with obj
+end
+
+// Objects with a reference count > 2 appear in RCTable map only
+// Objects with a reference count = 0 appear in ZCT set only
+// Objects with a reference count = 1 appear in neither
+Procedure IncrementRC(obj: Object)
+begin
+    if obj in ZCT then
+        ZCT := ZCT - obj
+    else if obj in RCTable then
+        RCTable[obj] := RCTable[obj] + 1
+    else
+        RCTable[obj] := 2
+end
+
+Procedure DecrementRC(obj: Object)
+begin
+    if obj in RCTable then
+        if RCTable[obj] = 2 then
+            RCTable := RCTable - obj
+        else
+            RCTable[obj] := RCTable[obj] - 1
+    else
+        ZCT := ZCT + obj
+end
+
+Procedure Handshake()
+begin
+    if HandshakeStatus[m] = Pending then
+        Lock(Mutex)
+        HandshakeStatus[m] := Synchronized
+        Signal(CondVar)
+        while HandshakeStatus[m] = Synchronized do
+            Wait(CondVar, Mutex)
+        Unlock(Mutex)
+end
