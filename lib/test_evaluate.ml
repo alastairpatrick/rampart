@@ -23,6 +23,17 @@ let%expect_test _ =
   evaluate_declarations "int x = 1 + 2;";
   [% expect{| 3 |}]
 
+let%expect_test _ =
+  evaluate_declarations "int x = 6/2;";
+  [% expect{| 3 |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = 6/0;";
+  [% expect{|
+    Division_by_zero
+    [:failed:]
+    |}]
+
 (* Declarations and identifiers *)
 
 let%expect_test _ =
@@ -88,6 +99,23 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
+  evaluate_declarations "(let x, let y) = z+1; int z = 5;";
+  [% expect{|
+    Error: @1 type mismatch
+    [:uninitialized:]
+    [:uninitialized:]
+    5
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "(let x, let y) = z; (int, int) z;";
+  [% expect{|
+    0
+    0
+    (0,0)
+    |}]
+
+let%expect_test _ =
   evaluate_declarations "int x = y; int y = x;";
   [% expect{|
     Cyclic dependencies detected: x, y
@@ -113,3 +141,34 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "void foo(int x) {}";
   [% expect{| [:impl void(int):] |}]
+
+(* typeof *)
+
+let%expect_test _ =
+  evaluate_declarations "let t = typeof(1);";
+  [% expect{| int |}]
+
+let%expect_test _ =
+  evaluate_declarations "let t = typeof(1/0);";
+  [% expect{| int |}]
+
+let%expect_test _ =
+  evaluate_declarations "let t = typeof(x); int x;";
+  [% expect{|
+    int
+    0
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = 1; let t = typeof(x = 2);";
+  [% expect{|
+    1
+    int
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "let t = typeof(() = (1, 2));";
+  [% expect{|
+    Error: @1 type mismatch
+    [:uninitialized:]
+    |}]

@@ -28,9 +28,9 @@ type thread = {
   top_frame: frame;
 }
 
-type evaluate_mode =
-  | Value                 (* evaluate normally *)
-  | PlaceholderValue      (* evaluate to a placeholder value of the correct type, without causing side effects *)
+type result_mode =
+  | EvalFull        (* Evaluate result of expression fully with all side effects. Both result value and type must be correct. *)
+  | EvalTypeOnly    (* Only the type of the result need be correct. Use this to determine type of expression without causing side effects. *)
 
 let fork f = perform (Fork f)
 let defer pattern assignable = perform (Defer (pattern, assignable))
@@ -44,8 +44,23 @@ let make_thread (machine : machine) : thread = {
 }
 
 let make_machine (num_globals : int) : machine = {
-  globals = Array.make num_globals Uninitialized;
+  globals = Array.make num_globals (Uninitialized None);
 }
+
+
+let convert_implicit (value : value) (to_typ : typ) : value =
+  let from_typ = type_of_value value in
+  if to_typ = from_typ then
+    value
+  else begin
+    raise error_type_mismatch
+    end
+
+let representative_value_for_type (typ : typ) : value =
+  try
+    default_value(typ)
+  with
+    Error _ -> RepresentativeForType typ
 
 let rec get_assignable frame {index; depth} : assignable =
   if depth = frame.depth then
@@ -55,19 +70,20 @@ let rec get_assignable frame {index; depth} : assignable =
 
 and set_assignable_value (index, value_array) value : unit =
   match value with
-  | Uninitialized | Assignable _ -> assert false
+  | Uninitialized _ | Assignable _ -> assert false
   | _ -> value_array.(index) <- value
 
 and get_assignable_value (index, value_array) : value =
-  let value = value_array.(index) in
-  if value == Failed then raise Saw_failed_error else value
+  match value_array.(index) with
+  | Failed -> raise Saw_failed_error
+  | value -> value
 
 and strip_assignability (value : value) : value =
   match value with
   | Assignable (assignable, display_name) ->
     let contents = get_assignable_value assignable in
     (match contents with
-    | Uninitialized ->
+    | Uninitialized _ ->
       defer display_name assignable;
       strip_assignability value
     | _ -> contents)
@@ -82,23 +98,36 @@ and evaluate_binary_op thread mode _ op a b : value =
   let b = evaluate_unassignable thread mode b in
   match op, a, b with
   | Plus, Int a, Int b -> Int (a+b)
+  | Div, Int a, Int b -> (match mode, b with
+    | EvalTypeOnly, 0 -> representative_value_for_type (Singleton Int)
+    | _ -> Int (a/b))
   | _ -> print_endline @@ Printf.sprintf "%s %s" (show_value a) (show_value b); assert false
 
 and evaluate_assignment thread mode _ a b : value =
   let b = evaluate_unassignable thread mode b in
-  let rec assign a b =
+  let rec assign (a : expression) (b : value) : value =
     (match a, b with
-    | (_, BoundIdentifier (_, slot)), _
+    | (_, BoundIdentifier (display_name, slot)), _ ->
+      let assignable = get_assignable thread.top_frame slot in
+      (* Should not attempt to assign LHS until after it has been initialized. *)
+      (match (get_assignable_value assignable) with
+        | Uninitialized _ -> defer display_name assignable
+        | _ -> ());
+      let typ = type_of_value (get_assignable_value assignable) in
+      let converted_b = convert_implicit b typ in
+      if mode <> EvalTypeOnly then set_assignable_value assignable converted_b;
+      converted_b
     | (_, BoundLet (_, slot)), _ ->
       let assignable = get_assignable thread.top_frame slot in
-      set_assignable_value assignable b
+      if mode <> EvalTypeOnly then set_assignable_value assignable b;
+      b
     | (_, Tuple exprs), Tuple values ->
       (try
-        Array.iter2 (fun expr value -> assign expr value) (Array.of_list exprs) values
+        tuple_value (Array.map2 assign (Array.of_list exprs) values)
       with Invalid_argument _ -> raise (error_type_mismatch))
+    | (_, Tuple _), _ -> raise (error_type_mismatch)
     | (location, _), _ -> raise (error_not_assignable location)) in
-  assign a b;    
-  b
+  assign a b
 
 and evaluate_in thread mode _ a b : value =
   ignore (evaluate_unassignable thread mode a);
@@ -114,7 +143,7 @@ and evaluate_lambda thread mode return_type params body : value =
   Impl ( Singleton (Function (return_type, param_types)),
     ImplLambda body)
       
-and evaluate (thread : thread) (mode : evaluate_mode) ((location, expression) : expression) : value =
+and evaluate (thread : thread) (mode : result_mode) ((location, expression) : expression) : value =
   try
     match expression with
     | IntLiteral l -> Int l
@@ -125,6 +154,7 @@ and evaluate (thread : thread) (mode : evaluate_mode) ((location, expression) : 
     | Tuple exprs ->
       let values = Array.of_list (List.map (evaluate thread mode) exprs) in
       tuple_value values
+    | TypeOf e -> type_to_value (type_of_value (evaluate_unassignable thread EvalTypeOnly e))
     | Assignment (a, b) -> evaluate_assignment thread mode location a b
     | BoundIdentifier (name, slot)
     | BoundLet (Identifier name, slot) -> Assignable (get_assignable thread.top_frame slot, name)
@@ -134,28 +164,21 @@ and evaluate (thread : thread) (mode : evaluate_mode) ((location, expression) : 
   with
     Error message -> raise (Located_error (location, message))
 
-let convert_implicit (value : value) (to_typ : typ) : value =
-  let from_typ = type_of_value value in
-  if to_typ = from_typ then
-    value
-  else
-    raise (error_type_mismatch)
-
 let evaluate_declaration thread _ declaration slot =
   let assignable = get_assignable thread.top_frame slot in
   try
     match declaration with
     | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
-      let typ = value_to_type (evaluate thread Value type_expr) in
-      let value = evaluate_unassignable thread Value init_expr in
+      let typ = value_to_type (evaluate thread EvalFull type_expr) in
+      let value = evaluate_unassignable thread EvalFull init_expr in
       set_assignable_value assignable (convert_implicit value typ)
 
     | { type_expr=Some type_expr; init_expr=None; _} ->
-      let typ = value_to_type (evaluate thread Value type_expr) in
+      let typ = value_to_type (evaluate thread EvalFull type_expr) in
       set_assignable_value assignable (default_value typ)
 
     | { type_expr=None; init_expr=Some init_expr; _} ->
-      let value = evaluate_unassignable thread Value init_expr in
+      let value = evaluate_unassignable thread EvalFull init_expr in
       set_assignable_value assignable value
 
     | _ -> assert false
@@ -172,7 +195,7 @@ let rec evaluate_order_independent (thread : thread) (statements : statement lis
 and evaluate_statement (thread : thread) ((location, statement) : statement) : unit = 
   try
     match statement with
-    | Expression expression -> ignore (evaluate thread Value expression)
+    | Expression expression -> ignore (evaluate thread EvalFull expression)
     | BoundDeclaration (declaration, slot) -> evaluate_declaration thread location declaration slot
     | OrderIndependent statements -> evaluate_order_independent thread statements
     | _ -> print_endline @@ show_statement (location, statement); assert false
@@ -186,7 +209,7 @@ let evaluate_to_completion (main : unit -> unit) : unit =
   let stalled = Queue.create () in
   while not (Queue.is_empty tasks) do
     let task, dependency = Queue.take tasks in
-    if dependency <> None && let _, slot = Option.get dependency in is_value_uninitialized (get_assignable_value slot) then
+    if dependency <> None && let _, slot = Option.get dependency in is_value_complete (get_assignable_value slot) then
       Queue.add (task, dependency) stalled
     else
       match task () with

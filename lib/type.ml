@@ -1,5 +1,6 @@
 open Sexplib.Std
 
+(* This language makes no distinction between a type and a 1-tuple of that type; they are the same type. *)
 type singleton_type =
   | Int
   | Bool
@@ -9,7 +10,7 @@ type singleton_type =
 and typ =
   | Uninitialized
   | Singleton of singleton_type
-  | Tuple of typ list
+  | Tuple of typ list       (* Must never contain a single element; use Singleton instead; tuple_type can be used to normalize *)
 [@@deriving sexp, show]
 
 let tuple_type types =

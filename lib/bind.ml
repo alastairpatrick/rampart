@@ -179,6 +179,10 @@ and bind env pass ((location, expr) : expression) : env * expression =
   | Tuple es ->
     env, (location, Tuple (List.map (fun e -> let _, e = bind env pass e in e) es))
 
+  | TypeOf e ->
+    let _, e = bind env pass e in
+    env, (location, TypeOf e)
+
   | Lambda (return_type, params, (_, Compound statements)) ->
     let _, return_type = bind env pass return_type in
     if pass == OrderIndependent1 then env, (location, expr) else
