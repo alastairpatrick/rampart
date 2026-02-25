@@ -63,10 +63,10 @@ let rec type_to_value (typ : typ) : value = match typ with
   | Tuple types -> Tuple (Array.of_list (List.map type_to_value types))
 
 let rec is_value_complete (value : value) : bool = match value with
-  | Uninitialized _ -> true
-  | Failed -> true
+  | Uninitialized _ -> false
+  | Failed -> false
   | Assignable ((idx, arr), _) -> is_value_complete arr.(idx)
-  | _ -> false
+  | _ -> true
 
 let rec is_value_type (value : value) : bool = match value with
   | SingletonType _ -> true

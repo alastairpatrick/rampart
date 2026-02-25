@@ -34,6 +34,15 @@ let%expect_test _ =
     [:failed:]
     |}]
 
+(* Defer / dependency resume behavior *)
+
+let%expect_test _ =
+  evaluate_declarations "int x = y + 1; int y = 10;";
+  [% expect{|
+    11
+    10
+    |}]
+
 (* Declarations and identifiers *)
 
 let%expect_test _ =
@@ -142,6 +151,38 @@ let%expect_test _ =
   evaluate_declarations "void foo(int x) {}";
   [% expect{| [:impl void(int):] |}]
 
+(* arity *)
+
+let%expect_test _ =
+  evaluate_declarations "int x = arity(());";
+  [% expect{|
+    0
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = arity(int);";
+  [% expect{|
+    1
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = arity((int, int));";
+  [% expect{|
+    2
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = arity(7);";
+  [% expect{|
+    1
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type x = bool;";
+  [% expect{|
+    bool
+    |}]
+
 (* typeof *)
 
 let%expect_test _ =
@@ -180,28 +221,21 @@ let%expect_test _ =
     4
     |}]
 
-(* arity *)
-
 let%expect_test _ =
-  evaluate_declarations "int x = arity(());";
-  [% expect{|
-    0
-    |}]
-
-let%expect_test _ =
-  evaluate_declarations "int x = arity(int);";
+  evaluate_declarations "int x = arity(typeof(x));";
   [% expect{|
     1
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int x = arity((int, int));";
+  evaluate_declarations "int x = arity(typeof(x + 1));";
   [% expect{|
-    2
+    1
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int x = arity(7);";
+  evaluate_declarations "type x = y; typeof(x) y = int;";
   [% expect{|
-    1
+    int
+    int
     |}]

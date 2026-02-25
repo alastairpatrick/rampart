@@ -21,6 +21,7 @@ and ast_type =
   | Int
   | Bool
   | Void
+  | Type
 
 and expression_inner =
   | Type of ast_type

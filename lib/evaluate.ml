@@ -13,6 +13,7 @@ type _ Effect.t +=
 
 type implementation_value +=
   | ImplLambda of statement
+  | ImplRepresentative
 
 type machine = {
   globals: value array;
@@ -56,8 +57,19 @@ let convert_implicit (value : value) (to_typ : typ) : value =
     raise error_type_mismatch
     end
 
-let representative_value_for_type (typ : typ) : value =
-  default_value(typ)
+let rec representative_value_for_type (typ : typ) : value =
+  match typ with
+  | Uninitialized -> assert false
+  | Singleton Int
+  | Singleton Bool
+  | Tuple [] ->
+    default_value typ
+  | Singleton Type ->
+    SingletonType Type
+  | Singleton singleton_type ->
+    Impl (Singleton singleton_type, ImplRepresentative)
+  | Tuple types ->
+    Tuple (Array.of_list (List.map representative_value_for_type types))
 
 let rec get_assignable frame {index; depth} : assignable =
   if depth = frame.depth then
@@ -67,7 +79,7 @@ let rec get_assignable frame {index; depth} : assignable =
 
 and set_assignable_value (index, value_array) value : unit =
   match value with
-  | Uninitialized _ | Assignable _ -> assert false
+  | Uninitialized None | Assignable _ -> assert false
   | _ -> value_array.(index) <- value
 
 and get_assignable_value (index, value_array) : value =
@@ -75,20 +87,39 @@ and get_assignable_value (index, value_array) : value =
   | Failed -> raise Saw_failed_error
   | value -> value
 
-and strip_assignability (value : value) : value =
+(* strip_assignability resolves `Assignable` wrappers to their stored contents.
+   Behavior and deferral semantics:
+   - If the slot contains a value, return its contents.
+   - If the slot is `Uninitialized` and we are evaluating for value/side-effects
+     (`EvalFull`), perform a `Defer` effect with the slot's display name and
+     assignable. The `Defer` effect is handled by `evaluate_to_completion`, which
+     suspends the current continuation and enqueues it with a dependency on the
+     named slot. When the dependency is satisfied (the slot becomes initialized
+     or failed), the continuation is resumed. After performing `defer` we read
+     the slot via `get_assignable_value` rather than recursively calling
+     `strip_assignability` to avoid immediately re-performing the effect and
+     causing an infinite loop.
+   - If we are evaluating only for a type (`EvalTypeOnly`) and the slot is
+     `Uninitialized (Some typ)`, synthesize a representative value for that
+     type (via `representative_value_for_type`) to allow `typeof` and similar
+     operations to break dependency cycles without causing side effects.
+*)
+and strip_assignability (mode : result_mode) (value : value) : value =
   match value with
   | Assignable (assignable, display_name) ->
     let contents = get_assignable_value assignable in
-    (match contents with
-    | Uninitialized _ ->
+    (match mode, contents with
+    | EvalTypeOnly, Uninitialized (Some typ) ->
+        representative_value_for_type typ
+    | _, Uninitialized _ ->
       defer display_name assignable;
-      strip_assignability value
+      get_assignable_value assignable
     | _ -> contents)
   | Tuple elements ->
-    Tuple (Array.map strip_assignability elements)
+    Tuple (Array.map (strip_assignability mode) elements)
   | _ -> value
 
-and evaluate_unassignable thread mode expression : value = strip_assignability (evaluate thread mode expression)
+and evaluate_unassignable thread mode expression : value = strip_assignability mode (evaluate thread mode expression)
 
 and evaluate_binary_op thread mode _ op a b : value =
   let a = evaluate_unassignable thread mode a in
@@ -154,7 +185,9 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
     | IntLiteral l -> Int l
     | BoolLiteral b -> Bool b
     | Type Int -> SingletonType Int
+    | Type Bool -> SingletonType Bool
     | Type Void -> void
+    | Type Type -> SingletonType Type
     | BinaryOp (op, a, b) -> evaluate_binary_op thread mode location op a b
     | Tuple exprs ->
       let values = Array.of_list (List.map (evaluate thread mode) exprs) in
@@ -176,6 +209,7 @@ let evaluate_declaration thread _ declaration slot =
     match declaration with
     | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
       let typ = value_to_type (evaluate thread EvalFull type_expr) in
+      set_assignable_value assignable (Uninitialized (Some typ));
       let value = evaluate_unassignable thread EvalFull init_expr in
       set_assignable_value assignable (convert_implicit value typ)
 
@@ -215,7 +249,7 @@ let evaluate_to_completion (main : unit -> unit) : unit =
   let stalled = Queue.create () in
   while not (Queue.is_empty tasks) do
     let task, dependency = Queue.take tasks in
-    if dependency <> None && let _, slot = Option.get dependency in is_value_complete (get_assignable_value slot) then
+    if dependency <> None && (let _, slot = Option.get dependency in not (is_value_complete (get_assignable_value slot))) then
       Queue.add (task, dependency) stalled
     else
       match task () with

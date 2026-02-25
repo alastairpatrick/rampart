@@ -23,7 +23,7 @@
 %token QUESTION
 %token RARROW RETURN RINEQ RCURLY RPAREN
 %token SEMI SWITCH
-%token TIMES TRUE TYPEOF
+%token TIMES TRUE TYPE TYPEOF
 %token VOID
 %token WHILE
 
@@ -51,6 +51,7 @@ primary_expr
   : VOID                                    { loc $loc, Type Void }                     
   | INT                                     { loc $loc, Type Int }
   | BOOL                                    { loc $loc, Type Bool }
+  | TYPE                                    { loc $loc, Type Type }
   | v=INT_LIT                               { loc $loc, IntLiteral v }
   | TRUE                                    { loc $loc, BoolLiteral true }
   | FALSE                                   { loc $loc, BoolLiteral false }
