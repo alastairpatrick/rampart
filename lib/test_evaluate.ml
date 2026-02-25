@@ -172,3 +172,36 @@ let%expect_test _ =
     Error: @1 type mismatch
     [:uninitialized:]
     |}]
+
+let%expect_test _ =
+  evaluate_declarations "typeof(y) x = 3; int y = 4;";
+  [% expect{|
+    3
+    4
+    |}]
+
+(* arity *)
+
+let%expect_test _ =
+  evaluate_declarations "int x = arity(());";
+  [% expect{|
+    0
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = arity(int);";
+  [% expect{|
+    1
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = arity((int, int));";
+  [% expect{|
+    2
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = arity(7);";
+  [% expect{|
+    1
+    |}]

@@ -57,10 +57,7 @@ let convert_implicit (value : value) (to_typ : typ) : value =
     end
 
 let representative_value_for_type (typ : typ) : value =
-  try
-    default_value(typ)
-  with
-    Error _ -> RepresentativeForType typ
+  default_value(typ)
 
 let rec get_assignable frame {index; depth} : assignable =
   if depth = frame.depth then
@@ -102,6 +99,14 @@ and evaluate_binary_op thread mode _ op a b : value =
     | EvalTypeOnly, 0 -> representative_value_for_type (Singleton Int)
     | _ -> Int (a/b))
   | _ -> print_endline @@ Printf.sprintf "%s %s" (show_value a) (show_value b); assert false
+
+and evaluate_typeof thread _ expression : value =
+  type_to_value (type_of_value (evaluate_unassignable thread EvalTypeOnly expression))
+
+and evaluate_arity thread mode expression : value =
+  match evaluate_unassignable thread mode expression with
+  | Tuple values -> Int (Array.length values)
+  | _ -> Int 1
 
 and evaluate_assignment thread mode _ a b : value =
   let b = evaluate_unassignable thread mode b in
@@ -154,7 +159,8 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
     | Tuple exprs ->
       let values = Array.of_list (List.map (evaluate thread mode) exprs) in
       tuple_value values
-    | TypeOf e -> type_to_value (type_of_value (evaluate_unassignable thread EvalTypeOnly e))
+    | TypeOf e -> evaluate_typeof thread mode e
+    | Arity e -> evaluate_arity thread mode e
     | Assignment (a, b) -> evaluate_assignment thread mode location a b
     | BoundIdentifier (name, slot)
     | BoundLet (Identifier name, slot) -> Assignable (get_assignable thread.top_frame slot, name)

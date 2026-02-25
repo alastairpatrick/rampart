@@ -11,7 +11,6 @@ from array of values to value; it normalizes appropriately. *)
 and value =
   | Uninitialized of typ option
   | Failed
-  | RepresentativeForType of typ
   | Assignable of assignable * (*display_name: *) string
   | Int of int
   | Bool of bool
@@ -31,7 +30,6 @@ let rec type_of_value (value: value) : typ =
   | Uninitialized None -> Uninitialized
   | Uninitialized (Some typ) -> typ
   | Failed -> raise Saw_failed_error
-  | RepresentativeForType typ -> typ
   | Assignable ((idx, arr), _) -> type_of_value arr.(idx)
   | Int _ -> Singleton Int
   | Bool _ -> Singleton Bool
@@ -43,7 +41,6 @@ let rec type_of_value (value: value) : typ =
 let rec show_value (v: value) : string = match v with
   | Uninitialized _ -> "[:uninitialized:]"
   | Failed -> "[:failed:]"
-  | RepresentativeForType typ -> Printf.sprintf "[:representative %s:]" (show_type typ)
   | Assignable ((idx, arr), name) -> Printf.sprintf "'%s'=%s" name (show_value arr.(idx))
   | Int v -> string_of_int v
   | Bool v -> string_of_bool v

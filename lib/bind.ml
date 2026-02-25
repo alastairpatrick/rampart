@@ -183,6 +183,10 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let _, e = bind env pass e in
     env, (location, TypeOf e)
 
+  | Arity e ->
+    let _, e = bind env pass e in
+    env, (location, Arity e)
+    
   | Lambda (return_type, params, (_, Compound statements)) ->
     let _, return_type = bind env pass return_type in
     if pass == OrderIndependent1 then env, (location, expr) else

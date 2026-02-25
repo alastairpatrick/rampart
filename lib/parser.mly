@@ -8,7 +8,7 @@
 %token <string> ID
 %token <int> INT_LIT
 
-%token ANY ASSIGN
+%token ANY ARITY ASSIGN
 %token BOOL
 %token CASE COLON COMMA
 %token DIV DO
@@ -61,7 +61,8 @@ primary_expr
   | f=primary_expr LPAREN es=exprs0 RPAREN  { loc $loc, Call (f, es) }
   | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN b=compound_stat
                                             { loc $loc, Lambda (f, ps, b) }
-   | TYPEOF LPAREN e=expr RPAREN            { loc $loc, TypeOf e }
+  | TYPEOF LPAREN e=expr RPAREN             { loc $loc, TypeOf e }
+  | ARITY LPAREN e=expr RPAREN              { loc $loc, Arity e }
   (*| LAMBDA LPAREN ps=params0 RPAREN s=compound_stat
                                             { loc $loc, Lambda (None, ps, s) }*)
   ;

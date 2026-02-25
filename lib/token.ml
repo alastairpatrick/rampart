@@ -2,6 +2,7 @@ open Parser
 
 let string_of_token (token : token) : string = match token with
   | ANY -> "'any' keyword"
+  | ARITY -> "'arity' keyword"
   | ASSIGN -> "'=' symbol"
   | BOOL -> "'bool' keyword"
   | CASE -> "'case' keyword"

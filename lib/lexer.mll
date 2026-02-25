@@ -9,6 +9,7 @@ let id_subs = ['A'-'Z' 'a'-'z' '0'-'9' '_']
 rule token = parse
     [' ' '\t'     ]                     { token lexbuf }     (* skip blanks *)
     | '\n'                              { EOL }
+    | "arity"                           { ARITY }
     | "bool"                            { BOOL }
     | "case"                            { CASE }
     | "do"                              { DO }

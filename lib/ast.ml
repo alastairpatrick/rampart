@@ -25,6 +25,7 @@ and ast_type =
 and expression_inner =
   | Type of ast_type
   | TypeOf of expression
+  | Arity of expression
   | IntLiteral of int
   | BoolLiteral of bool
   | Assignment of expression * expression

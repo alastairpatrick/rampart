@@ -142,6 +142,10 @@ let%expect_test _ =
   parse "typeof(x);";
   [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (TypeOf (@1 (Identifier x))))))))) |}]
 
+let%expect_test _ =
+  parse "arity(x);";
+  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (Arity (@1 (Identifier x))))))))) |}]
+
     (* Declarations *)
 
 let%expect_test _ =
