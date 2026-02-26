@@ -24,3 +24,5 @@ let error_unassigned_let (pattern : pattern) =
     | Any -> "'let' expression is not assigned a value")
 let error_cyclic_dependency (dependencies : string list) =
   Error (Printf.sprintf "cyclic dependencies detected: %s" (String.concat ", " dependencies))
+let error_implicit_conversion (from_type: typ) (to_type: typ) =
+  Error (Printf.sprintf "no implicit conversion from '%s' to '%s'" (show_type from_type) (show_type to_type)  )

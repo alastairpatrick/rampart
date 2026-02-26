@@ -52,7 +52,7 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "int x = true;";
   [% expect{|
-    Error: @1 type mismatch
+    Error: @1 no implicit conversion from 'bool' to 'int'
     [:failed:]
     |}]
 
@@ -292,7 +292,7 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "type t = (int, bool); (type, int) s = t;";
   [% expect{|
-    Error: @1 type mismatch
+    Error: @1 no implicit conversion from 'type' to 'int'
     (int, bool)
     [:failed:]
     |}]
@@ -361,7 +361,7 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "int foo() { return; } int x = foo();";
   [% expect{|
-    Error: @1 type mismatch
+    Error: @1 no implicit conversion from 'void' to 'int'
     [:impl int():]
     [:failed:]
     |}]
@@ -379,4 +379,41 @@ let%expect_test _ =
     [:impl int():]
     0
     |}]
+
+
+let%expect_test _ =
+  evaluate_declarations "int f() { return 7; } let g = f; int i = g();";
+  [% expect{|
+    [:impl int():]
+    [:impl int():]
+    7
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() { return 7; } int g(int() h) { return h(); } int i = g(f);";
+  [% expect{|
+    [:impl int():]
+    [:impl int(int()):]
+    7
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f(int x) { return x; } int g(int(int) h) { return h(1); } int i = g(f);";
+  [% expect{|
+    [:impl int(int):]
+    [:impl int(int(int)):]
+    1
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int(int) make_adder(int b) { int adder(int a) { return a+b; } return adder; } int(int) add2 = make_adder(2); int x = add2(3);";
+  [% expect{|
+    [:impl int(int)(int):]
+    [:impl int(int):]
+    5
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "2();";
+  [% expect{| Error: @1 not callable |}]
 

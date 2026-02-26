@@ -13,10 +13,6 @@ type _ Effect.t +=
 | Fork : (unit -> unit) -> unit t
 | Defer : (string * assignable) -> unit t
 
-type implementation_value +=
-  | ImplLambda of statement
-  | ImplRepresentative
-
 type machine = {
   globals: value array;
 }
@@ -31,6 +27,10 @@ type frame = {
 type thread = {
   top_frame: frame;
 }
+
+type implementation_value +=
+  | ImplLambda of frame * statement
+  | ImplRepresentative
 
 type result_mode =
   | EvalFull        (* Evaluate result of expression fully with all side effects. Both result value and type must be correct. *)
@@ -77,7 +77,7 @@ let rec convert_implicit (value : value) (to_typ : typ) : value =
     (try
       tuple_value (tuple_map2 (fun from_typ to_typ -> convert_implicit (type_to_value from_typ) to_typ) (List.to_seq from_element_types) (List.to_seq to_element_types))
     with Invalid_argument _ -> raise error_type_mismatch)
-  | _ -> raise error_type_mismatch
+  | _ -> raise (error_implicit_conversion from_typ to_typ)
 
 let rec representative_value_for_type (typ : typ) : value =
   match typ with
@@ -197,16 +197,16 @@ and evaluate_lambda thread mode return_type params body : value =
       evaluate_unassignable thread mode type_expr |> value_to_type
     | _ -> print_endline (show_statement (_loc, stmt)); assert false) params in
   Impl ( Singleton (Function (return_type, param_types)),
-    ImplLambda body)
+    ImplLambda (thread.top_frame, body))
 
 and evaluate_call thread mode _ callee args : value =
   let callee = evaluate_unassignable thread mode callee in
   match callee with
-  | Impl (Singleton (Function (return_type, param_types)), ImplLambda (_, BoundFrame (num_locals, body))) ->
+  | Impl (Singleton (Function (return_type, param_types)), ImplLambda (enclosing_frame, (_, BoundFrame (num_locals, body)))) ->
     let callee_thread = {
       top_frame = {
-        depth = thread.top_frame.depth + 1;
-        enclosing_frame = Some thread.top_frame;
+        depth = enclosing_frame.depth + 1;
+        enclosing_frame = Some enclosing_frame;
         variables = Array.make num_locals (Uninitialized None);
         return_type = return_type;
       }
@@ -227,8 +227,19 @@ and evaluate_call thread mode _ callee args : value =
            declared return type. This matches variable initialization behaviour and avoids
            silently returning `void` for non-void functions. *)
         default_value return_type
-    with Return_exn value -> assert ((type_of_value value) = return_type); value)
-  | _ -> print_endline (show_value callee); assert false
+    with Return_exn value ->
+      let from_typ = type_of_value value in
+      if from_typ = return_type then value else raise (error_implicit_conversion from_typ return_type))
+
+  (* Syntactically, a function type parses the same way as a function call, i.e. a(b) could be a call to a with argument b
+  if a is a function typed value or a function type value, returning type a and taking an argument of type b, if a is a type. *)
+  | _ ->
+    try
+      let return_type = value_to_type callee in
+      let param_types = List.map (fun arg -> value_to_type (evaluate_unassignable thread mode arg)) args in
+      Type (Singleton (Function (return_type, param_types)))
+    with Error _ -> raise error_not_callable
+    
 
 and evaluate (thread : thread) (mode : result_mode) ((location, expression) : expression) : value =
   try
