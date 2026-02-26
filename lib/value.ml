@@ -18,10 +18,12 @@ and value =
   | Tuple of value array
   | Impl of typ * implementation_value
 
-let tuple_value values =
-  match values with
-  | [| value |] -> value
-  | _ -> Tuple values
+let tuple_value (values : value Seq.t) =
+  match Seq.uncons values with
+  | None -> Tuple [||]
+  | Some (value, rest) -> match Seq.uncons rest with
+    | None -> value
+    | Some _ -> Tuple (Array.of_seq (Seq.cons value rest))
 
 let void = Tuple [| |]
 
@@ -35,7 +37,7 @@ let rec type_of_value (value: value) : typ =
   | Bool _ -> Singleton Bool
   | Type _ -> Singleton Type
   | Tuple [| _ |] -> assert false (* Assert becaused this is a logic error; singletons have an explicit representation *)
-  | Tuple elements -> tuple_type (Array.to_list (Array.map type_of_value elements))
+  | Tuple elements -> tuple_type (Seq.map type_of_value (Array.to_seq elements))
   | Impl (typ, _) -> typ
 
 let rec show_value (v: value) : string = match v with
@@ -54,7 +56,8 @@ let rec show_value (v: value) : string = match v with
 let rec value_to_type (value : value) : typ = match value with
   | Type typ -> typ
   | Tuple [| _ |] -> assert false (* logic error *)
-  | Tuple elements -> tuple_type (Array.to_list (Array.map value_to_type elements))
+  | Tuple elements -> (*tuple_type (Array.to_seq (Array.map value_to_type elements))*)
+    tuple_type (Seq.map value_to_type (Array.to_seq elements))
   | _ -> raise error_not_a_type
 
 let type_to_value (typ : typ) : value = Type typ
@@ -76,5 +79,5 @@ let rec default_value (typ: typ) : value =
   | Singleton Int -> Int 0
   | Singleton Bool -> Bool false
   | Tuple [] -> void
-  | Tuple types -> Tuple (Array.of_list (List.map default_value types))
+  | Tuple types -> tuple_value (Seq.map default_value (List.to_seq types))
   | _ -> raise (Error (Printf.sprintf "type '%s' does not have a default value" (show_type typ)))

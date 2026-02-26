@@ -49,6 +49,12 @@ let make_machine (num_globals : int) : machine = {
 }
 
 
+let rec tuple_map2 (f: 'a -> 'b -> 'c) (a_seq : 'a Seq.t) (b_seq : 'b Seq.t) : 'c Seq.t =
+    match Seq.uncons a_seq, Seq.uncons b_seq with
+    | None, None -> Seq.empty
+    | Some (a, a_rest), Some (b, b_rest) -> Seq.cons (f a b) (tuple_map2 f a_rest b_rest)
+    | _ -> raise error_type_mismatch
+
 let rec convert_implicit (value : value) (to_typ : typ) : value =
   let from_typ = type_of_value value in
   match to_typ, value with
@@ -60,12 +66,12 @@ let rec convert_implicit (value : value) (to_typ : typ) : value =
     with Error _ -> raise error_type_mismatch)
   | Tuple to_element_types, Tuple from_elements ->
     (try
-      tuple_value (Array.map2 convert_implicit from_elements (Array.of_list to_element_types))
+      tuple_value (tuple_map2 convert_implicit (Array.to_seq from_elements) (List.to_seq to_element_types))
     with Invalid_argument _ -> raise error_type_mismatch)
   | Tuple to_element_types, Type (Tuple from_element_types) ->
     (* This branch allows destructuring a value of tuple type into a tuple value. TODO: not sure if we actually want to do this. *)
     (try
-      tuple_value (Array.of_list (List.map2 (fun from_typ to_typ -> convert_implicit (type_to_value from_typ) to_typ) from_element_types to_element_types))
+      tuple_value (tuple_map2 (fun from_typ to_typ -> convert_implicit (type_to_value from_typ) to_typ) (List.to_seq from_element_types) (List.to_seq to_element_types))
     with Invalid_argument _ -> raise error_type_mismatch)
   | _ -> raise error_type_mismatch
 
@@ -81,7 +87,7 @@ let rec representative_value_for_type (typ : typ) : value =
   | Singleton singleton_type ->
     Impl (Singleton singleton_type, ImplRepresentative)
   | Tuple types ->
-    Tuple (Array.of_list (List.map representative_value_for_type types))
+    tuple_value (Seq.map representative_value_for_type (List.to_seq types))
 
 let rec get_assignable frame {index; depth} : assignable =
   if depth = frame.depth then
@@ -170,10 +176,8 @@ and evaluate_assignment thread mode _ a b : value =
       if mode <> EvalTypeOnly then set_assignable_value assignable b;
       b
     | (_, Tuple exprs), Tuple values ->
-      (try
-        tuple_value (Array.map2 assign (Array.of_list exprs) values)
-      with Invalid_argument _ -> raise (error_type_mismatch))
-    | (_, Tuple _), _ -> raise (error_type_mismatch)
+      tuple_value (tuple_map2 assign (List.to_seq exprs) (Array.to_seq values))
+    | (_, Tuple _), _ -> raise error_type_mismatch
     | (location, _), _ -> raise (error_not_assignable location)) in
   assign a b
 
@@ -201,9 +205,7 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
     | Type Void -> void
     | Type Type -> Type (Singleton Type)
     | BinaryOp (op, a, b) -> evaluate_binary_op thread mode location op a b
-    | Tuple exprs ->
-      let values = Array.of_list (List.map (evaluate thread mode) exprs) in
-      tuple_value values
+    | Tuple exprs -> tuple_value (Seq.map (evaluate thread mode) (List.to_seq exprs))
     | TypeOf e -> evaluate_typeof thread mode e
     | Arity e -> evaluate_arity thread mode e
     | Assignment (a, b) -> evaluate_assignment thread mode location a b
