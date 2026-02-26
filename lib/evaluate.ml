@@ -7,6 +7,8 @@ open Slot
 open Type
 open Value
 
+exception Return_exn of value
+
 type _ Effect.t +=
 | Fork : (unit -> unit) -> unit t
 | Defer : (string * assignable) -> unit t
@@ -194,7 +196,37 @@ and evaluate_lambda thread mode return_type params body : value =
     | _ -> print_endline (show_statement (_loc, stmt)); assert false) params in
   Impl ( Singleton (Function (return_type, param_types)),
     ImplLambda body)
-      
+
+and evaluate_call thread mode _ callee args : value =
+  let callee = evaluate_unassignable thread mode callee in
+  match callee with
+  | Impl (Singleton (Function (return_type, param_types)), ImplLambda (_, BoundFrame (num_locals, body))) ->
+    let callee_thread = {
+      top_frame = {
+        depth = thread.top_frame.depth + 1;
+        enclosing_frame = Some thread.top_frame;
+        variables = Array.make num_locals (Uninitialized None);
+      }
+    } in
+    let rec evaluate_args i (args: expression Seq.t) (types : typ Seq.t): unit =
+      match Seq.uncons args, Seq.uncons types with
+      | None, None -> ()
+      | Some (arg, arg_rest), Some (typ, type_rest) ->
+        let value = evaluate_unassignable thread mode arg in
+        let converted_value = convert_implicit value typ in
+        callee_thread.top_frame.variables.(i) <- converted_value;
+        evaluate_args (i+1) arg_rest type_rest
+      | _ -> raise error_type_mismatch in
+    evaluate_args 0 (List.to_seq args) (List.to_seq param_types);
+    (try
+        evaluate_order_dependent callee_thread body;
+        (* If the function falls off the end without a return, produce the default value for the
+           declared return type. This matches variable initialization behaviour and avoids
+           silently returning `void` for non-void functions. *)
+        default_value return_type
+    with Return_exn value -> convert_implicit value return_type)
+  | _ -> print_endline (show_value callee); assert false
+
 and evaluate (thread : thread) (mode : result_mode) ((location, expression) : expression) : value =
   try
     match expression with
@@ -213,11 +245,12 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
     | BoundLet (Identifier name, slot) -> Assignable (get_assignable thread.top_frame slot, name)
     | In (a, b) -> evaluate_in thread mode location a b
     | Lambda (return_type, params, body) -> evaluate_lambda thread mode return_type params body
+    | Call (callee, args) -> evaluate_call thread mode location callee args
     | _ -> print_endline (show_expression (location, expression)); assert false
   with
     Error message -> raise (Located_error (location, message))
 
-let evaluate_declaration thread _ declaration slot =
+and evaluate_declaration thread _ declaration slot =
   let assignable = get_assignable thread.top_frame slot in
   try
     match declaration with
@@ -242,7 +275,10 @@ let evaluate_declaration thread _ declaration slot =
       raise e;
     end
 
-let rec evaluate_order_independent (thread : thread) (statements : statement list) : unit =
+and evaluate_order_dependent (thread : thread) (statements : statement list) : unit =
+  List.iter (evaluate_statement thread) statements
+
+and evaluate_order_independent (thread : thread) (statements : statement list) : unit =
   List.iter (fun statement -> fork (fun () ->
     evaluate_statement thread statement)) statements
 
@@ -252,6 +288,8 @@ and evaluate_statement (thread : thread) ((location, statement) : statement) : u
     | Expression expression -> ignore (evaluate thread EvalFull expression)
     | BoundDeclaration (declaration, slot) -> evaluate_declaration thread location declaration slot
     | OrderIndependent statements -> evaluate_order_independent thread statements
+    | Return None -> raise (Return_exn void)
+    | Return (Some expression) -> raise (Return_exn (evaluate_unassignable thread EvalFull expression))
     | _ -> print_endline @@ show_statement (location, statement); assert false
   with
     Error message -> raise (Located_error (location, message))

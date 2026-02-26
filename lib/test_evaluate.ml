@@ -311,3 +311,72 @@ let%expect_test _ =
     (type, type)
     2
     |}]
+
+(* Functions *)
+
+let%expect_test _ =
+  evaluate_declarations "int foo() { return 7; } int x = foo();";
+  [% expect{|
+    [:impl int():]
+    7
+    |}] 
+
+let%expect_test _ =
+  evaluate_declarations "int a; void foo() { a=7; } foo();";
+  [% expect{|
+    7
+    [:impl void():]
+    |}] 
+
+let%expect_test _ =
+  evaluate_declarations "int add(int a, int b) { return a+b; } int x = add(3, 4);";
+  [% expect{|
+    [:impl int(int,int):]
+    7
+    |}] 
+
+let%expect_test _ =
+  evaluate_declarations "int a = 2; int add(int b) { return a+b; } int x = add(3);";
+  [% expect{|
+    2
+    [:impl int(int):]
+    5
+    |}] 
+
+let%expect_test _ =
+  evaluate_declarations "int a = 2; int add(int b) { a = a+1; return a+b; } int x = add(3);";
+  [% expect{|
+    3
+    [:impl int(int):]
+    6
+    |}] 
+
+let%expect_test _ =
+  evaluate_declarations "int foo() {} int x = foo();";
+  [% expect{| 
+    [:impl int():]
+    0
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int foo() { return; } int x = foo();";
+  [% expect{|
+    Error: @1 type mismatch
+    [:impl int():]
+    [:failed:]
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "(int, int) pair() { return (1, 2); } (int, int) p = pair();";
+  [% expect{|
+    [:impl (int, int)():]
+    (1,2)
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int foo() { int x; return x; } int y = foo();";
+  [% expect{|
+    [:impl int():]
+    0
+    |}]
+
