@@ -25,6 +25,7 @@ type frame = {
   depth: int;
   enclosing_frame: frame option;
   variables: value array;
+  return_type: typ;
 }
 
 type thread = {
@@ -42,7 +43,8 @@ let make_thread (machine : machine) : thread = {
   top_frame = {
     depth = 0;
     enclosing_frame = None;
-    variables = machine.globals
+    variables = machine.globals;
+    return_type = Tuple [];
   };
 }
 
@@ -206,6 +208,7 @@ and evaluate_call thread mode _ callee args : value =
         depth = thread.top_frame.depth + 1;
         enclosing_frame = Some thread.top_frame;
         variables = Array.make num_locals (Uninitialized None);
+        return_type = return_type;
       }
     } in
     let rec evaluate_args i (args: expression Seq.t) (types : typ Seq.t): unit =
@@ -224,7 +227,7 @@ and evaluate_call thread mode _ callee args : value =
            declared return type. This matches variable initialization behaviour and avoids
            silently returning `void` for non-void functions. *)
         default_value return_type
-    with Return_exn value -> convert_implicit value return_type)
+    with Return_exn value -> assert ((type_of_value value) = return_type); value)
   | _ -> print_endline (show_value callee); assert false
 
 and evaluate (thread : thread) (mode : result_mode) ((location, expression) : expression) : value =
@@ -288,8 +291,8 @@ and evaluate_statement (thread : thread) ((location, statement) : statement) : u
     | Expression expression -> ignore (evaluate thread EvalFull expression)
     | BoundDeclaration (declaration, slot) -> evaluate_declaration thread location declaration slot
     | OrderIndependent statements -> evaluate_order_independent thread statements
-    | Return None -> raise (Return_exn void)
-    | Return (Some expression) -> raise (Return_exn (evaluate_unassignable thread EvalFull expression))
+    | Return None -> raise (Return_exn (convert_implicit void thread.top_frame.return_type))
+    | Return (Some expression) -> raise (Return_exn (convert_implicit (evaluate_unassignable thread EvalFull expression) thread.top_frame.return_type))
     | _ -> print_endline @@ show_statement (location, statement); assert false
   with
     Error message -> raise (Located_error (location, message))
