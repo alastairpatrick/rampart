@@ -49,13 +49,25 @@ let make_machine (num_globals : int) : machine = {
 }
 
 
-let convert_implicit (value : value) (to_typ : typ) : value =
+let rec convert_implicit (value : value) (to_typ : typ) : value =
   let from_typ = type_of_value value in
-  if to_typ = from_typ then
-    value
-  else begin
-    raise error_type_mismatch
-    end
+  match to_typ, value with
+  | _ when to_typ = from_typ -> value
+  (* Tuples of type values can be implicitly converted to singleton type values of tuple type *)
+  | Singleton Type, _ ->
+    (try
+      Type (value_to_type value)
+    with Error _ -> raise error_type_mismatch)
+  | Tuple to_element_types, Tuple from_elements ->
+    (try
+      tuple_value (Array.map2 convert_implicit from_elements (Array.of_list to_element_types))
+    with Invalid_argument _ -> raise error_type_mismatch)
+  | Tuple to_element_types, Type (Tuple from_element_types) ->
+    (* This branch allows destructuring a value of tuple type into a tuple value. TODO: not sure if we actually want to do this. *)
+    (try
+      tuple_value (Array.of_list (List.map2 (fun from_typ to_typ -> convert_implicit (type_to_value from_typ) to_typ) from_element_types to_element_types))
+    with Invalid_argument _ -> raise error_type_mismatch)
+  | _ -> raise error_type_mismatch
 
 let rec representative_value_for_type (typ : typ) : value =
   match typ with
@@ -65,7 +77,7 @@ let rec representative_value_for_type (typ : typ) : value =
   | Tuple [] ->
     default_value typ
   | Singleton Type ->
-    SingletonType Type
+    Type (Singleton Type)
   | Singleton singleton_type ->
     Impl (Singleton singleton_type, ImplRepresentative)
   | Tuple types ->
@@ -184,10 +196,10 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
     match expression with
     | IntLiteral l -> Int l
     | BoolLiteral b -> Bool b
-    | Type Int -> SingletonType Int
-    | Type Bool -> SingletonType Bool
+    | Type Int -> Type (Singleton Int)
+    | Type Bool -> Type (Singleton Bool)
     | Type Void -> void
-    | Type Type -> SingletonType Type
+    | Type Type -> Type (Singleton Type)
     | BinaryOp (op, a, b) -> evaluate_binary_op thread mode location op a b
     | Tuple exprs ->
       let values = Array.of_list (List.map (evaluate thread mode) exprs) in
@@ -208,13 +220,13 @@ let evaluate_declaration thread _ declaration slot =
   try
     match declaration with
     | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
-      let typ = value_to_type (evaluate thread EvalFull type_expr) in
+      let typ = value_to_type (evaluate_unassignable thread EvalFull type_expr) in
       set_assignable_value assignable (Uninitialized (Some typ));
       let value = evaluate_unassignable thread EvalFull init_expr in
       set_assignable_value assignable (convert_implicit value typ)
 
     | { type_expr=Some type_expr; init_expr=None; _} ->
-      let typ = value_to_type (evaluate thread EvalFull type_expr) in
+      let typ = value_to_type (evaluate_unassignable thread EvalFull type_expr) in
       set_assignable_value assignable (default_value typ)
 
     | { type_expr=None; init_expr=Some init_expr; _} ->

@@ -239,3 +239,75 @@ let%expect_test _ =
     int
     int
     |}]
+
+(* implicit type conversions *)
+
+(* Not an actual conversion but rather the trivial case *)
+let%expect_test _ =
+  evaluate_declarations "int i = 1;";
+  [% expect{| 1 |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = (int, bool); t x = (1, true);";
+  [% expect{|
+    (int, bool)
+    (1,true)
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = 2;";
+  [% expect{|
+    Error: @1 type mismatch
+    [:failed:]
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "(type, type) t = (int, int); t x = (1, 2);";
+  [% expect{|
+    (int,int)
+    (1,2)
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "(type, type) t = (int, (bool, int)); type s = t;";
+  [% expect{|
+    (int,(bool, int))
+    (int, (bool, int))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "(type, type, type) t = (bool, int);";
+  [% expect{|
+    Error: @1 type mismatch
+    [:failed:]
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = (int, bool); (type, type) s = t;";
+  [% expect{|
+    (int, bool)
+    (int,bool)
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = (int, bool); (type, int) s = t;";
+  [% expect{|
+    Error: @1 type mismatch
+    (int, bool)
+    [:failed:]
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = (int, bool); type s = typeof(t); int a = arity(t);";
+  [% expect{|
+    (int, bool)
+    type
+    1
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type s = typeof((int, bool)); int a = arity((int, bool));";
+  [% expect{|
+    (type, type)
+    2
+    |}]

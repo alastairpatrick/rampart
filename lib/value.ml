@@ -14,7 +14,7 @@ and value =
   | Assignable of assignable * (*display_name: *) string
   | Int of int
   | Bool of bool
-  | SingletonType of singleton_type
+  | Type of typ
   | Tuple of value array
   | Impl of typ * implementation_value
 
@@ -33,7 +33,7 @@ let rec type_of_value (value: value) : typ =
   | Assignable ((idx, arr), _) -> type_of_value arr.(idx)
   | Int _ -> Singleton Int
   | Bool _ -> Singleton Bool
-  | SingletonType _ -> Singleton Type
+  | Type _ -> Singleton Type
   | Tuple [| _ |] -> assert false (* Assert becaused this is a logic error; singletons have an explicit representation *)
   | Tuple elements -> tuple_type (Array.to_list (Array.map type_of_value elements))
   | Impl (typ, _) -> typ
@@ -44,7 +44,7 @@ let rec show_value (v: value) : string = match v with
   | Assignable ((idx, arr), name) -> Printf.sprintf "'%s'=%s" name (show_value arr.(idx))
   | Int v -> string_of_int v
   | Bool v -> string_of_bool v
-  | SingletonType t -> show_type (Singleton t)
+  | Type t -> show_type t
   | Tuple [| |] -> "void"
   | Tuple [| _ |] -> assert false (* Assert becaused this is a logic error; singletons have an explicit representation *)
   | Tuple elements -> Printf.sprintf "(%s)" (String.concat "," (List.map show_value (Array.to_list elements)))
@@ -52,15 +52,12 @@ let rec show_value (v: value) : string = match v with
 
 
 let rec value_to_type (value : value) : typ = match value with
-  | SingletonType typ -> Singleton typ
-  | Tuple [| _ |] -> assert false
+  | Type typ -> typ
+  | Tuple [| _ |] -> assert false (* logic error *)
   | Tuple elements -> tuple_type (Array.to_list (Array.map value_to_type elements))
   | _ -> raise error_not_a_type
 
-let rec type_to_value (typ : typ) : value = match typ with
-  | Uninitialized -> assert false
-  | Singleton typ -> SingletonType typ
-  | Tuple types -> Tuple (Array.of_list (List.map type_to_value types))
+let type_to_value (typ : typ) : value = Type typ
 
 let rec is_value_complete (value : value) : bool = match value with
   | Uninitialized _ -> false
@@ -69,7 +66,7 @@ let rec is_value_complete (value : value) : bool = match value with
   | _ -> true
 
 let rec is_value_type (value : value) : bool = match value with
-  | SingletonType _ -> true
+  | Type _ -> true
   | Tuple [| _ |] -> assert false
   | Tuple elements -> Array.for_all is_value_type elements
   | _ -> false
