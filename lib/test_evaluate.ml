@@ -417,3 +417,12 @@ let%expect_test _ =
   evaluate_declarations "2();";
   [% expect{| Error: @1 not callable |}]
 
+
+let%expect_test _ =
+  evaluate_declarations "bool called = false; int f() { called = true; } type t = typeof(f());";
+  [% expect{|
+    false
+    [:impl int():]
+    int
+    |}]
+

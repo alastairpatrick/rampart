@@ -203,31 +203,34 @@ and evaluate_call thread mode _ callee args : value =
   let callee = evaluate_unassignable thread mode callee in
   match callee with
   | Impl (Singleton (Function (return_type, param_types)), ImplLambda (enclosing_frame, (_, BoundFrame (num_locals, body)))) ->
-    let callee_thread = {
-      top_frame = {
-        depth = enclosing_frame.depth + 1;
-        enclosing_frame = Some enclosing_frame;
-        variables = Array.make num_locals (Uninitialized None);
-        return_type = return_type;
-      }
-    } in
-    let rec evaluate_args i (args: expression Seq.t) (types : typ Seq.t): unit =
+    if mode = EvalTypeOnly then
+      representative_value_for_type return_type
+    else
+      let callee_thread = {
+        top_frame = {
+          depth = enclosing_frame.depth + 1;
+          enclosing_frame = Some enclosing_frame;
+          variables = Array.make num_locals (Uninitialized None);
+          return_type = return_type;
+        }
+      } in
+      let rec evaluate_args i (args: expression Seq.t) (types : typ Seq.t): unit =
       match Seq.uncons args, Seq.uncons types with
       | None, None -> ()
       | Some (arg, arg_rest), Some (typ, type_rest) ->
-        let value = evaluate_unassignable thread mode arg in
-        let converted_value = convert_implicit value typ in
-        callee_thread.top_frame.variables.(i) <- converted_value;
-        evaluate_args (i+1) arg_rest type_rest
+          let value = evaluate_unassignable thread mode arg in
+          let converted_value = convert_implicit value typ in
+          callee_thread.top_frame.variables.(i) <- converted_value;
+          evaluate_args (i+1) arg_rest type_rest
       | _ -> raise error_type_mismatch in
-    evaluate_args 0 (List.to_seq args) (List.to_seq param_types);
-    (try
+      evaluate_args 0 (List.to_seq args) (List.to_seq param_types);
+      (try
         evaluate_order_dependent callee_thread body;
         (* If the function falls off the end without a return, produce the default value for the
-           declared return type. This matches variable initialization behaviour and avoids
-           silently returning `void` for non-void functions. *)
+        declared return type. This matches variable initialization behaviour and avoids
+        silently returning `void` for non-void functions. *)
         default_value return_type
-    with Return_exn value ->
+      with Return_exn value ->
       let from_typ = type_of_value value in
       if from_typ = return_type then value else raise (error_implicit_conversion from_typ return_type))
 
