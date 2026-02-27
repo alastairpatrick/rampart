@@ -34,6 +34,13 @@ let%expect_test _ =
     [:failed:]
     |}]
 
+let%expect_test _ =
+  evaluate_declarations "int x = 1 + true;";
+  [% expect{|
+    Error: @1 invalid operation: unsupported binary '+' operation for types 'int' and 'bool'
+    [:failed:]
+    |}]
+
 (* Defer / dependency resume behavior *)
 
 let%expect_test _ =
@@ -351,7 +358,7 @@ let%expect_test _ =
     6
     |}] 
 
-let%expect_test _ =
+    let%expect_test _ =
   evaluate_declarations "int foo() {} int x = foo();";
   [% expect{| 
     [:impl int():]
@@ -419,7 +426,7 @@ let%expect_test _ =
 
 
 let%expect_test _ =
-  evaluate_declarations "bool called = false; int f() { called = true; } type t = typeof(f());";
+  evaluate_declarations "bool called = false; int f() { called = true; return 0; } type t = typeof(f());";
   [% expect{|
     false
     [:impl int():]

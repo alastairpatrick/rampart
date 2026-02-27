@@ -87,3 +87,13 @@ let make_tuple_node (location : location) (exprs : expression list) : expression
   match exprs with
   | [expr] -> expr
   | _ -> location, Tuple exprs
+
+let show_binary_op = function
+  | Plus -> "+"
+  | Minus -> "-"
+  | Times -> "*"
+  | Div -> "/"
+  | Equals -> "=="
+  | NotEquals -> "!="
+  | Less -> "<"
+  | Greater -> ">"

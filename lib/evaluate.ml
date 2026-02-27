@@ -146,7 +146,8 @@ and evaluate_binary_op thread mode _ op a b : value =
   | Div, Int a, Int b -> (match mode, b with
     | EvalTypeOnly, 0 -> representative_value_for_type (Singleton Int)
     | _ -> Int (a/b))
-  | _ -> print_endline @@ Printf.sprintf "%s %s" (show_value a) (show_value b); assert false
+  | _ -> raise (error_invalid_operation (Printf.sprintf "unsupported binary '%s' operation for types '%s' and '%s'"
+    (show_binary_op op) (show_typ (type_of_value a)) (show_typ (type_of_value b))))
 
 and evaluate_typeof thread _ expression : value =
   type_to_value (type_of_value (evaluate_unassignable thread EvalTypeOnly expression))
