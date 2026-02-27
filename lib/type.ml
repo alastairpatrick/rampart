@@ -11,7 +11,7 @@ and typ =
   | Uninitialized
   | Singleton of singleton_type
   | Tuple of typ list       (* Must never contain a single element; use Singleton instead; tuple_type can be used to normalize *)
-[@@deriving sexp, show]
+[@@deriving show]
 
 let tuple_type (types : typ Seq.t) =
   match Seq.uncons types with
@@ -20,12 +20,14 @@ let tuple_type (types : typ Seq.t) =
     | None -> h
     | Some _ -> Tuple (h :: List.of_seq t)
 
-let rec show_type (t: typ) : string = match t with
+let rec show_typ (t: typ) : string = match t with
   | Uninitialized -> ":uninitialized:"
   | Singleton Int -> "int"
   | Singleton Bool -> "bool"
   | Singleton Type -> "type"
-  | Singleton Function (return_type, param_types) -> Printf.sprintf "%s(%s)" (show_type return_type) (String.concat "," (List.map show_type param_types))
+  | Singleton Function (return_type, param_types) -> Printf.sprintf "%s(%s)" (show_typ return_type) (String.concat "," (List.map show_typ param_types))
   | Tuple [] -> "void"
   | Tuple [_] -> assert false
-  | Tuple ts -> Printf.sprintf "(%s)" (String.concat ", " (List.map show_type ts))
+  | Tuple ts -> Printf.sprintf "(%s)" (String.concat ", " (List.map show_typ ts))
+
+let pp_typ (_: Format.formatter) (_: typ) : unit = ()

@@ -13,7 +13,7 @@ let error_not_assignable location = Located_error (location, "expression is not 
   Error (location, (sprintf "found cyclic dependency: %s" (String.concat ", " (StringSet.to_list names))))*)
 let error_type_mismatch = Error "type mismatch"
 let error_no_implicit_conversion from_type to_type =
-  Error (sprintf "no implicit conversion from '%s' to '%s'" (show_type from_type) (show_type to_type))
+  Error (sprintf "no implicit conversion from '%s' to '%s'" (show_typ from_type) (show_typ to_type))
 let error_incorrect_number_of_arguments expected actual = Error (Printf.sprintf "expected %d arguments but got %d" expected actual)
 let error_order_independent = Error "not allowed in an order independent context"
 let error_not_a_type = Error "not a type"
@@ -25,4 +25,4 @@ let error_unassigned_let (pattern : pattern) =
 let error_cyclic_dependency (dependencies : string list) =
   Error (Printf.sprintf "cyclic dependencies detected: %s" (String.concat ", " dependencies))
 let error_implicit_conversion (from_type: typ) (to_type: typ) =
-  Error (Printf.sprintf "no implicit conversion from '%s' to '%s'" (show_type from_type) (show_type to_type)  )
+  Error (Printf.sprintf "no implicit conversion from '%s' to '%s'" (show_typ from_type) (show_typ to_type)  )

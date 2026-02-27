@@ -46,12 +46,11 @@ let rec show_value (v: value) : string = match v with
   | Assignable ((idx, arr), name) -> Printf.sprintf "'%s'=%s" name (show_value arr.(idx))
   | Int v -> string_of_int v
   | Bool v -> string_of_bool v
-  | Type t -> show_type t
+  | Type t -> show_typ t
   | Tuple [| |] -> "void"
   | Tuple [| _ |] -> assert false (* Assert becaused this is a logic error; singletons have an explicit representation *)
   | Tuple elements -> Printf.sprintf "(%s)" (String.concat "," (List.map show_value (Array.to_list elements)))
-  | Impl (typ, _) -> Printf.sprintf "[:impl %s:]" (show_type typ)
-
+  | Impl (typ, _) -> Printf.sprintf "[:impl %s:]" (show_typ typ)
 
 let rec value_to_type (value : value) : typ = match value with
   | Type typ -> typ
@@ -80,4 +79,4 @@ let rec default_value (typ: typ) : value =
   | Singleton Bool -> Bool false
   | Tuple [] -> void
   | Tuple types -> tuple_value (Seq.map default_value (List.to_seq types))
-  | _ -> raise (Error (Printf.sprintf "type '%s' does not have a default value" (show_type typ)))
+  | _ -> raise (Error (Printf.sprintf "type '%s' does not have a default value" (show_typ typ)))
