@@ -52,13 +52,6 @@ let make_machine (num_globals : int) : machine = {
   globals = Array.make num_globals (Uninitialized None);
 }
 
-
-let rec tuple_map2 (f: 'a -> 'b -> 'c) (a_seq : 'a Seq.t) (b_seq : 'b Seq.t) : 'c Seq.t =
-    match Seq.uncons a_seq, Seq.uncons b_seq with
-    | None, None -> Seq.empty
-    | Some (a, a_rest), Some (b, b_rest) -> Seq.cons (f a b) (tuple_map2 f a_rest b_rest)
-    | _ -> raise error_type_mismatch
-
 let rec convert_implicit (value : value) (to_typ : typ) : value =
   let from_typ = type_of_value value in
   match to_typ, value with
@@ -69,14 +62,16 @@ let rec convert_implicit (value : value) (to_typ : typ) : value =
       Type (value_to_type value)
     with Error _ -> raise error_type_mismatch)
   | Tuple to_element_types, Tuple from_elements ->
-    (try
-      tuple_value (tuple_map2 convert_implicit (Array.to_seq from_elements) (Iarray.to_seq to_element_types))
-    with Invalid_argument _ -> raise error_type_mismatch)
+    assert (Iarray.length to_element_types <> 1);
+    assert (Array.length from_elements <> 1); (* otherwise these would use the explicit singleton representaion *)
+    if (Iarray.length to_element_types <> Array.length from_elements) then raise error_type_mismatch;
+    Tuple (Array.init (Array.length from_elements) (fun i -> convert_implicit from_elements.(i) (Iarray.get to_element_types i)))
   | Tuple to_element_types, Type (Tuple from_element_types) ->
+    assert (Iarray.length to_element_types <> 1);
+    assert (Iarray.length from_element_types <> 1);
+    if (Iarray.length to_element_types <> Iarray.length from_element_types) then raise error_type_mismatch;
     (* This branch allows destructuring a value of tuple type into a tuple value. TODO: not sure if we actually want to do this. *)
-    (try
-      tuple_value (tuple_map2 (fun from_typ to_typ -> convert_implicit (type_to_value from_typ) to_typ) (Iarray.to_seq from_element_types) (Iarray.to_seq to_element_types))
-    with Invalid_argument _ -> raise error_type_mismatch)
+    Tuple (Array.init (Iarray.length from_element_types) (fun i -> convert_implicit (Type (Iarray.get from_element_types i)) (Iarray.get to_element_types i)))
   | _ -> raise (error_implicit_conversion from_typ to_typ)
 
 let rec representative_value_for_type (typ : typ) : value =
@@ -180,7 +175,11 @@ and evaluate_assignment thread mode _ a b : value =
       if mode <> EvalTypeOnly then set_assignable_value assignable b;
       b
     | (_, Tuple exprs), Tuple values ->
-      tuple_value (tuple_map2 assign (List.to_seq exprs) (Array.to_seq values))
+      assert (Array.length values <> 1); (* otherwise these would use the explicit singleton representaion *)
+      if (List.length exprs <> Array.length values) then raise error_type_mismatch;
+      let result = Array.make (Array.length values) (Uninitialized None) in
+      List.iteri (fun i expr -> result.(i) <- assign expr values.(i)) exprs;
+      Tuple (result)
     | (_, Tuple _), _ -> raise error_type_mismatch
     | (location, _), _ -> raise (error_not_assignable location)) in
   assign a b
