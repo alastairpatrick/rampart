@@ -138,11 +138,11 @@ let%expect_test _ =
 
 let%expect_test _ =
   parse "{ let b = a; let a = true; }";
-  [% expect{| Error: unbound identifier 'a' |}]
+  [% expect{| Error: @1 unbound identifier 'a' |}]
 
 let%expect_test _ =
   parse "{ let b = a; } let a = b;";
-  [% expect{| Error: unbound identifier 'b' |}]
+  [% expect{| Error: @1 unbound identifier 'b' |}]
 
 let%expect_test _ =
   parse "int main() { let a = true; let b = a; }";
@@ -197,7 +197,7 @@ let%expect_test _ =
 
 let%expect_test _ =
   parse "int foo(int x) {} int y = x;";
-  [% expect{| Error: unbound identifier 'x' |}]
+  [% expect{| Error: @1 unbound identifier 'x' |}]
 
 let%expect_test _ =
   parse "let _ = 1;";

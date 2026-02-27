@@ -1,21 +1,25 @@
 open Bind
 open Diagnostic
+open Error
 open Evaluate
 open LexPass
+open Location
 open Recovery
 open Value
 
 let evaluate_declarations text =
-  let lexbuf = Lexing.from_string text in
-  let tokens = lex_pass lexbuf in
-    let statement = parse_recovering (make_diagnostic_sink ()) tokens in
-    let env = top_scope () in
-    let num_variables, statement = bind_program env statement in
-    let machine = make_machine num_variables in
-    evaluate_program machine statement;
-    for i = 0 to num_variables-1 do
-      print_endline (show_value machine.globals.(i))
-    done
+  try
+    let lexbuf = Lexing.from_string text in
+    let tokens = lex_pass lexbuf in
+      let statement = parse_recovering (make_diagnostic_sink ()) tokens in
+      let env = top_scope () in
+      let num_variables, statement = bind_program env statement in
+      let machine = make_machine num_variables in
+      evaluate_program machine statement;
+      for i = 0 to num_variables-1 do
+        print_endline (show_value machine.globals.(i))
+      done
+  with Located_error (location, message) -> Printf.printf "Error: %s %s\n" (show_location location) message
 
 (* Arithmetic *)
 
@@ -62,6 +66,10 @@ let%expect_test _ =
     Error: @1 no implicit conversion from 'bool' to 'int'
     [:failed:]
     |}]
+
+let%expect_test _ =
+  evaluate_declarations "x;";
+  [% expect{| Error: @1 unbound identifier 'x' |}]
 
 let%expect_test _ =
   evaluate_declarations "int x=y+1; int y;";
