@@ -77,6 +77,6 @@ let rec default_value (typ: typ) : value =
   match typ with
   | Singleton Int -> Int 0
   | Singleton Bool -> Bool false
-  | Tuple [] -> void
-  | Tuple types -> tuple_value (Seq.map default_value (List.to_seq types))
+  | Tuple [| |] -> void
+  | Tuple types -> tuple_value (Seq.map default_value (Iarray.to_seq types))
   | _ -> raise (Error (Printf.sprintf "type '%s' does not have a default value" (show_typ typ)))

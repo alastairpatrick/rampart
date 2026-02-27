@@ -1,33 +1,30 @@
-open Sexplib.Std
-
 (* This language makes no distinction between a type and a 1-tuple of that type; they are the same type. *)
 type singleton_type =
   | Int
   | Bool
   | Type
-  | Function of typ * typ list
+  | Function of typ * typ Iarray.t
 
 and typ =
   | Uninitialized
   | Singleton of singleton_type
-  | Tuple of typ list       (* Must never contain a single element; use Singleton instead; tuple_type can be used to normalize *)
-[@@deriving show]
+  | Tuple of typ Iarray.t       (* Must never contain a single element; use Singleton instead; tuple_type can be used to normalize *)
+
+let void_type = Tuple [| |]
 
 let tuple_type (types : typ Seq.t) =
   match Seq.uncons types with
-  | None -> Tuple []
+  | None -> void_type
   | Some (h, t) -> match Seq.uncons t with
     | None -> h
-    | Some _ -> Tuple (h :: List.of_seq t)
+    | Some _ -> Tuple (Iarray.of_seq (Seq.cons h t))
 
 let rec show_typ (t: typ) : string = match t with
   | Uninitialized -> ":uninitialized:"
   | Singleton Int -> "int"
   | Singleton Bool -> "bool"
   | Singleton Type -> "type"
-  | Singleton Function (return_type, param_types) -> Printf.sprintf "%s(%s)" (show_typ return_type) (String.concat "," (List.map show_typ param_types))
-  | Tuple [] -> "void"
-  | Tuple [_] -> assert false
-  | Tuple ts -> Printf.sprintf "(%s)" (String.concat ", " (List.map show_typ ts))
-
-let pp_typ (_: Format.formatter) (_: typ) : unit = ()
+  | Singleton Function (return_type, param_types) -> Printf.sprintf "%s(%s)" (show_typ return_type) (String.concat "," (List.map show_typ (Iarray.to_list param_types)))
+  | Tuple [| |] -> "void"
+  | Tuple [| _ |] -> assert false
+  | Tuple ts -> Printf.sprintf "(%s)" (String.concat ", " (Seq.map show_typ (Iarray.to_seq ts) |> List.of_seq))

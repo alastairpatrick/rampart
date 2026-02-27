@@ -44,7 +44,7 @@ let make_thread (machine : machine) : thread = {
     depth = 0;
     enclosing_frame = None;
     variables = machine.globals;
-    return_type = Tuple [];
+    return_type = void_type;
   };
 }
 
@@ -70,12 +70,12 @@ let rec convert_implicit (value : value) (to_typ : typ) : value =
     with Error _ -> raise error_type_mismatch)
   | Tuple to_element_types, Tuple from_elements ->
     (try
-      tuple_value (tuple_map2 convert_implicit (Array.to_seq from_elements) (List.to_seq to_element_types))
+      tuple_value (tuple_map2 convert_implicit (Array.to_seq from_elements) (Iarray.to_seq to_element_types))
     with Invalid_argument _ -> raise error_type_mismatch)
   | Tuple to_element_types, Type (Tuple from_element_types) ->
     (* This branch allows destructuring a value of tuple type into a tuple value. TODO: not sure if we actually want to do this. *)
     (try
-      tuple_value (tuple_map2 (fun from_typ to_typ -> convert_implicit (type_to_value from_typ) to_typ) (List.to_seq from_element_types) (List.to_seq to_element_types))
+      tuple_value (tuple_map2 (fun from_typ to_typ -> convert_implicit (type_to_value from_typ) to_typ) (Iarray.to_seq from_element_types) (Iarray.to_seq to_element_types))
     with Invalid_argument _ -> raise error_type_mismatch)
   | _ -> raise (error_implicit_conversion from_typ to_typ)
 
@@ -84,14 +84,14 @@ let rec representative_value_for_type (typ : typ) : value =
   | Uninitialized -> assert false
   | Singleton Int
   | Singleton Bool
-  | Tuple [] ->
+  | Tuple [| |] ->
     default_value typ
   | Singleton Type ->
     Type (Singleton Type)
   | Singleton singleton_type ->
     Impl (Singleton singleton_type, ImplRepresentative)
   | Tuple types ->
-    tuple_value (Seq.map representative_value_for_type (List.to_seq types))
+    tuple_value (Seq.map representative_value_for_type (Iarray.to_seq types))
 
 let rec get_assignable frame {index; depth} : assignable =
   if depth = frame.depth then
@@ -189,17 +189,17 @@ and evaluate_in thread mode _ a b : value =
   ignore (evaluate_unassignable thread mode a);
   evaluate_unassignable thread mode b
 
-and evaluate_lambda thread mode return_type params body : value =
+and evaluate_lambda thread mode return_type (params : statement Seq.t) body : value =
   let return_type = evaluate_unassignable thread mode return_type |> value_to_type in
-  let param_types = List.map (fun (_loc, stmt) ->
+  let param_types = Iarray.of_seq (Seq.map (fun (location, stmt) ->
     match stmt with
     | BoundDeclaration ({ type_expr=Some type_expr; _ }, _) ->
       evaluate_unassignable thread mode type_expr |> value_to_type
-    | _ -> print_endline (show_statement (_loc, stmt)); assert false) params in
+    | _ -> print_endline (show_statement (location, stmt)); assert false) params) in
   Impl ( Singleton (Function (return_type, param_types)),
     ImplLambda (thread.top_frame, body))
 
-and evaluate_call thread mode _ callee args : value =
+and evaluate_call thread mode _ callee (args : expression Seq.t) : value =
   let callee = evaluate_unassignable thread mode callee in
   match callee with
   | Impl (Singleton (Function (return_type, param_types)), ImplLambda (enclosing_frame, (_, BoundFrame (num_locals, body)))) ->
@@ -214,18 +214,18 @@ and evaluate_call thread mode _ callee args : value =
           return_type = return_type;
         }
       } in
-      let rec evaluate_args i (args: expression Seq.t) (types : typ Seq.t): unit =
-      match Seq.uncons args, Seq.uncons types with
-      | None, None -> ()
-      | Some (arg, arg_rest), Some (typ, type_rest) ->
-          let value = evaluate_unassignable thread mode arg in
-          let converted_value = convert_implicit value typ in
-          callee_thread.top_frame.variables.(i) <- converted_value;
-          evaluate_args (i+1) arg_rest type_rest
-      | _ -> raise error_type_mismatch in
-      evaluate_args 0 (List.to_seq args) (List.to_seq param_types);
+      let rec evaluate_args i (args: expression Seq.t) : unit =
+        match Seq.uncons args with
+        | None ->
+          if i <> Iarray.length param_types then raise error_type_mismatch
+        | Some (arg, arg_rest) ->
+            let value = evaluate_unassignable thread mode arg in
+            let converted_value = convert_implicit value (Iarray.get param_types i) in
+            callee_thread.top_frame.variables.(i) <- converted_value;
+            evaluate_args (i+1) arg_rest in
+      evaluate_args 0 args;
       (try
-        evaluate_order_dependent callee_thread body;
+        evaluate_order_dependent callee_thread (List.to_seq body);
         (* If the function falls off the end without a return, produce the default value for the
         declared return type. This matches variable initialization behaviour and avoids
         silently returning `void` for non-void functions. *)
@@ -239,7 +239,7 @@ and evaluate_call thread mode _ callee args : value =
   | _ ->
     try
       let return_type = value_to_type callee in
-      let param_types = List.map (fun arg -> value_to_type (evaluate_unassignable thread mode arg)) args in
+      let param_types = Iarray.of_seq (Seq.map (fun arg -> value_to_type (evaluate_unassignable thread mode arg)) args) in
       Type (Singleton (Function (return_type, param_types)))
     with Error _ -> raise error_not_callable
     
@@ -261,8 +261,8 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
     | BoundIdentifier (name, slot)
     | BoundLet (Identifier name, slot) -> Assignable (get_assignable thread.top_frame slot, name)
     | In (a, b) -> evaluate_in thread mode location a b
-    | Lambda (return_type, params, body) -> evaluate_lambda thread mode return_type params body
-    | Call (callee, args) -> evaluate_call thread mode location callee args
+    | Lambda (return_type, params, body) -> evaluate_lambda thread mode return_type (List.to_seq params) body
+    | Call (callee, args) -> evaluate_call thread mode location callee (List.to_seq args)
     | _ -> print_endline (show_expression (location, expression)); assert false
   with
     Error message -> raise (Located_error (location, message))
@@ -292,11 +292,11 @@ and evaluate_declaration thread _ declaration slot =
       raise e;
     end
 
-and evaluate_order_dependent (thread : thread) (statements : statement list) : unit =
-  List.iter (evaluate_statement thread) statements
+and evaluate_order_dependent (thread : thread) (statements : statement Seq.t) : unit =
+  Seq.iter (evaluate_statement thread) statements
 
-and evaluate_order_independent (thread : thread) (statements : statement list) : unit =
-  List.iter (fun statement -> fork (fun () ->
+and evaluate_order_independent (thread : thread) (statements : statement Seq.t) : unit =
+  Seq.iter (fun statement -> fork (fun () ->
     evaluate_statement thread statement)) statements
 
 and evaluate_statement (thread : thread) ((location, statement) : statement) : unit = 
@@ -304,7 +304,7 @@ and evaluate_statement (thread : thread) ((location, statement) : statement) : u
     match statement with
     | Expression expression -> ignore (evaluate thread EvalFull expression)
     | BoundDeclaration (declaration, slot) -> evaluate_declaration thread location declaration slot
-    | OrderIndependent statements -> evaluate_order_independent thread statements
+    | OrderIndependent statements -> evaluate_order_independent thread (List.to_seq statements)
     | Return None -> raise (Return_exn (convert_implicit void thread.top_frame.return_type))
     | Return (Some expression) -> raise (Return_exn (convert_implicit (evaluate_unassignable thread EvalFull expression) thread.top_frame.return_type))
     | _ -> print_endline @@ show_statement (location, statement); assert false
