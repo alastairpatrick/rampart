@@ -101,11 +101,15 @@ let rec representative_value_for_type (typ : typ) : value =
   | Tuple types ->
     tuple_value (Seq.map representative_value_for_type (Iarray.to_seq types))
 
-let rec get_assignable frame {index; depth} : assignable =
+let rec get_assignable frame {index; depth} display_name : assignable =
   if depth = frame.depth then
     index, frame.variables
-  else
-    get_assignable (Option.get frame.enclosing_frame) {index; depth}
+  else begin
+    let assignable = get_assignable (Option.get frame.enclosing_frame) {index; depth} display_name in
+    if frame.pure && (get_assignable_modifiers assignable).mut then
+      raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
+    assignable
+  end
 
 and set_assignable_value (index, variable_array) value : unit =
   match value with
@@ -176,12 +180,17 @@ and evaluate_arity thread mode expression : value =
   | Tuple values -> Int (Array.length values)
   | _ -> Int 1
 
+and display_pattern pattern =
+  match pattern with
+  | Any -> "_"
+  | Identifier name -> name
+
 and evaluate_assignment thread mode _ a b : value =
   let b = evaluate_unassignable thread mode b in
   let rec assign (a : expression) (b : value) : value =
     (match a, b with
     | (_, BoundIdentifier (display_name, slot)), _ ->
-      let assignable = get_assignable thread.top_frame slot in
+      let assignable = get_assignable thread.top_frame slot display_name in
       if not (get_assignable_modifiers assignable).mut then raise (error_immutable_assignment display_name);
       (* Should not attempt to assign LHS until after it has been initialized. *)
       (match (get_assignable_value assignable) with
@@ -191,8 +200,8 @@ and evaluate_assignment thread mode _ a b : value =
       let converted_b = convert_implicit b typ in
       if mode <> EvalTypeOnly then set_assignable_value assignable converted_b;
       converted_b
-    | (_, BoundLet (_, slot)), _ ->
-      let assignable = get_assignable thread.top_frame slot in
+    | (_, BoundLet (pattern, slot)), _ ->
+      let assignable = get_assignable thread.top_frame slot (display_pattern pattern) in
       if mode <> EvalTypeOnly then set_assignable_value assignable b;
       b
     | (_, Tuple exprs), Tuple values ->
@@ -281,7 +290,7 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
     | Arity e -> evaluate_arity thread mode e
     | Assignment (a, b) -> evaluate_assignment thread mode location a b
     | BoundIdentifier (name, slot)
-    | BoundLet (Identifier name, slot) -> Assignable (get_assignable thread.top_frame slot, name)
+    | BoundLet (Identifier name, slot) -> Assignable (get_assignable thread.top_frame slot name, name)
     | In (a, b) -> evaluate_in thread mode location a b
     | Lambda (return_type, params, modifiers, body) -> evaluate_lambda thread mode return_type (List.to_seq params) modifiers body
     | Call (callee, args, pure) -> evaluate_call thread mode location callee (List.to_seq args) pure
@@ -294,7 +303,7 @@ and make_variable_modifiers (modifiers : declaration_modifiers) : variable_modif
   | { mut = is_mut } -> { mut = is_mut }
 
 and evaluate_declaration (thread : thread) _ (declaration : declaration) (slot : slot) : unit =
-  let assignable = get_assignable thread.top_frame slot in
+  let assignable = get_assignable thread.top_frame slot declaration.name in
   set_assignable_modifiers assignable (make_variable_modifiers declaration.modifiers);
   try
     match declaration with

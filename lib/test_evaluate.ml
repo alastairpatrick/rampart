@@ -530,4 +530,32 @@ let%expect_test _ =
     [:failed:]
     |}]
 
+let%expect_test _ =
+  evaluate_declarations "int x = 1; int f pure() { return x; } int y = f();";
+  [% expect{|
+    1
+    [:impl int pure():]
+    1
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut int x; int f pure() { return x; } int y = f();";
+  [% expect{|
+    Error: @1 cannot access mutable captured variable 'x' from pure context
+    0
+    [:impl int pure():]
+    [:failed:]
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut int x; int f pure() { x = 1; return 0; } int y = f();";
+  [% expect{|
+    Error: @1 cannot access mutable captured variable 'x' from pure context
+    0
+    [:impl int pure():]
+    [:failed:]
+    |}]
+
+
+
 
