@@ -65,17 +65,17 @@ and bind_statements (env: env) (pass : bind_pass) = function
 and bind_statement (env : env) (pass : bind_pass) ((location, statement) : statement) : env * statement =
   try
     match statement with
-    | Declaration { name=name; type_expr=type_expr; init_expr=init_expr } ->
+    | Declaration { modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr } ->
       assert (pass != OrderIndependent2);
       let _, type_expr = bind_opt env pass type_expr in
       let _, init_expr = bind_opt env pass init_expr in
       let env, slot = declare_slot env name in
-      env, (location, BoundDeclaration ({ name=name; type_expr=type_expr; init_expr=init_expr }, slot))
+      env, (location, BoundDeclaration ({ modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr }, slot))
 
-    | BoundDeclaration ({ name=name; type_expr=type_expr; init_expr=init_expr }, slot) ->
+    | BoundDeclaration ({ modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr }, slot) ->
       let _, type_expr = bind_opt env pass type_expr in
       let _, init_expr = bind_opt env pass init_expr in
-      env, (location, BoundDeclaration ({ name=name; type_expr=type_expr; init_expr=init_expr }, slot))
+      env, (location, BoundDeclaration ({ modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr }, slot))
 
     | Expression expr ->
       let env, expr = bind env pass expr in env, (location, Expression expr)

@@ -45,7 +45,12 @@ and expression_inner =
   
 and expression = location * expression_inner
 
+and modifiers = {
+  mut: bool [@sexp.bool];
+}
+
 and declaration = {
+  modifiers: modifiers;
   type_expr: expression option;
   name: string;
   init_expr: expression option;
@@ -69,6 +74,8 @@ and statement_inner =
 and statement = location * statement_inner
 
 [@@deriving sexp, show]
+
+let empty_modifiers : modifiers = { mut = false }
 
 let loc ((s: Lexing.position), (e: Lexing.position)) : location = make_location s e
 

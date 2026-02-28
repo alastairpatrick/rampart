@@ -21,6 +21,7 @@ rule token = parse
     | "int"                             { INT }
     | "lambda"                          { LAMBDA }
     | "let"                             { LET }
+    | "mut"                             { MUT }
     | "return"                          { RETURN }
     | "switch"                          { SWITCH }
     | "true"                            { TRUE }

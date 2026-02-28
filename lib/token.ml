@@ -28,6 +28,7 @@ let string_of_token (token : token) : string = match token with
   | LET -> "'let' keyword"
   | LPAREN -> "'(' symbol"
   | MINUS -> "'-' symbol"
+  | MUT -> "'mut' keyword"
   | NOT_EQUALS -> "'!=' symbol"
   | PLUS -> "'+' symbol"
   | QUESTION -> "'?' symbol"

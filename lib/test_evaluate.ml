@@ -17,7 +17,7 @@ let evaluate_declarations text =
       let machine = make_machine num_variables in
       evaluate_program machine statement;
       for i = 0 to num_variables-1 do
-        print_endline (show_value machine.globals.(i))
+        print_endline (show_value machine.globals.(i).value)
       done
   with Located_error (location, message) -> Printf.printf "Error: %s %s\n" (show_location location) message
 
@@ -166,6 +166,41 @@ let%expect_test _ =
   evaluate_declarations "void foo(int x) {}";
   [% expect{| [:impl void(int):] |}]
 
+(* Mutability *)
+
+let%expect_test _ =
+  evaluate_declarations "let x = 1; x = 2;";
+  [% expect{|
+    Error: @1 cannot assign to immutable variable 'x'
+    1
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = 1; x = 2;";
+  [% expect{|
+    Error: @1 cannot assign to immutable variable 'x'
+    1
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = 1; mut int y = 1; (x, y) = (2, 3);";
+  [% expect{|
+    Error: @1 cannot assign to immutable variable 'x'
+    1
+    1
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut int x = 1; x = 2;";
+  [% expect{| 2 |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut int x = 1; mut int y = 1; (x, y) = (2, 3);";
+  [% expect{|
+    2
+    3
+    |}]
+
 (* arity *)
 
 let%expect_test _ =
@@ -216,7 +251,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int x = 1; let t = typeof(x = 2);";
+  evaluate_declarations "mut int x = 1; let t = typeof(x = 2);";
   [% expect{|
     1
     int
@@ -337,7 +372,7 @@ let%expect_test _ =
     |}] 
 
 let%expect_test _ =
-  evaluate_declarations "int a; void foo() { a=7; } foo();";
+  evaluate_declarations "mut int a; void foo() { a=7; } foo();";
   [% expect{|
     7
     [:impl void():]
@@ -359,7 +394,7 @@ let%expect_test _ =
     |}] 
 
 let%expect_test _ =
-  evaluate_declarations "int a = 2; int add(int b) { a = a+1; return a+b; } int x = add(3);";
+  evaluate_declarations "mut int a = 2; int add(int b) { a = a+1; return a+b; } int x = add(3);";
   [% expect{|
     3
     [:impl int(int):]
@@ -395,6 +430,13 @@ let%expect_test _ =
     0
     |}]
 
+let%expect_test _ =
+  evaluate_declarations "int foo(int x) { x = 2; return x; } int y = foo(0);";
+  [% expect{|
+    Error: @1 cannot assign to immutable variable 'x'
+    [:impl int(int):]
+    [:failed:]
+    |}]
 
 let%expect_test _ =
   evaluate_declarations "int f() { return 7; } let g = f; int i = g();";

@@ -3,7 +3,16 @@ open Type
 
 type implementation_value = ..
 
-type assignable = (* array_idx: *) int * value array
+type variable_modifiers = {
+  mut: bool;
+}
+
+type variable = {
+  value: value;
+  modifiers: variable_modifiers
+}
+
+and assignable = (* array_idx: *) int * variable array
 
 (* Tuples are represented as mutable arrays, except for singletons, which have an explicit representation. This
 is primarily for performance reasons; we want to avoid heap allocations for singletons. Use tuple_value to convert
@@ -27,12 +36,14 @@ let tuple_value (values : value Seq.t) =
 
 let void = Tuple [| |]
 
+let empty_variable = { value = Uninitialized None; modifiers = { mut = false } }
+
 let rec type_of_value (value: value) : typ =
   match value with
   | Uninitialized None -> assert false
   | Uninitialized (Some typ) -> typ
   | Failed -> raise Saw_failed_error
-  | Assignable ((idx, arr), _) -> type_of_value arr.(idx)
+  | Assignable ((idx, arr), _) -> type_of_value arr.(idx).value
   | Int _ -> Singleton Int
   | Bool _ -> Singleton Bool
   | Type _ -> Singleton Type
@@ -43,7 +54,7 @@ let rec type_of_value (value: value) : typ =
 let rec show_value (v: value) : string = match v with
   | Uninitialized _ -> "[:uninitialized:]"
   | Failed -> "[:failed:]"
-  | Assignable ((idx, arr), name) -> Printf.sprintf "'%s'=%s" name (show_value arr.(idx))
+  | Assignable ((idx, arr), name) -> Printf.sprintf "'%s'=%s" name (show_value arr.(idx).value)
   | Int v -> string_of_int v
   | Bool v -> string_of_bool v
   | Type t -> show_typ t
@@ -64,7 +75,7 @@ let type_to_value (typ : typ) : value = Type typ
 let rec is_value_complete (value : value) : bool = match value with
   | Uninitialized _ -> false
   | Failed -> false
-  | Assignable ((idx, arr), _) -> is_value_complete arr.(idx)
+  | Assignable ((idx, arr), _) -> is_value_complete arr.(idx).value
   | _ -> true
 
 let rec is_value_type (value : value) : bool = match value with

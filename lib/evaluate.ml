@@ -14,13 +14,13 @@ type _ Effect.t +=
 | Defer : (string * assignable) -> unit t
 
 type machine = {
-  globals: value array;
+  globals: variable array;
 }
 
 type frame = {
   depth: int;
   enclosing_frame: frame option;
-  variables: value array;
+  variables: variable array;
   return_type: typ;
 }
 
@@ -49,7 +49,7 @@ let make_thread (machine : machine) : thread = {
 }
 
 let make_machine (num_globals : int) : machine = {
-  globals = Array.make num_globals (Uninitialized None);
+  globals = Array.make num_globals empty_variable;
 }
 
 let rec convert_implicit (value : value) (to_typ : typ) : value =
@@ -97,15 +97,21 @@ let rec get_assignable frame {index; depth} : assignable =
   else
     get_assignable (Option.get frame.enclosing_frame) {index; depth}
 
-and set_assignable_value (index, value_array) value : unit =
+and set_assignable_value (index, variable_array) value : unit =
   match value with
   | Uninitialized None | Assignable _ -> assert false
-  | _ -> value_array.(index) <- value
+  | _ -> variable_array.(index) <- { variable_array.(index) with value }
 
-and get_assignable_value (index, value_array) : value =
-  match value_array.(index) with
+and set_assignable_modifiers (index, variable_array) modifiers : unit =
+  variable_array.(index) <- { variable_array.(index) with modifiers }
+  
+and get_assignable_value (index, variable_array) : value =
+  match variable_array.(index).value with
   | Failed -> raise Saw_failed_error
   | value -> value
+
+and get_assignable_modifiers (index, variable_array) : variable_modifiers =
+  variable_array.(index).modifiers
 
 (* strip_assignability resolves `Assignable` wrappers to their stored contents.
    Behavior and deferral semantics:
@@ -166,6 +172,7 @@ and evaluate_assignment thread mode _ a b : value =
     (match a, b with
     | (_, BoundIdentifier (display_name, slot)), _ ->
       let assignable = get_assignable thread.top_frame slot in
+      if not (get_assignable_modifiers assignable).mut then raise (error_immutable_assignment display_name);
       (* Should not attempt to assign LHS until after it has been initialized. *)
       (match (get_assignable_value assignable) with
         | Uninitialized _ -> defer display_name assignable
@@ -213,7 +220,7 @@ and evaluate_call thread mode _ callee (args : expression Seq.t) : value =
         top_frame = {
           depth = enclosing_frame.depth + 1;
           enclosing_frame = Some enclosing_frame;
-          variables = Array.make num_locals (Uninitialized None);
+          variables = Array.make num_locals empty_variable;
           return_type = return_type;
         }
       } in
@@ -224,7 +231,7 @@ and evaluate_call thread mode _ callee (args : expression Seq.t) : value =
         | Some (arg, arg_rest) ->
             let value = evaluate_unassignable thread mode arg in
             let converted_value = convert_implicit value (Iarray.get param_types i) in
-            callee_thread.top_frame.variables.(i) <- converted_value;
+            callee_thread.top_frame.variables.(i) <- { callee_thread.top_frame.variables.(i) with value = converted_value };
             evaluate_args (i+1) arg_rest in
       evaluate_args 0 args;
       (try
@@ -270,8 +277,13 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
   with
     Error message -> raise (Located_error (location, message))
 
-and evaluate_declaration thread _ declaration slot =
+and make_variable_modifiers (modifiers : modifiers) : variable_modifiers =
+  match modifiers with
+  | { mut = is_mut } -> { mut = is_mut }
+
+and evaluate_declaration (thread : thread) _ (declaration : declaration) (slot : slot) : unit =
   let assignable = get_assignable thread.top_frame slot in
+  set_assignable_modifiers assignable (make_variable_modifiers declaration.modifiers);
   try
     match declaration with
     | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
@@ -282,7 +294,7 @@ and evaluate_declaration thread _ declaration slot =
 
     | { type_expr=Some type_expr; init_expr=None; _} ->
       let typ = value_to_type (evaluate_unassignable thread EvalFull type_expr) in
-      set_assignable_value assignable (default_value typ)
+      set_assignable_value assignable (default_value typ);
 
     | { type_expr=None; init_expr=Some init_expr; _} ->
       let value = evaluate_unassignable thread EvalFull init_expr in

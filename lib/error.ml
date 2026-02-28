@@ -27,3 +27,4 @@ let error_cyclic_dependency (dependencies : string list) =
 let error_implicit_conversion (from_type: typ) (to_type: typ) =
   Error (Printf.sprintf "no implicit conversion from '%s' to '%s'" (show_typ from_type) (show_typ to_type)  )
 let error_invalid_operation (message : string) = Error (Printf.sprintf "invalid operation: %s" message)
+let error_immutable_assignment name = Error (Printf.sprintf "cannot assign to immutable variable '%s'" name)

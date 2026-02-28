@@ -17,7 +17,7 @@
 %token GREATER
 %token IF IN INT
 %token LAMBDA LARROW LESS LCURLY LET LPAREN
-%token MINUS
+%token MINUS MUT
 %token NOT_EQUALS
 %token PLUS
 %token QUESTION
@@ -37,7 +37,7 @@
 %%
 
 param
-  : t=expr n=ID                             { loc $loc, Declaration {type_expr=Some t; name=n; init_expr=None} }
+  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_modifiers; type_expr=Some t; name=n; init_expr=None} }
   ;
 
 params0 : es=separated_list(COMMA, param)   { es };
@@ -139,12 +139,18 @@ switch_case
   | ELSE e=switch_case_if? b=compound_stat        { loc $loc, None, e, b }
   ;
 
+declaration
+  : t=expr n=ID v=initialize? semi
+                                            { {modifiers=empty_modifiers; type_expr=Some t; name=n; init_expr=v} }
+  | t=expr n=ID LPAREN ps=params0 RPAREN b=compound_stat
+                                            { {modifiers=empty_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, b)) } }
+  | MUT d=declaration                       { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
+  ;
+
 stat
   : e=expr semi                             { loc $loc, Expression e }
   | SWITCH e=expr cs=switch_case+           { loc $loc, Switch (e, cs) }
-  | t=expr n=ID v=initialize? semi          { loc $loc, Declaration {type_expr=Some t; name=n; init_expr=v} }
-  | t=expr n=ID LPAREN ps=params0 RPAREN b=compound_stat
-                                            { loc $loc, Declaration{type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, b)) } }
+  | d=declaration                           { loc $loc, Declaration d }
   | s=compound_stat                         { s }
   | IF c=expr a=compound_stat b=else_clause?{ prelower_if (loc($loc)) c a b }
   | FOR i=stat c=expr semi n=expr b=compound_stat

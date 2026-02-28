@@ -153,7 +153,9 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Declaration ((type_expr ((@1 (Type Int)))) (name x) (init_expr ())))))))
+      ((@1
+        (Declaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x) (init_expr ())))))))
     |}]
 
 let%expect_test _ =
@@ -163,9 +165,20 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Declaration
-         ((type_expr ((@1 (Type Int)))) (name x)
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
           (init_expr
            ((@1 (BinaryOp Plus (@1 (IntLiteral 2)) (@1 (IntLiteral 1))))))))))))
+    |}]
+
+let%expect_test _ =
+  parse "mut int x;";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Declaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ())))))))
     |}]
 
 let%expect_test _ =
@@ -185,16 +198,18 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Declaration
-         ((type_expr ()) (name max)
+         ((modifiers ()) (type_expr ()) (name max)
           (init_expr
            ((@1
              (Lambda (@1 (Type Int))
               ((@1
                 (Declaration
-                 ((type_expr ((@1 (Type Int)))) (name a) (init_expr ()))))
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+                  (init_expr ()))))
                (@1
                 (Declaration
-                 ((type_expr ((@1 (Type Int)))) (name b) (init_expr ())))))
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
+                  (init_expr ())))))
               (@1
                (Compound
                 ((@1
@@ -243,7 +258,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Declaration
-         ((type_expr ((@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))) (name x)
+         ((modifiers ())
+          (type_expr ((@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))) (name x)
           (init_expr ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))))
     |}]
 
@@ -296,10 +312,12 @@ let%expect_test _ =
           (Lambda (@1 (Type Int))
            ((@1
              (Declaration
-              ((type_expr ((@1 (Type Int)))) (name a) (init_expr ()))))
+              ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+               (init_expr ()))))
             (@1
              (Declaration
-              ((type_expr ((@1 (Type Int)))) (name b) (init_expr ())))))
+              ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
+               (init_expr ())))))
            (@1 (Compound ())))))))))
     |}]
 
