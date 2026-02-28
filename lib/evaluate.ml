@@ -57,6 +57,14 @@ let rec convert_implicit (value : value) (to_typ : typ) : value =
   match to_typ, value with
   | _ when to_typ = from_typ -> value
 
+  (* Purity is a covariant property of function types, i.e. a pure function can be used in place of an impure function but not vice versa, since purity of the callee is part of the contract that the caller relies on. However, if the source type is already pure then we can allow it to be converted to an impure type since it will still uphold the contract. *)
+  | Singleton Function (to_return_type, to_param_types, to_pure), Impl (Singleton (Function (from_return_type, from_param_types, from_pure)), impl)
+    when (to_return_type, to_param_types) = (from_return_type, from_param_types) ->
+      if (from_pure = to_pure) || from_pure then
+        Impl (Singleton (Function (from_return_type, from_param_types, to_pure)), impl)
+      else
+        raise (error_implicit_conversion from_typ to_typ)
+
   (* Tuples of type values can be implicitly converted to singleton type values of tuple type *)
   | Singleton Type, _ ->
     (try

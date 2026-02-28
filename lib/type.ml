@@ -22,7 +22,7 @@ let rec show_typ (t: typ) : string = match t with
   | Singleton Int -> "int"
   | Singleton Bool -> "bool"
   | Singleton Type -> "type"
-  | Singleton Function (return_type, param_types, pure) -> Printf.sprintf "%s(%s)%s" (show_typ return_type) (String.concat "," (List.map show_typ (Iarray.to_list param_types))) (if pure then " [pure]" else "")
+  | Singleton Function (return_type, param_types, pure) -> Printf.sprintf "%s%s(%s)" (show_typ return_type) (if pure then " pure" else "") (String.concat "," (List.map show_typ (Iarray.to_list param_types)))
   | Tuple [| |] -> "void"
   | Tuple [| _ |] -> assert false
   | Tuple ts -> Printf.sprintf "(%s)" (String.concat ", " (Seq.map show_typ (Iarray.to_seq ts) |> List.of_seq))

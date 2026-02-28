@@ -483,3 +483,25 @@ let%expect_test _ =
     int
     |}]
 
+let%expect_test _ =
+  evaluate_declarations "int f() { return 0; } int pure() g = f;";
+  [% expect{|
+    Error: @1 no implicit conversion from 'int()' to 'int pure()'
+    [:impl int():]
+    [:failed:]
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f pure() { return 0; } int pure() g = f;";
+  [% expect{|
+    [:impl int pure():]
+    [:impl int pure():]
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f pure() { return 0; } int() g = f;";
+  [% expect{|
+    [:impl int pure():]
+    [:impl int():]
+    |}]
+
