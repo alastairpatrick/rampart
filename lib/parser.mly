@@ -19,7 +19,7 @@
 %token LAMBDA LARROW LESS LCURLY LET LPAREN
 %token MINUS MUT
 %token NOT_EQUALS
-%token PLUS
+%token PLUS PURE
 %token QUESTION
 %token RARROW RETURN RINEQ RCURLY RPAREN
 %token SEMI SWITCH
@@ -37,7 +37,7 @@
 %%
 
 param
-  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_modifiers; type_expr=Some t; name=n; init_expr=None} }
+  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=None} }
   ;
 
 params0 : es=separated_list(COMMA, param)   { es };
@@ -59,9 +59,13 @@ primary_expr
   | LET p=pattern                           { loc $loc, Let p }
   | ANY                                     { loc $loc, Let Any }
   | LPAREN es=exprs0 RPAREN                 { make_tuple_node (loc $loc) es }
-  | f=primary_expr LPAREN es=exprs0 RPAREN  { loc $loc, Call (f, es) }
+  | f=primary_expr LPAREN es=exprs0 RPAREN  { loc $loc, Call (f, es, false) }
+  | f=primary_expr PURE LPAREN es=exprs0 RPAREN
+                                            { loc $loc, Call (f, es, true) }
   | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN b=compound_stat
-                                            { loc $loc, Lambda (f, ps, b) }
+                                            { loc $loc, Lambda (f, ps, empty_lambda_modifiers, b) }
+  | f=primary_expr LAMBDA PURE LPAREN ps=params0 RPAREN b=compound_stat
+                                            { loc $loc, Lambda (f, ps, { pure = true }, b) }
   | TYPEOF LPAREN e=expr RPAREN             { loc $loc, TypeOf e }
   | ARITY LPAREN e=expr RPAREN              { loc $loc, Arity e }
   (*| LAMBDA LPAREN ps=params0 RPAREN s=compound_stat
@@ -141,9 +145,11 @@ switch_case
 
 declaration
   : t=expr n=ID v=initialize? semi
-                                            { {modifiers=empty_modifiers; type_expr=Some t; name=n; init_expr=v} }
+                                            { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN b=compound_stat
-                                            { {modifiers=empty_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, b)) } }
+                                            { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, empty_lambda_modifiers, b)) } }
+  | t=expr n=ID PURE LPAREN ps=params0 RPAREN b=compound_stat
+                                            { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, { pure = true }, b)) } }
   | MUT d=declaration                       { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;
 

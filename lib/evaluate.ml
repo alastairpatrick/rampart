@@ -199,20 +199,20 @@ and evaluate_in thread mode _ a b : value =
   ignore (evaluate_unassignable thread mode a);
   evaluate_unassignable thread mode b
 
-and evaluate_lambda thread mode return_type (params : statement Seq.t) body : value =
+and evaluate_lambda thread mode return_type (params : statement Seq.t) modifiers body : value =
   let return_type = evaluate_unassignable thread mode return_type |> value_to_type in
   let param_types = Iarray.of_seq (Seq.map (fun (location, stmt) ->
     match stmt with
     | BoundDeclaration ({ type_expr=Some type_expr; _ }, _) ->
       evaluate_unassignable thread mode type_expr |> value_to_type
     | _ -> print_endline (show_statement (location, stmt)); assert false) params) in
-  Impl ( Singleton (Function (return_type, param_types)),
+  Impl ( Singleton (Function (return_type, param_types, modifiers.pure)),
     ImplLambda (thread.top_frame, body))
 
-and evaluate_call thread mode _ callee (args : expression Seq.t) : value =
+and evaluate_call thread mode _ callee (args : expression Seq.t) pure : value =
   let callee = evaluate_unassignable thread mode callee in
   match callee with
-  | Impl (Singleton (Function (return_type, param_types)), ImplLambda (enclosing_frame, (_, BoundFrame (num_locals, body)))) ->
+  | Impl (Singleton (Function (return_type, param_types, _)), ImplLambda (enclosing_frame, (_, BoundFrame (num_locals, body)))) ->
     if mode = EvalTypeOnly then
       representative_value_for_type return_type
     else
@@ -250,7 +250,7 @@ and evaluate_call thread mode _ callee (args : expression Seq.t) : value =
     try
       let return_type = value_to_type callee in
       let param_types = Iarray.of_seq (Seq.map (fun arg -> value_to_type (evaluate_unassignable thread mode arg)) args) in
-      Type (Singleton (Function (return_type, param_types)))
+      Type (Singleton (Function (return_type, param_types, pure)))
     with Error _ -> raise error_not_callable
     
 
@@ -271,13 +271,13 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
     | BoundIdentifier (name, slot)
     | BoundLet (Identifier name, slot) -> Assignable (get_assignable thread.top_frame slot, name)
     | In (a, b) -> evaluate_in thread mode location a b
-    | Lambda (return_type, params, body) -> evaluate_lambda thread mode return_type (List.to_seq params) body
-    | Call (callee, args) -> evaluate_call thread mode location callee (List.to_seq args)
+    | Lambda (return_type, params, modifiers, body) -> evaluate_lambda thread mode return_type (List.to_seq params) modifiers body
+    | Call (callee, args, pure) -> evaluate_call thread mode location callee (List.to_seq args) pure
     | _ -> print_endline (show_expression (location, expression)); assert false
   with
     Error message -> raise (Located_error (location, message))
 
-and make_variable_modifiers (modifiers : modifiers) : variable_modifiers =
+and make_variable_modifiers (modifiers : declaration_modifiers) : variable_modifiers =
   match modifiers with
   | { mut = is_mut } -> { mut = is_mut }
 

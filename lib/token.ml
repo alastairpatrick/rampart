@@ -31,6 +31,7 @@ let string_of_token (token : token) : string = match token with
   | MUT -> "'mut' keyword"
   | NOT_EQUALS -> "'!=' symbol"
   | PLUS -> "'+' symbol"
+  | PURE -> "'pure' keyword"
   | QUESTION -> "'?' symbol"
   | GREATER -> "'>' symbol"
   | RARROW -> "'->' symbol"

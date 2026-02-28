@@ -22,6 +22,7 @@ rule token = parse
     | "lambda"                          { LAMBDA }
     | "let"                             { LET }
     | "mut"                             { MUT }
+    | "pure"                            { PURE }
     | "return"                          { RETURN }
     | "switch"                          { SWITCH }
     | "true"                            { TRUE }

@@ -146,6 +146,24 @@ let%expect_test _ =
   parse "arity(x);";
   [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (Arity (@1 (Identifier x))))))))) |}]
 
+let%expect_test _ =
+  parse "int (int, bool);";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1 (Call (@1 (Type Int)) ((@1 (Type Int)) (@1 (Type Bool))) false)))))))
+    |}]
+
+let%expect_test _ =
+  parse "int pure(int);";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1 (Expression (@1 (Call (@1 (Type Int)) ((@1 (Type Int))) true)))))))
+    |}]
+
     (* Declarations *)
 
 let%expect_test _ =
@@ -210,6 +228,7 @@ let%expect_test _ =
                 (Declaration
                  ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
                   (init_expr ())))))
+              ()
               (@1
                (Compound
                 ((@1
@@ -290,7 +309,16 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Lambda (@1 (Type Int)) () (@1 (Compound ())))))))))
+      ((@1 (Expression (@1 (Lambda (@1 (Type Int)) () () (@1 (Compound ())))))))))
+    |}]
+
+let%expect_test _ =
+  parse "int lambda pure() {};";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression (@1 (Lambda (@1 (Type Int)) () ((pure)) (@1 (Compound ())))))))))
     |}]
 
 let%expect_test _ =
@@ -318,7 +346,71 @@ let%expect_test _ =
              (Declaration
               ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
                (init_expr ())))))
-           (@1 (Compound ())))))))))
+           () (@1 (Compound ())))))))))
+    |}]
+
+let%expect_test _ =
+  parse "int lambda pure (int a, int b) {};";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Lambda (@1 (Type Int))
+           ((@1
+             (Declaration
+              ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+               (init_expr ()))))
+            (@1
+             (Declaration
+              ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
+               (init_expr ())))))
+           ((pure)) (@1 (Compound ())))))))))
+    |}]
+
+let%expect_test _ =
+  parse "int foo (int a, int b) {}";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Declaration
+         ((modifiers ()) (type_expr ()) (name foo)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int))
+              ((@1
+                (Declaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+                  (init_expr ()))))
+               (@1
+                (Declaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
+                  (init_expr ())))))
+              () (@1 (Compound ()))))))))))))
+    |}]
+
+let%expect_test _ =
+  parse "int foo pure (int a, int b) {}";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Declaration
+         ((modifiers ()) (type_expr ()) (name foo)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int))
+              ((@1
+                (Declaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+                  (init_expr ()))))
+               (@1
+                (Declaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
+                  (init_expr ())))))
+              ((pure)) (@1 (Compound ()))))))))))))
     |}]
 
 
@@ -326,7 +418,8 @@ let%expect_test _ =
   parse "foo();";
   [% expect{|
     (@1
-     (OrderIndependent ((@1 (Expression (@1 (Call (@1 (Identifier foo)) ())))))))
+     (OrderIndependent
+      ((@1 (Expression (@1 (Call (@1 (Identifier foo)) () false)))))))
     |}]
 
 let%expect_test _ =
@@ -334,7 +427,9 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Call (@1 (Identifier foo)) ((@1 (IntLiteral 7))))))))))
+      ((@1
+        (Expression
+         (@1 (Call (@1 (Identifier foo)) ((@1 (IntLiteral 7))) false)))))))
     |}]
 
 let%expect_test _ =

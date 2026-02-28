@@ -155,7 +155,7 @@ let%expect_test _ =
          ((modifiers ()) (type_expr ()) (name main)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) ()
+             (Lambda (@1 (Type Int)) () ()
               (@1
                (BoundFrame 2
                 ((@1
@@ -187,6 +187,7 @@ let%expect_test _ =
                  ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
                   (init_expr ()))
                  (0 1))))
+              ()
               (@1
                (BoundFrame 2
                 ((@1
@@ -233,6 +234,7 @@ let%expect_test _ =
                  ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
                   (init_expr ()))
                  (0 1))))
+              ()
               (@1
                (BoundFrame 1
                 ((@1
@@ -257,11 +259,13 @@ let%expect_test _ =
                        (Call (@1 (BoundIdentifier fib (0 0)))
                         ((@1
                           (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
-                           (@1 (IntLiteral 2)))))))
+                           (@1 (IntLiteral 2)))))
+                        false))
                       (@1
                        (Call (@1 (BoundIdentifier fib (0 0)))
                         ((@1
                           (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
-                           (@1 (IntLiteral 1))))))))))))))))))))
+                           (@1 (IntLiteral 1)))))
+                        false)))))))))))))))
          (0 0))))))
     |}]

@@ -23,6 +23,10 @@ and ast_type =
   | Void
   | Type
 
+and lambda_modifiers = {
+  pure: bool [@sexp.bool];
+}
+
 and expression_inner =
   | Type of ast_type
   | TypeOf of expression
@@ -39,18 +43,18 @@ and expression_inner =
   | UnaryOp of unary_op * expression
   | Conditional of expression * expression * expression
   | Tuple of expression list
-  | Call of expression * expression list
-  | Lambda of (* return_type: *) expression * (* params: *) statement list * (* body: *) statement
+  | Call of expression * expression list * (* pure: *) bool
+  | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement
   | External of external_value
   
 and expression = location * expression_inner
 
-and modifiers = {
+and declaration_modifiers = {
   mut: bool [@sexp.bool];
 }
 
 and declaration = {
-  modifiers: modifiers;
+  modifiers: declaration_modifiers;
   type_expr: expression option;
   name: string;
   init_expr: expression option;
@@ -75,7 +79,8 @@ and statement = location * statement_inner
 
 [@@deriving sexp, show]
 
-let empty_modifiers : modifiers = { mut = false }
+let empty_declaration_modifiers : declaration_modifiers = { mut = false }
+let empty_lambda_modifiers : lambda_modifiers = { pure = false }
 
 let loc ((s: Lexing.position), (e: Lexing.position)) : location = make_location s e
 
