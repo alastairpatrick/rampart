@@ -68,8 +68,6 @@ primary_expr
                                             { loc $loc, Lambda (f, ps, { pure = true }, b) }
   | TYPEOF LPAREN e=expr RPAREN             { loc $loc, TypeOf e }
   | ARITY LPAREN e=expr RPAREN              { loc $loc, Arity e }
-  (*| LAMBDA LPAREN ps=params0 RPAREN s=compound_stat
-                                            { loc $loc, Lambda (None, ps, s) }*)
   ;
 
 unary_expr
