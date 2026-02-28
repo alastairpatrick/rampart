@@ -22,6 +22,7 @@ type frame = {
   enclosing_frame: frame option;
   variables: variable array;
   return_type: typ;
+  pure: bool;
 }
 
 type thread = {
@@ -45,6 +46,7 @@ let make_thread (machine : machine) : thread = {
     enclosing_frame = None;
     variables = machine.globals;
     return_type = void_type;
+    pure = false;
   };
 }
 
@@ -207,7 +209,7 @@ and evaluate_in thread mode _ a b : value =
   ignore (evaluate_unassignable thread mode a);
   evaluate_unassignable thread mode b
 
-and evaluate_lambda thread mode return_type (params : statement Seq.t) modifiers body : value =
+and evaluate_lambda thread mode return_type (params : statement Seq.t) (modifiers : lambda_modifiers) body : value =
   let return_type = evaluate_unassignable thread mode return_type |> value_to_type in
   let param_types = Iarray.of_seq (Seq.map (fun (location, stmt) ->
     match stmt with
@@ -220,7 +222,8 @@ and evaluate_lambda thread mode return_type (params : statement Seq.t) modifiers
 and evaluate_call thread mode _ callee (args : expression Seq.t) pure : value =
   let callee = evaluate_unassignable thread mode callee in
   match callee with
-  | Impl (Singleton (Function (return_type, param_types, _)), ImplLambda (enclosing_frame, (_, BoundFrame (num_locals, body)))) ->
+  | Impl (Singleton (Function (return_type, param_types, pure)), ImplLambda (enclosing_frame, (_, BoundFrame (num_locals, body)))) ->
+    if not pure && thread.top_frame.pure then raise error_purity_mismatch;
     if mode = EvalTypeOnly then
       representative_value_for_type return_type
     else
@@ -230,6 +233,7 @@ and evaluate_call thread mode _ callee (args : expression Seq.t) pure : value =
           enclosing_frame = Some enclosing_frame;
           variables = Array.make num_locals empty_variable;
           return_type = return_type;
+          pure = pure;
         }
       } in
       let rec evaluate_args i (args: expression Seq.t) : unit =

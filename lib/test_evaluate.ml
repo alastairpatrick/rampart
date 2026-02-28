@@ -505,3 +505,29 @@ let%expect_test _ =
     [:impl int():]
     |}]
 
+let%expect_test _ =
+  evaluate_declarations "int f pure() { return 0; } int g pure() { return f(); } int x = g();";
+  [% expect{|
+    [:impl int pure():]
+    [:impl int pure():]
+    0
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f pure() { return 0; } int g() { return f(); } int x = g();";
+  [% expect{|
+    [:impl int pure():]
+    [:impl int():]
+    0
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() { return 0; } int g pure() { return f(); } int x = g();";
+  [% expect{|
+    Error: @1 cannot call impure function from pure context
+    [:impl int():]
+    [:impl int pure():]
+    [:failed:]
+    |}]
+
+
