@@ -349,4 +349,5 @@ let evaluate_to_completion (main : unit -> unit) : unit =
     print_endline ("Cyclic dependencies detected: " ^ (String.concat ", " dependencies))
 
 let evaluate_program (machine : machine) (statement : statement) : unit =
-  evaluate_to_completion (fun () -> evaluate_statement (make_thread machine) statement)
+  let thread = make_thread machine in
+  evaluate_to_completion (fun () -> evaluate_statement thread statement)
