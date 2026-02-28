@@ -29,7 +29,7 @@ let void = Tuple [| |]
 
 let rec type_of_value (value: value) : typ =
   match value with
-  | Uninitialized None -> Uninitialized
+  | Uninitialized None -> assert false
   | Uninitialized (Some typ) -> typ
   | Failed -> raise Saw_failed_error
   | Assignable ((idx, arr), _) -> type_of_value arr.(idx)

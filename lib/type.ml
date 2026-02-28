@@ -6,7 +6,6 @@ type singleton_type =
   | Function of typ * typ Iarray.t
 
 and typ =
-  | Uninitialized
   | Singleton of singleton_type
   | Tuple of typ Iarray.t       (* Must never contain a single element; use Singleton instead; tuple_type can be used to normalize *)
 
@@ -20,7 +19,6 @@ let tuple_type (types : typ Seq.t) =
     | Some _ -> Tuple (Iarray.of_seq (Seq.cons h t))
 
 let rec show_typ (t: typ) : string = match t with
-  | Uninitialized -> ":uninitialized:"
   | Singleton Int -> "int"
   | Singleton Bool -> "bool"
   | Singleton Type -> "type"

@@ -56,27 +56,30 @@ let rec convert_implicit (value : value) (to_typ : typ) : value =
   let from_typ = type_of_value value in
   match to_typ, value with
   | _ when to_typ = from_typ -> value
+
   (* Tuples of type values can be implicitly converted to singleton type values of tuple type *)
   | Singleton Type, _ ->
     (try
       Type (value_to_type value)
     with Error _ -> raise error_type_mismatch)
+
   | Tuple to_element_types, Tuple from_elements ->
     assert (Iarray.length to_element_types <> 1);
     assert (Array.length from_elements <> 1); (* otherwise these would use the explicit singleton representaion *)
     if (Iarray.length to_element_types <> Array.length from_elements) then raise error_type_mismatch;
     Tuple (Array.init (Array.length from_elements) (fun i -> convert_implicit from_elements.(i) (Iarray.get to_element_types i)))
+
   | Tuple to_element_types, Type (Tuple from_element_types) ->
     assert (Iarray.length to_element_types <> 1);
     assert (Iarray.length from_element_types <> 1);
     if (Iarray.length to_element_types <> Iarray.length from_element_types) then raise error_type_mismatch;
     (* This branch allows destructuring a value of tuple type into a tuple value. TODO: not sure if we actually want to do this. *)
     Tuple (Array.init (Iarray.length from_element_types) (fun i -> convert_implicit (Type (Iarray.get from_element_types i)) (Iarray.get to_element_types i)))
+
   | _ -> raise (error_implicit_conversion from_typ to_typ)
 
 let rec representative_value_for_type (typ : typ) : value =
   match typ with
-  | Uninitialized -> assert false
   | Singleton Int
   | Singleton Bool
   | Tuple [| |] ->
