@@ -48,26 +48,25 @@ pattern
   ;
 
 primary_expr
-  : VOID                                    { loc $loc, Type Void }                     
-  | INT                                     { loc $loc, Type Int }
-  | BOOL                                    { loc $loc, Type Bool }
-  | TYPE                                    { loc $loc, Type Type }
-  | v=INT_LIT                               { loc $loc, IntLiteral v }
-  | TRUE                                    { loc $loc, BoolLiteral true }
-  | FALSE                                   { loc $loc, BoolLiteral false }
-  | n=ID                                    { loc $loc, Identifier n }
-  | LET p=pattern                           { loc $loc, Let p }
-  | ANY                                     { loc $loc, Let Any }
-  | LPAREN es=exprs0 RPAREN                 { make_tuple_node (loc $loc) es }
-  | f=primary_expr LPAREN es=exprs0 RPAREN  { loc $loc, Call (f, es, false) }
-  | f=primary_expr LPAREN es=exprs0 RPAREN PURE
-                                            { loc $loc, Call (f, es, true) }
-  | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN b=compound_stat
-                                            { loc $loc, Lambda (f, ps, empty_lambda_modifiers, b) }
-  | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN PURE b=compound_stat
-                                            { loc $loc, Lambda (f, ps, { pure = true }, b) }
-  | TYPEOF LPAREN e=expr RPAREN             { loc $loc, TypeOf e }
-  | ARITY LPAREN e=expr RPAREN              { loc $loc, Arity e }
+  : VOID                                                    { loc $loc, Type Void }                     
+  | INT                                                     { loc $loc, Type Int }
+  | BOOL                                                    { loc $loc, Type Bool }
+  | TYPE                                                    { loc $loc, Type Type }
+  | v=INT_LIT                                               { loc $loc, IntLiteral v }
+  | TRUE                                                    { loc $loc, BoolLiteral true }
+  | FALSE                                                   { loc $loc, BoolLiteral false }
+  | n=ID                                                    { loc $loc, Identifier n }
+  | LET p=pattern                                           { loc $loc, Let p }
+  | ANY                                                     { loc $loc, Let Any }
+  | LPAREN es=exprs0 RPAREN                                 { make_tuple_node (loc $loc) es }
+  | f=primary_expr LPAREN es=exprs0 RPAREN                  { loc $loc, Call (f, es, false) }
+  | f=primary_expr LPAREN es=exprs0 RPAREN PURE             { loc $loc, Call (f, es, true) }
+  | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN
+    b=compound_stat                                         { loc $loc, Lambda (f, ps, empty_lambda_modifiers, b) }
+  | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN PURE
+    b=compound_stat                                         { loc $loc, Lambda (f, ps, { pure = true }, b) }
+  | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, TypeOf e }
+  | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
   ;
 
 unary_expr
@@ -143,27 +142,23 @@ switch_case
 
 declaration
   : t=expr n=ID v=initialize? semi
-                                            { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
-  | t=expr n=ID LPAREN ps=params0 RPAREN b=compound_stat
-                                            { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, empty_lambda_modifiers, b)) } }
-  | t=expr n=ID LPAREN ps=params0 RPAREN PURE b=compound_stat
-                                            { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, { pure = true }, b)) } }
-  | MUT d=declaration                       { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
+                                                                { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
+  | t=expr n=ID LPAREN ps=params0 RPAREN b=compound_stat        { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, empty_lambda_modifiers, b)) } }
+  | t=expr n=ID LPAREN ps=params0 RPAREN PURE b=compound_stat   { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, { pure = true }, b)) } }
+  | MUT d=declaration                                           { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;
 
 stat
-  : e=expr semi                             { loc $loc, Expression e }
-  | SWITCH e=expr cs=switch_case+           { loc $loc, Switch (e, cs) }
-  | d=declaration                           { loc $loc, Declaration d }
-  | s=compound_stat                         { s }
-  | IF c=expr a=compound_stat b=else_clause?{ prelower_if (loc($loc)) c a b }
-  | FOR i=stat c=expr semi n=expr b=compound_stat
-                                            { prelower_for (loc($loc)) i c n b }
-  | FOR LPAREN i=stat c=expr semi n=expr RPAREN b=compound_stat
-                                            { prelower_for (loc($loc)) i c n b }
-  | WHILE c=expr b=compound_stat            { prelower_while (loc($loc)) c b }
-  | DO b=compound_stat WHILE c=expr semi    { loc $loc, DoWhile (b, c) }
-  | RETURN e=expr? semi                     { loc $loc, Return e }
+  : e=expr semi                                                 { loc $loc, Expression e }
+  | SWITCH e=expr cs=switch_case+                               { loc $loc, Switch (e, cs) }
+  | d=declaration                                               { loc $loc, Declaration d }
+  | s=compound_stat                                             { s }
+  | IF c=expr a=compound_stat b=else_clause?                    { prelower_if (loc($loc)) c a b }
+  | FOR i=stat c=expr semi n=expr b=compound_stat               { prelower_for (loc($loc)) i c n b }
+  | FOR LPAREN i=stat c=expr semi n=expr RPAREN b=compound_stat { prelower_for (loc($loc)) i c n b }
+  | WHILE c=expr b=compound_stat                                { prelower_while (loc($loc)) c b }
+  | DO b=compound_stat WHILE c=expr semi                        { loc $loc, DoWhile (b, c) }
+  | RETURN e=expr? semi                                         { loc $loc, Return e }
   ;
 
 stats0
