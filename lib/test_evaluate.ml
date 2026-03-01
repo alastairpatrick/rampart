@@ -556,6 +556,11 @@ let%expect_test _ =
     [:failed:]
     |}]
 
-
-
+let%expect_test _ =
+  evaluate_declarations "int() f pure() { mut int x = 1; return int lambda() { x = 2; return x; }; } int y = f()();";
+  [% expect{|
+    Error: @1 cannot nest impure function in pure context
+    [:impl int() pure():]
+    [:failed:]
+    |}]
 

@@ -219,6 +219,7 @@ and evaluate_in thread mode _ a b : value =
   evaluate_unassignable thread mode b
 
 and evaluate_lambda thread mode return_type (params : statement Seq.t) (modifiers : lambda_modifiers) body : value =
+  if thread.top_frame.pure && not modifiers.pure then raise error_cannot_nest_impure_function_in_pure_context;
   let return_type = evaluate_unassignable thread mode return_type |> value_to_type in
   let param_types = Iarray.of_seq (Seq.map (fun (location, stmt) ->
     match stmt with
@@ -232,7 +233,7 @@ and evaluate_call thread mode _ callee (args : expression Seq.t) pure : value =
   let callee = evaluate_unassignable thread mode callee in
   match callee with
   | Impl (Singleton (Function (return_type, param_types, pure)), ImplLambda (enclosing_frame, (_, BoundFrame (num_locals, body)))) ->
-    if not pure && thread.top_frame.pure then raise error_purity_mismatch;
+    if not pure && thread.top_frame.pure then raise error_cannot_call_impure_function_from_pure_context;
     if mode = EvalTypeOnly then
       representative_value_for_type return_type
     else

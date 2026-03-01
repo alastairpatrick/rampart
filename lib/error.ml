@@ -28,5 +28,6 @@ let error_implicit_conversion (from_type: typ) (to_type: typ) =
   Error (Printf.sprintf "no implicit conversion from '%s' to '%s'" (show_typ from_type) (show_typ to_type)  )
 let error_invalid_operation (message : string) = Error (Printf.sprintf "invalid operation: %s" message)
 let error_immutable_assignment name = Error (Printf.sprintf "cannot assign to immutable variable '%s'" name)
-let error_purity_mismatch = Error "cannot call impure function from pure context"
+let error_cannot_nest_impure_function_in_pure_context = Error "cannot nest impure function in pure context"
+let error_cannot_call_impure_function_from_pure_context = Error "cannot call impure function from pure context"
 let error_cannot_access_mutable_captured_variable_from_pure_context name = Error (Printf.sprintf "cannot access mutable captured variable '%s' from pure context" name)
