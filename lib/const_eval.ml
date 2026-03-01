@@ -54,6 +54,12 @@ let is_const_expression (expression : expression) : bool =
   | _, Type _ -> true (* NB: if type expressions can incorporate ints, eg if we ever support fixed size arrays, would need to check that the ints are constants *)
   | _ -> false
 
+let default_value ((location, type_expression): expression) : expression option =
+  match type_expression with
+  | Type Int -> Some (location, IntLiteral 0)
+  | Type Bool -> Some(location, BoolLiteral false)
+  | _ -> None
+
 let rec evaluate_statements env frame mode (statements : statement list) : statement list =
   List.map (evaluate_statement env frame mode) statements
 
@@ -118,12 +124,20 @@ and evaluate_declaration env frame mode _ declaration slot =
   match declaration with
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
     let type_expr = evaluate_expression env frame mode type_expr in
-    let init_expr = implit_convert (evaluate_expression env frame mode init_expr) type_expr in
+    let init_expr = implicit_convert (evaluate_expression env frame mode init_expr) type_expr in
     if declaration.modifiers.mut || not (is_const_expression init_expr) then
       set_assignable_value assignable (Non_const_of_type type_expr)
     else
       set_assignable_value assignable (Const_of_value init_expr);
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
+
+  | { type_expr=Some type_expr; init_expr=None; _} ->
+    let type_expr = evaluate_expression env frame mode type_expr in
+    let init_expr = default_value type_expr in
+    (match declaration.modifiers.mut, init_expr with
+      | true, _ | _, None ->set_assignable_value assignable (Non_const_of_type type_expr)
+      | _, Some init_expr -> set_assignable_value assignable (Const_of_value init_expr));
+    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = init_expr }, slot)
 
   | { type_expr=None; init_expr=Some init_expr; _} ->
     let init_expr = evaluate_expression env frame mode init_expr in
@@ -134,7 +148,7 @@ and evaluate_declaration env frame mode _ declaration slot =
     
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
 
-and implit_convert (location, value_expression) (_, type_expression) =
+and implicit_convert (location, value_expression) (_, type_expression) =
   match value_expression, type_expression with
   (* TODO: add some conversions *)
   | _ -> (location, value_expression)

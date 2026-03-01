@@ -33,6 +33,45 @@ let%expect_test _ =
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 3))))))) |}]
 
 let%expect_test _ =
+  evaluate_declarations "int x; x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (0 0)))
+       (@1 (Expression (@1 (IntLiteral 0)))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "bool x; x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0)))
+       (@1 (Expression (@1 (BoolLiteral false)))))))
+    |}]
+
+(* Will catch variables of types that do not have default values but also do not have an initializer in a later pass. *)
+let%expect_test _ =
+  evaluate_declarations "type t; t;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t) (init_expr ()))
+         (0 0)))
+       (@1 (Expression (@1 (BoundIdentifier t (0 0))))))))
+    |}]
+
+let%expect_test _ =
   evaluate_declarations "int x = 2; 1 + x;";
   [%expect{|
     (@1
