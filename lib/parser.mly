@@ -60,11 +60,11 @@ primary_expr
   | ANY                                     { loc $loc, Let Any }
   | LPAREN es=exprs0 RPAREN                 { make_tuple_node (loc $loc) es }
   | f=primary_expr LPAREN es=exprs0 RPAREN  { loc $loc, Call (f, es, false) }
-  | f=primary_expr PURE LPAREN es=exprs0 RPAREN
+  | f=primary_expr LPAREN es=exprs0 RPAREN PURE
                                             { loc $loc, Call (f, es, true) }
   | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN b=compound_stat
                                             { loc $loc, Lambda (f, ps, empty_lambda_modifiers, b) }
-  | f=primary_expr LAMBDA PURE LPAREN ps=params0 RPAREN b=compound_stat
+  | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN PURE b=compound_stat
                                             { loc $loc, Lambda (f, ps, { pure = true }, b) }
   | TYPEOF LPAREN e=expr RPAREN             { loc $loc, TypeOf e }
   | ARITY LPAREN e=expr RPAREN              { loc $loc, Arity e }
@@ -146,7 +146,7 @@ declaration
                                             { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN b=compound_stat
                                             { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, empty_lambda_modifiers, b)) } }
-  | t=expr n=ID PURE LPAREN ps=params0 RPAREN b=compound_stat
+  | t=expr n=ID LPAREN ps=params0 RPAREN PURE b=compound_stat
                                             { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, { pure = true }, b)) } }
   | MUT d=declaration                       { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;

@@ -157,7 +157,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int pure(int);";
+  parse "int(int) pure;";
   [% expect{|
     (@1
      (OrderIndependent
@@ -313,7 +313,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int lambda pure() {};";
+  parse "int lambda() pure {};";
   [% expect{|
     (@1
      (OrderIndependent
@@ -350,7 +350,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int lambda pure (int a, int b) {};";
+  parse "int lambda (int a, int b) pure {};";
   [% expect{|
     (@1
      (OrderIndependent
@@ -392,7 +392,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int foo pure (int a, int b) {}";
+  parse "int foo (int a, int b) pure {}";
   [% expect{|
     (@1
      (OrderIndependent

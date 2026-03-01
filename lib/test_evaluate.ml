@@ -484,83 +484,83 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f() { return 0; } int pure() g = f;";
+  evaluate_declarations "int f() { return 0; } int() pure g = f;";
   [% expect{|
-    Error: @1 no implicit conversion from 'int()' to 'int pure()'
+    Error: @1 no implicit conversion from 'int()' to 'int() pure'
     [:impl int():]
     [:failed:]
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f pure() { return 0; } int pure() g = f;";
+  evaluate_declarations "int f() pure { return 0; } int() pure g = f;";
   [% expect{|
-    [:impl int pure():]
-    [:impl int pure():]
+    [:impl int() pure:]
+    [:impl int() pure:]
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f pure() { return 0; } int() g = f;";
+  evaluate_declarations "int f() pure { return 0; } int() g = f;";
   [% expect{|
-    [:impl int pure():]
+    [:impl int() pure:]
     [:impl int():]
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f pure() { return 0; } int g pure() { return f(); } int x = g();";
+  evaluate_declarations "int f() pure { return 0; } int g() pure { return f(); } int x = g();";
   [% expect{|
-    [:impl int pure():]
-    [:impl int pure():]
+    [:impl int() pure:]
+    [:impl int() pure:]
     0
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f pure() { return 0; } int g() { return f(); } int x = g();";
+  evaluate_declarations "int f() pure { return 0; } int g() { return f(); } int x = g();";
   [% expect{|
-    [:impl int pure():]
+    [:impl int() pure:]
     [:impl int():]
     0
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f() { return 0; } int g pure() { return f(); } int x = g();";
+  evaluate_declarations "int f() { return 0; } int g() pure { return f(); } int x = g();";
   [% expect{|
     Error: @1 cannot call impure function from pure context
     [:impl int():]
-    [:impl int pure():]
+    [:impl int() pure:]
     [:failed:]
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int x = 1; int f pure() { return x; } int y = f();";
+  evaluate_declarations "int x = 1; int f() pure { return x; } int y = f();";
   [% expect{|
     1
-    [:impl int pure():]
+    [:impl int() pure:]
     1
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "mut int x; int f pure() { return x; } int y = f();";
+  evaluate_declarations "mut int x; int f() pure { return x; } int y = f();";
   [% expect{|
     Error: @1 cannot access mutable captured variable 'x' from pure context
     0
-    [:impl int pure():]
+    [:impl int() pure:]
     [:failed:]
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "mut int x; int f pure() { x = 1; return 0; } int y = f();";
+  evaluate_declarations "mut int x; int f() pure { x = 1; return 0; } int y = f();";
   [% expect{|
     Error: @1 cannot access mutable captured variable 'x' from pure context
     0
-    [:impl int pure():]
+    [:impl int() pure:]
     [:failed:]
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int() f pure() { mut int x = 1; return int lambda() { x = 2; return x; }; } int y = f()();";
+  evaluate_declarations "int() f() pure { mut int x = 1; return int lambda() { x = 2; return x; }; } int y = f()();";
   [% expect{|
     Error: @1 cannot nest impure function in pure context
-    [:impl int() pure():]
+    [:impl int()() pure:]
     [:failed:]
     |}]
 
