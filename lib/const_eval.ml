@@ -83,6 +83,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Type _ -> (location, expression)
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
+  | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | Tuple elements -> (location, Tuple (List.map (evaluate_expression env frame mode) elements))
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements
@@ -102,6 +103,14 @@ and evaluate_binary_op env frame mode location op a b =
   | Plus, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a + b))
   | Plus, _, _ -> (location, BinaryOp (Plus, a, b))
   | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s %s %s" (Ast.show_expression a) (Ast.show_binary_op op) (Ast.show_expression b)); assert false
+
+and evaluate_assignment env frame mode location a b =
+  let a = evaluate_expression env frame mode a in
+  let b = evaluate_expression env frame mode b in
+  (* For the time being skip actually performing the assignment. There are cases that we will perform an
+     assignment in the future, for example when evaluating a pure function at compile time, which assigns
+     to a mutable variable in its local frame. *)
+  (location, Assignment (a, b))
 
 and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements =
     let return_type = evaluate_expression env frame mode return_type in
