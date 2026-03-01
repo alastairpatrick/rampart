@@ -85,21 +85,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Tuple elements -> (location, Tuple (List.map (evaluate_expression env frame mode) elements))
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))) ->
-    let return_type = evaluate_expression env frame mode return_type in
-    let lambda_frame = {
-      depth = frame.depth + 1;
-      enclosing_frame = Some frame;
-      variables = Array.make num_variables empty_variable;
-      pure = modifiers.pure;
-    } in
-    let params = List.mapi (fun i (location, param) -> match param with
-      | BoundDeclaration (declaration, slot) ->
-        let type_expr = evaluate_expression env frame mode (Option.get declaration.type_expr) in
-        lambda_frame.variables.(i) <- { value = Non_const_of_type type_expr };
-        (location, BoundDeclaration ( { declaration with type_expr = Some type_expr }, slot))
-      | _ -> print_endline (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))); assert false) params in
-    let statements = evaluate_statements env lambda_frame mode statements in
-    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))))
+    evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
 and evaluate_identifier _ frame _ location display_name slot =
@@ -117,7 +103,23 @@ and evaluate_binary_op env frame mode location op a b =
   | Plus, _, _ -> (location, BinaryOp (Plus, a, b))
   | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s %s %s" (Ast.show_expression a) (Ast.show_binary_op op) (Ast.show_expression b)); assert false
 
-  
+and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements =
+    let return_type = evaluate_expression env frame mode return_type in
+    let lambda_frame = {
+      depth = frame.depth + 1;
+      enclosing_frame = Some frame;
+      variables = Array.make num_variables empty_variable;
+      pure = modifiers.pure;
+    } in
+    let params = List.mapi (fun i (location, param) -> match param with
+      | BoundDeclaration (declaration, slot) ->
+        let type_expr = evaluate_expression env frame mode (Option.get declaration.type_expr) in
+        lambda_frame.variables.(i) <- { value = Non_const_of_type type_expr };
+        (location, BoundDeclaration ( { declaration with type_expr = Some type_expr }, slot))
+      | _ -> print_endline (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))); assert false) params in
+    let statements = evaluate_statements env lambda_frame mode statements in
+    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))))
+
 and type_of_lambda ((location, expression): expression) : expression =
   match expression with
   | Lambda (return_type, params, _, _) ->
