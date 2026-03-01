@@ -48,16 +48,23 @@ let get_assignable_value (index, variables) : value =
 let set_assignable_value (index, variables) (value : value) : unit =
   variables.(index) <- { value }
 
-let is_const_expression (expression : expression) : bool =
+let rec is_const_expression (expression : expression) : bool =
   match expression with
   | _, IntLiteral _ -> true
   | _, Type _ -> true (* NB: if type expressions can incorporate ints, eg if we ever support fixed size arrays, would need to check that the ints are constants *)
+  | _, Tuple elements -> List.for_all is_const_expression elements
   | _ -> false
 
-let default_value ((location, type_expression): expression) : expression option =
+let rec default_value ((location, type_expression): expression) : expression option =
   match type_expression with
   | Type Int -> Some (location, IntLiteral 0)
   | Type Bool -> Some(location, BoolLiteral false)
+  | Tuple elements ->
+    let element_defaults = List.map default_value elements in
+    if List.for_all Option.is_some element_defaults then
+      Some (location, Tuple (List.map Option.get element_defaults))
+    else
+      None
   | _ -> None
 
 let rec evaluate_statements env frame mode (statements : statement list) : statement list =
@@ -76,6 +83,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Type _ -> (location, expression)
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
+  | Tuple elements -> (location, Tuple (List.map (evaluate_expression env frame mode) elements))
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))) ->
     let return_type = evaluate_expression env frame mode return_type in
     let lambda_frame = {
