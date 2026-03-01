@@ -113,6 +113,44 @@ let%expect_test _ =
          (0 0)))
        (@1 (Expression (@1 (IntLiteral 3)))))))
     |}]
+    
+let%expect_test _ =
+  evaluate_declarations "1 + x; int x = 2;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 2)))))
+         (0 0)))
+       (@1 (Expression (@1 (IntLiteral 3)))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() { 1 + x; } int x = 2;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 2)))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Int)) () false))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int)) () ()
+              (@1 (BoundFrame 0 ((@1 (Expression (@1 (IntLiteral 3))))))))))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int x = y; int y = x;";
+  [%expect{| Error: @1 found cyclic dependency: y -> x -> y |}]
 
 let%expect_test _ =
   evaluate_declarations "mut int x = 2; 1 + x;";

@@ -2,7 +2,10 @@
 
 open Ast
 open Bind
+open Error
 open Slot
+
+exception Saw_uninitialized of string
 
 type value =
 | Uninitialized_of_type of (* expression_type: *) expression option
@@ -70,12 +73,48 @@ let rec default_value ((location, type_expression): expression) : expression opt
 let rec evaluate_statements env frame mode (statements : statement list) : statement list =
   List.map (evaluate_statement env frame mode) statements
 
+and evaluate_order_independent env frame mode statements =
+  let in_queue = Queue.of_seq (List.to_seq statements) in
+  let stalled_queue = Queue.create () in
+  let out_queue = Queue.create() in
+  let display_names = Queue.create() in
+  let progress_made = ref false in
+  while not (Queue.is_empty in_queue) do
+    while not (Queue.is_empty in_queue) do
+      let statement = Queue.take in_queue in
+      match evaluate_statement env frame mode statement with
+      | exception Saw_uninitialized display_name ->
+        Queue.add statement stalled_queue;
+        Queue.add display_name display_names
+
+      | evaluated_statement ->
+        progress_made := true;
+        Queue.add evaluated_statement out_queue
+    done;
+
+    if not !progress_made then begin
+      if not (Queue.is_empty display_names) then begin (* defensive test; queue should never be empty here *)
+        let repeated = Queue.peek display_names in
+        Queue.add repeated display_names
+      end;
+
+      raise (Error (Printf.sprintf "found cyclic dependency: %s" (String.concat " -> " (List.of_seq (Queue.to_seq display_names)))))
+    end;
+
+    Queue.clear display_names;
+    Queue.transfer stalled_queue in_queue;
+    progress_made := false
+  done;
+  List.of_seq (Queue.to_seq out_queue)
+  
 and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location, statement): statement) : statement =
-  match statement with
-  | Expression expression -> (location, Expression (evaluate_expression env frame mode expression))
-  | OrderIndependent statements -> (location, OrderIndependent (evaluate_statements env frame mode statements))
-  | BoundDeclaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
-  | _ -> print_endline (Printf.sprintf "statement not implemented: %s" (Ast.show_statement (location, statement))); assert false
+  try
+    match statement with
+    | Expression expression -> (location, Expression (evaluate_expression env frame mode expression))
+    | OrderIndependent statements -> (location, OrderIndependent (evaluate_order_independent env frame mode statements))
+    | BoundDeclaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
+    | _ -> print_endline (Printf.sprintf "statement not implemented: %s" (Ast.show_statement (location, statement))); assert false;
+  with Error message -> raise (Located_error (location, message))
 
 and evaluate_expression env frame mode ((location, expression): expression) : expression =
   match expression with
@@ -92,7 +131,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
 and evaluate_identifier _ frame _ location display_name slot =
   let assignable = get_assignable frame slot display_name in
   match get_assignable_value assignable with
-  | Uninitialized_of_type _
+  | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name)
   | Non_const_of_type _ -> (location, (BoundIdentifier (display_name, slot)))
   | Const_of_value (_, const_expression) -> (location, const_expression)
 
