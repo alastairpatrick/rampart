@@ -52,7 +52,7 @@ lambda_modifiers
   | lambda_modifiers PURE                   { { $1 with pure = true } }
   | lambda_modifiers CONST                  { { $1 with const = true } }
   ;
-  
+
 primary_expr
   : VOID                                                    { loc $loc, Type Void }                     
   | INT                                                     { loc $loc, Type Int }
@@ -65,10 +65,10 @@ primary_expr
   | LET p=pattern                                           { loc $loc, Let p }
   | ANY                                                     { loc $loc, Let Any }
   | LPAREN es=exprs0 RPAREN                                 { make_tuple_node (loc $loc) es }
-  | f=primary_expr LPAREN es=exprs0 RPAREN                  { loc $loc, Call (f, es, false) }
-  | f=primary_expr LPAREN es=exprs0 RPAREN PURE             { loc $loc, Call (f, es, true) }
-  | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN lm=lambda_modifiers
-    b=compound_stat                                         { loc $loc, Lambda (f, ps, lm, b) }
+  | f=primary_expr LPAREN es=exprs0 RPAREN
+    lm=lambda_modifiers                                     { loc $loc, Call (f, es, lm) }
+  | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN
+    lm=lambda_modifiers b=compound_stat                     { loc $loc, Lambda (f, ps, lm, b) }
   | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, TypeOf e }
   | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
   ;

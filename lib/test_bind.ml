@@ -260,12 +260,12 @@ let%expect_test _ =
                         ((@1
                           (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
                            (@1 (IntLiteral 2)))))
-                        false))
+                        ()))
                       (@1
                        (Call (@1 (BoundIdentifier fib (0 0)))
                         ((@1
                           (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
                            (@1 (IntLiteral 1)))))
-                        false)))))))))))))))
+                        ())))))))))))))))
          (0 0))))))
     |}]

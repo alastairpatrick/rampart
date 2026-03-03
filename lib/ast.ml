@@ -44,7 +44,7 @@ and expression_inner =
   | UnaryOp of unary_op * expression
   | Conditional of expression * expression * expression
   | Tuple of expression list
-  | Call of expression * expression list * (* pure: *) bool
+  | Call of expression * expression list * lambda_modifiers
   | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement
   | Annotated of expression_annotation * expression
   

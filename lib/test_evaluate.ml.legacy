@@ -1,3 +1,5 @@
+(* This file will soon be deleted. It will be kept while it is a useful reference for the semantics of the language. It no longer compiles or runs, which is okay. *)
+
 open Bind
 open Diagnostic
 open Error

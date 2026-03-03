@@ -153,7 +153,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (Call (@1 (Type Int)) ((@1 (Type Int)) (@1 (Type Bool))) false)))))))
+         (@1 (Call (@1 (Type Int)) ((@1 (Type Int)) (@1 (Type Bool))) ())))))))
     |}]
 
 let%expect_test _ =
@@ -161,7 +161,15 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Call (@1 (Type Int)) ((@1 (Type Int))) true)))))))
+      ((@1 (Expression (@1 (Call (@1 (Type Int)) ((@1 (Type Int))) ((pure)))))))))
+    |}]
+
+let%expect_test _ =
+  parse "int(int) const;";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1 (Expression (@1 (Call (@1 (Type Int)) ((@1 (Type Int))) ((const)))))))))
     |}]
 
     (* Declarations *)
@@ -449,7 +457,7 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Call (@1 (Identifier foo)) () false)))))))
+      ((@1 (Expression (@1 (Call (@1 (Identifier foo)) () ())))))))
     |}]
 
 let%expect_test _ =
@@ -458,8 +466,7 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1
-        (Expression
-         (@1 (Call (@1 (Identifier foo)) ((@1 (IntLiteral 7))) false)))))))
+        (Expression (@1 (Call (@1 (Identifier foo)) ((@1 (IntLiteral 7))) ())))))))
     |}]
 
 let%expect_test _ =

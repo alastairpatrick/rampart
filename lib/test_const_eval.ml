@@ -66,7 +66,7 @@ let%expect_test _ =
           (init_expr ((@1 (BoolLiteral false)))))
          (1 0))))))
     |}]
-    
+
 (* This pair of declarations forms a mutual reference (a -> b -> a). The
    const-eval pass only reports cycles when they prevent evaluating a
    declaration's type. Here both declarations' types can still be resolved,
@@ -137,7 +137,7 @@ let%expect_test _ =
        (@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr ((@1 (Call (@1 (Type Bool)) ((@1 (Type Bool))) false))))
+          (type_expr ((@1 (Call (@1 (Type Bool)) ((@1 (Type Bool))) ()))))
           (name foo)
           (init_expr
            ((@1
@@ -172,7 +172,7 @@ let%expect_test _ =
        (@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr ((@1 (Call (@1 (Type Bool)) ((@1 (Type Bool))) false))))
+          (type_expr ((@1 (Call (@1 (Type Bool)) ((@1 (Type Bool))) ()))))
           (name foo)
           (init_expr
            ((@1
@@ -206,7 +206,8 @@ let%expect_test _ =
        (@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr ((@1 (Call (@1 (Type Bool)) ((@1 (Type Bool))) false))))
+          (type_expr
+           ((@1 (Call (@1 (Type Bool)) ((@1 (Type Bool))) ((pure) (const))))))
           (name foo)
           (init_expr
            ((@1
@@ -230,10 +231,113 @@ let%expect_test _ =
          (0 0))))))
     |}]
 
+(* Const function can evaluate to declaration type *)
+let%expect_test _ =
+  evaluate_declarations "type f() const { return int; } f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Annotated External
+              (@1
+               (Lambda (@1 (Type Type)) () ((pure) (const))
+                (@1 (BoundFrame 0 ((@1 (Return ((@1 (Type Int)))))))))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f(type t) const { return (int, t); } f(bool) x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Type Type)) ((@1 (Type Type))) ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Annotated External
+              (@1
+               (Lambda (@1 (Type Type))
+                ((@1
+                  (BoundDeclaration
+                   ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+                    (init_expr ()))
+                   (0 1))))
+                ((pure) (const))
+                (@1
+                 (BoundFrame 1
+                  ((@1
+                    (Return
+                     ((@1
+                       (Tuple ((@1 (Type Int)) (@1 (BoundIdentifier t (0 1)))))))))))))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Tuple ((@1 (Type Int)) (@1 (Type Bool))))))) (name x)
+          (init_expr
+           ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (BoolLiteral false))))))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut type m = bool; type f() const { return m; } f() x;";
+  [%expect{| Error: @1 'm' is not a compile-time constant |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut type m = bool; type f(type t) const { return t; } f(m) x;";
+  [%expect{| Error: @1 'm' is not a compile-time constant |}]
+
+(* TODO: Finish evaluate_assignment to allow this *)
+(*let%expect_test _ =
+  evaluate_declarations "type f(type t) const { mut type s = t; return s; } f(int) x;";
+  [%expect{|  |}]*)
+
+(* A declaration type not evaluating to an actual type might be benign in the const_eval pass; a later pass will catch the error. *)
+let%expect_test _ =
+  evaluate_declarations "int f() const { return 0; } f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const)))))) (name f)
+          (init_expr
+           ((@1
+             (Annotated External
+              (@1
+               (Lambda (@1 (Type Int)) () ((pure) (const))
+                (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0)))))))))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (IntLiteral 0)))) (name x)
+          (init_expr ()))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() { return int; } f() x;";
+  [%expect{| Error: @1 'f' is not a compile-time constant |}]
+
 (* foo cannot recurse from within a declaration type. *)
 let%expect_test _ =
-  evaluate_declarations "type t = bool; t foo(t x) const { foo y; }";
-  (* evaluate_declarations "type t = bool; t foo(t x) const { foo(t) y; }"; TODO: replace above with this when calls are supported *)
+  evaluate_declarations "type t = bool; t foo(t x) const { foo(t) y; }";
   [%expect{| Error: @1 found cyclic dependency: foo -> foo |}]
 
 (* Const functions must not capture mutable variables. Note that this pass only catches this error if the function is called. *)
@@ -257,7 +361,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Int)) () false))))
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const))))))
           (name foo)
           (init_expr
            ((@1
@@ -274,4 +379,27 @@ let%expect_test _ =
           (init_expr ((@1 (IntLiteral 7)))))
          (1 0))))))
     |}]
+
+(* Impure nested function can capture mutable variables of const function. *)
+(*let%expect_test _ =
+  evaluate_declarations "type foo() const { mut type t = int; void bar() { t = bool; } bar(); return t; } foo() x;";
+  [%expect{|
+
+    |}]*)
+
+(*
+  Regression test (commented out): const function returning a const lambda
+  that captures a callee-local variable. This is a subtle escape: even if a
+  value passes `is_const_expression` (annotated const lambda), it may close
+  over the callee's local frame. The GC prevents dangling pointers, but this
+  leaks mutable local state into a supposedly-constant value and should be
+  rejected by the const-eval pass.
+
+  The test below uses hypothetical/unfinished syntax and is intentionally
+  commented out until the necessary checks and syntax are implemented.
+
+let%expect_test _ =
+  evaluate_declarations "int make() const { int x = 1; () const { x; } } int g = make();";
+  [%expect{| Error: @1 const lambda escapes callee-local frame |}]
+*)
 

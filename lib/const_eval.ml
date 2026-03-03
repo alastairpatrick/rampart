@@ -13,7 +13,8 @@ open Slot
 *)
 
 exception Saw_uninitialized of string
-  
+exception Return_exn of expression option
+
 type value =
 | Uninitialized_of_type of (* expression_type: *) expression option
 | Const_of_value of expression
@@ -129,6 +130,7 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
     | Expression expression -> (location, Expression (evaluate_expression env frame mode expression))
     | OrderIndependent statements -> (location, OrderIndependent (evaluate_order_independent env frame mode statements))
     | BoundDeclaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
+    | Return e -> (location, Return (evaluate_return env frame mode location e))
     | _ -> print_endline (Printf.sprintf "statement not implemented: %s" (Ast.show_statement (location, statement))); assert false;
   with Error message -> raise (Located_error (location, message))
 
@@ -139,21 +141,23 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
+  | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Tuple elements -> evaluate_tuple env frame mode location elements
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
 and evaluate_identifier _ frame mode location display_name ({index; depth} : slot) =
-  if mode = Search_for_declaration_types then
+  match mode with
+  | Search_for_declaration_types ->
     (location, BoundIdentifier (display_name, {index; depth}))
-  else
+  | Evaluate_consts ->
     let assignable = get_assignable frame {index; depth} display_name in
     match get_assignable_value assignable with
     | Uninitialized_of_type _ ->
       raise (Saw_uninitialized display_name)
     | Non_const_of_type _ ->
-      if frame.const && depth <> frame.depth then
+      if not frame.const || depth <> frame.depth then
         raise (error_not_a_compile_time_constant display_name);
       (location, (BoundIdentifier (display_name, {index; depth})))
     | Const_of_value (_, const_expression) ->
@@ -174,6 +178,40 @@ and evaluate_assignment env frame mode location a b =
      assignment in the future, for example when evaluating a pure function at compile time, which assigns
      to a mutable variable in its local frame. *)
   (location, Assignment (a, b))
+
+and evaluate_call env frame mode location callee args modifiers =
+  (* TODO: is evaluating the callee prior to the arguments consistent with other imperative languages? *)
+  let callee = evaluate_expression env frame mode callee in
+  let args = List.map (evaluate_expression env frame mode) args in
+  match callee with
+  | _, Annotated (Closure closure_frame, (_, Lambda (_, params, lambda_modifiers, (_, BoundFrame (num_variables, statements))))) ->
+    if mode=Evaluate_consts then begin
+      assert lambda_modifiers.const; (* See evaluate_lambda *)
+      let callee_frame = {
+        depth = closure_frame.depth+1;
+        enclosing_frame = Some closure_frame;
+        variables = Array.make num_variables empty_variable;
+        pure = true;
+        const = true;
+      } in
+      List.iteri (fun i (location, param) -> match param with
+        | BoundDeclaration ({type_expr=Some type_expr; name=name; _}, slot) ->
+          let arg = List.nth args i in
+          let arg = implicit_convert arg type_expr in
+          (*if not (is_const_expression arg) then
+            raise (error_not_a_compile_time_constant name);*)
+          set_assignable_value (get_assignable callee_frame slot name) (Const_of_value arg)
+        | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
+      try
+        evaluate_statements env callee_frame Evaluate_consts statements |> ignore;
+        (location, Tuple [])
+      with
+      | Return_exn Some return_value -> return_value
+      | Return_exn None -> (location, Tuple [])
+    end else begin
+      (location, Call (callee, args, modifiers))
+    end
+  | _ -> (location, Call (callee, args, modifiers))
 
 and evaluate_tuple env frame mode location elements =
   (location, Tuple (List.map (evaluate_expression env frame mode) elements))
@@ -204,12 +242,12 @@ and evaluate_lambda env frame _ location return_type params modifiers body_locat
   
 and type_of_lambda ((location, expression): expression) : expression =
   match expression with
-  | Annotated (Closure _, (_, Lambda (return_type, params, _, _)))
-  | Lambda (return_type, params, _, _) ->
+  | Annotated (Closure _, (_, Lambda (return_type, params, modifiers, _)))
+  | Lambda (return_type, params, modifiers, _) ->
     (location, Call (return_type, List.map (fun (_, param) ->
       match param with
       | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
-      | _ -> assert false) params, false))
+      | _ -> assert false) params, modifiers))
   | _ -> assert false
 
 and evaluate_declaration env frame mode _ declaration slot =
@@ -243,6 +281,13 @@ and evaluate_declaration env frame mode _ declaration slot =
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
     
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
+
+and evaluate_return env frame mode _ e =
+  let e = Option.bind e (Fun.compose Option.some (evaluate_expression env frame mode)) in
+  match mode with
+    | Search_for_declaration_types -> e
+    | Evaluate_consts -> raise (Return_exn e)
+
 
 and implicit_convert (location, value_expression) (_, type_expression) =
   match value_expression, type_expression with
