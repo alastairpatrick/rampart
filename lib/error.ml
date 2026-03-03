@@ -32,3 +32,5 @@ let error_cannot_nest_impure_function_in_pure_context = Error "cannot nest impur
 let error_cannot_call_impure_function_from_pure_context = Error "cannot call impure function from pure context"
 let error_cannot_access_mutable_captured_variable_from_pure_context name = Error (Printf.sprintf "cannot access mutable captured variable '%s' from pure context" name)
 let error_not_a_compile_time_constant (name: string) = Error (Printf.sprintf "'%s' is not a compile-time constant" name)
+let error_no_default_value = Error "no default value for this type"
+let error_expected_const_lambda = Error "expected a const lambda"

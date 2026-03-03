@@ -19,6 +19,7 @@ type value =
 | Uninitialized_of_type of (* expression_type: *) expression option
 | Const_of_value of expression
 | Non_const_of_type of expression
+| Non_const_of_value of expression
 
 type variable = {
   value: value;
@@ -80,7 +81,22 @@ let rec default_value ((location, type_expression): expression) : expression =
   | Type Bool -> (location, BoolLiteral false)
   | Tuple elements ->
     (location, Tuple (List.map default_value elements))
-  | _ -> raise (Invalid_argument (Printf.sprintf "no default value for type: %s" (Ast.show_expression (location, type_expression))))
+  | _ -> raise error_no_default_value
+
+let rec type_of_expression ((location, expression): expression) : expression =
+  match expression with
+  | IntLiteral _ -> (location, Type Int)
+  | BoolLiteral _ -> (location, Type Bool)
+  | Type _ -> (location, Type Type)
+  | Tuple elements -> (location, Tuple (List.map type_of_expression elements))
+  | Lambda (return_type, params, modifiers, _) ->
+    let param_types = List.map (fun (_, param) -> match param with
+      | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
+      | _ -> assert false) params in
+    (location, Call(return_type, param_types, modifiers))
+  | Annotated (_, expression) -> type_of_expression expression
+  | _ -> assert false (* TODO: implement for more expressions as needed *)
+
 
 let rec evaluate_statements env frame mode (statements : statement list) : statement list =
   List.map (evaluate_statement env frame mode) statements
@@ -145,6 +161,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Tuple elements -> evaluate_tuple env frame mode location elements
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements
+  | Annotated (_, expression) -> evaluate_expression env frame mode expression
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
 and evaluate_identifier _ frame mode location display_name ({index; depth} : slot) =
@@ -162,6 +179,12 @@ and evaluate_identifier _ frame mode location display_name ({index; depth} : slo
       (location, (BoundIdentifier (display_name, {index; depth})))
     | Const_of_value (_, const_expression) ->
       (location, const_expression)
+    | Non_const_of_value (_, const_expression) ->
+      if depth <> frame.depth then begin
+        assert frame.const;
+        raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
+      end;
+      (location, const_expression)
 
 and evaluate_binary_op env frame mode location op a b =
   let a = evaluate_expression env frame mode a in
@@ -172,12 +195,30 @@ and evaluate_binary_op env frame mode location op a b =
   | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s %s %s" (Ast.show_expression a) (Ast.show_binary_op op) (Ast.show_expression b)); assert false
 
 and evaluate_assignment env frame mode location a b =
-  let a = evaluate_expression env frame mode a in
-  let b = evaluate_expression env frame mode b in
-  (* For the time being skip actually performing the assignment. There are cases that we will perform an
-     assignment in the future, for example when evaluating a pure function at compile time, which assigns
-     to a mutable variable in its local frame. *)
-  (location, Assignment (a, b))
+  match mode with
+  | Search_for_declaration_types ->
+    let b = evaluate_expression env frame mode b in
+    let a = evaluate_expression env frame mode a in
+    (location, Assignment (a, b))
+  | Evaluate_consts ->
+    let b = evaluate_expression env frame mode b in
+    let assign (a : expression) (b : expression) : expression =
+      match a with
+      | _, BoundIdentifier (display_name, slot) ->
+        let assignable = get_assignable frame slot display_name in
+        let value = get_assignable_value assignable in
+        begin match value with
+        | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name) (* Raising this leaves the local frame unreachable so any side effects so far don't matter *)
+        | Non_const_of_type _ -> raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name)
+        | Const_of_value _ -> raise (error_immutable_assignment display_name)
+        | Non_const_of_value current ->
+          let b = implicit_convert b (type_of_expression current) in
+          (*print_endline (Printf.sprintf "assigning to %s. was %s. now %s" display_name (Ast.show_expression v) (Ast.show_expression b));*)
+          set_assignable_value assignable (Non_const_of_value b);
+          a
+        end
+      | _ -> raise (error_internal (Printf.sprintf "assignment target not implemented: %s" (Ast.show_expression a))) in
+    assign a b
 
 and evaluate_call env frame mode location callee args modifiers =
   (* TODO: is evaluating the callee prior to the arguments consistent with other imperative languages? *)
@@ -218,6 +259,8 @@ and evaluate_tuple env frame mode location elements =
   
 and evaluate_lambda env frame _ location return_type params modifiers body_location num_variables statements =
   let modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
+  if frame.const && not modifiers.const then
+    raise error_expected_const_lambda;
   let lambda_frame = {
     depth = frame.depth + 1;
     enclosing_frame = Some frame;
@@ -256,27 +299,37 @@ and evaluate_declaration env frame mode _ declaration slot =
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
     let type_expr = evaluate_expression env frame Evaluate_consts type_expr in
     let init_expr = implicit_convert (evaluate_expression env frame mode init_expr) type_expr in
-    if declaration.modifiers.mut || not (is_const_expression init_expr) then
-      set_assignable_value assignable (Non_const_of_type type_expr)
-    else
+    if (declaration.modifiers.mut || not (is_const_expression init_expr)) then begin
+      if mode=Evaluate_consts && frame.const then
+        set_assignable_value assignable (Non_const_of_value init_expr)
+      else        
+        set_assignable_value assignable (Non_const_of_type type_expr)
+    end else
       set_assignable_value assignable (Const_of_value init_expr);
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
 
   | { type_expr=Some type_expr; init_expr=None; _} ->
     let type_expr = evaluate_expression env frame Evaluate_consts type_expr in
-    let init_expr = try Some (default_value (type_expr)) with Invalid_argument _ -> None in
-    (match declaration.modifiers.mut, init_expr with
-      | true, _ | _, None ->set_assignable_value assignable (Non_const_of_type type_expr)
-      | _, Some init_expr -> set_assignable_value assignable (Const_of_value init_expr));
-    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = init_expr }, slot)
+    let init_expr = default_value type_expr in
+    if declaration.modifiers.mut then
+      if mode=Evaluate_consts && frame.const then
+        set_assignable_value assignable (Non_const_of_value init_expr)
+      else        
+        set_assignable_value assignable (Non_const_of_type type_expr)
+    else
+      set_assignable_value assignable (Const_of_value init_expr);
+    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
 
   | { type_expr=None; init_expr=Some init_expr; _} ->
     let init_expr = evaluate_expression env frame mode init_expr in
     (* This form of declaration is only used for lambda expressions. *)
     let type_expr = type_of_lambda init_expr in
-    if declaration.modifiers.mut || not (is_const_expression init_expr) then
-      set_assignable_value assignable (Non_const_of_type (type_expr))
-    else
+    if declaration.modifiers.mut || not (is_const_expression init_expr) then begin
+      if mode=Evaluate_consts && frame.const then
+        set_assignable_value assignable (Non_const_of_value init_expr)
+      else        
+        set_assignable_value assignable (Non_const_of_type type_expr)
+    end else
       set_assignable_value assignable (Const_of_value init_expr);
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
     

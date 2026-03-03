@@ -90,7 +90,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "type t = type; t x;";
+  evaluate_declarations "type t = type; t x = int;";
   [%expect{|
     (@1
      (OrderIndependent
@@ -101,7 +101,8 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name x) (init_expr ()))
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name x)
+          (init_expr ((@1 (Type Int)))))
          (1 0))))))
     |}]
 
@@ -302,34 +303,47 @@ let%expect_test _ =
   evaluate_declarations "mut type m = bool; type f(type t) const { return t; } f(m) x;";
   [%expect{| Error: @1 'm' is not a compile-time constant |}]
 
-(* TODO: Finish evaluate_assignment to allow this *)
-(*let%expect_test _ =
-  evaluate_declarations "type f(type t) const { mut type s = t; return s; } f(int) x;";
-  [%expect{|  |}]*)
-
-(* A declaration type not evaluating to an actual type might be benign in the const_eval pass; a later pass will catch the error. *)
 let%expect_test _ =
-  evaluate_declarations "int f() const { return 0; } f() x;";
+  evaluate_declarations "type f(type t) const { mut type s = t; return s; } f(int) x;";
   [%expect{|
     (@1
      (OrderIndependent
       ((@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const)))))) (name f)
+          (type_expr
+           ((@1 (Call (@1 (Type Type)) ((@1 (Type Type))) ((pure) (const))))))
+          (name f)
           (init_expr
            ((@1
              (Annotated External
               (@1
-               (Lambda (@1 (Type Int)) () ((pure) (const))
-                (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0)))))))))))))))
+               (Lambda (@1 (Type Type))
+                ((@1
+                  (BoundDeclaration
+                   ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+                    (init_expr ()))
+                   (0 1))))
+                ((pure) (const))
+                (@1
+                 (BoundFrame 2
+                  ((@1
+                    (BoundDeclaration
+                     ((modifiers ((mut))) (type_expr ((@1 (Type Type))))
+                      (name s) (init_expr ((@1 (BoundIdentifier t (0 1))))))
+                     (1 1)))
+                   (@1 (Return ((@1 (BoundIdentifier s (1 1))))))))))))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (IntLiteral 0)))) (name x)
-          (init_expr ()))
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
          (1 0))))))
     |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() const { return 0; } f() x;";
+  [%expect{| Error: @1 no default value for this type |}]
 
 let%expect_test _ =
   evaluate_declarations "type f() { return int; } f() x;";
@@ -341,17 +355,18 @@ let%expect_test _ =
   [%expect{| Error: @1 found cyclic dependency: foo -> foo |}]
 
 (* Const functions must not capture mutable variables. Note that this pass only catches this error if the function is called. *)
-(* TODO: calls not yet implemented *)
-(*let%expect_test _ =
-  evaluate_declarations "int foo() const { x; } foo(); mut int x;";
-  [%expect{| Error: @1 'x' is not a compile-time constant |}]*)
-
+let%expect_test _ =
+  evaluate_declarations "type foo() const { x; return int; } foo() z; mut int x;";
+  [%expect{| Error: @1 'x' is not a compile-time constant |}]
   
-(* Const functions must not capture non-const variables. Note that this pass only catches this error if the function is called. *)
-(* TODO: calls not yet implemented *)
-(*let%expect_test _ =
-  evaluate_declarations "int x = y; int foo() const { x; } foo(); mut int y;";
-  [%expect{| Error: @1 'x' is not a compile-time constant |}]*)
+(* Const functions must not capture non-const variables. *)
+let%expect_test _ =
+  evaluate_declarations "int x = y; type foo() const { x; return int; } foo() z; mut int y;";
+  [%expect{| Error: @1 'x' is not a compile-time constant |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { mut int x; type g() const { x; return int; } return g(); } f() y;";
+  [%expect{| Error: @1 cannot access mutable captured variable 'x' from pure context |}]
 
 (* Const function can capture const variables. *)
 let%expect_test _ =
@@ -380,26 +395,196 @@ let%expect_test _ =
          (1 0))))))
     |}]
 
-(* Impure nested function can capture mutable variables of const function. *)
-(*let%expect_test _ =
-  evaluate_declarations "type foo() const { mut type t = int; void bar() { t = bool; } bar(); return t; } foo() x;";
+(* Const function can mutate local frame. *)
+let%expect_test _ =
+  evaluate_declarations "type foo() const { mut type t = int; t = bool; return t; } foo() x;";
   [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name foo)
+          (init_expr
+           ((@1
+             (Annotated External
+              (@1
+               (Lambda (@1 (Type Type)) () ((pure) (const))
+                (@1
+                 (BoundFrame 1
+                  ((@1
+                    (BoundDeclaration
+                     ((modifiers ((mut))) (type_expr ((@1 (Type Type))))
+                      (name t) (init_expr ((@1 (Type Int)))))
+                     (0 1)))
+                   (@1
+                    (Expression
+                     (@1
+                      (Assignment (@1 (BoundIdentifier t (0 1)))
+                       (@1 (Type Bool))))))
+                   (@1 (Return ((@1 (BoundIdentifier t (0 1))))))))))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (1 0))))))
+    |}]
 
-    |}]*)
+(* Const function cannot mutate immutable variables. *)
+let%expect_test _ =
+  evaluate_declarations "type foo() const { int x; x = 1; return int; } foo() y;";
+  [%expect{| Error: @1 cannot assign to immutable variable 'x' |}]
 
-(*
-  Regression test (commented out): const function returning a const lambda
-  that captures a callee-local variable. This is a subtle escape: even if a
-  value passes `is_const_expression` (annotated const lambda), it may close
-  over the callee's local frame. The GC prevents dangling pointers, but this
-  leaks mutable local state into a supposedly-constant value and should be
-  rejected by the const-eval pass.
-
-  The test below uses hypothetical/unfinished syntax and is intentionally
-  commented out until the necessary checks and syntax are implemented.
+(* Const function cannot mutate immutable captured variables. *)
+let%expect_test _ =
+  evaluate_declarations "int x; type foo() const { x = 1; return int; } foo() y;";
+  [%expect{| Error: @1 cannot assign to immutable variable 'x' |}]
 
 let%expect_test _ =
-  evaluate_declarations "int make() const { int x = 1; () const { x; } } int g = make();";
-  [%expect{| Error: @1 const lambda escapes callee-local frame |}]
-*)
+  evaluate_declarations "type foo() const { x = 1; return int; } foo() y; int x;";
+  [%expect{| Error: @1 cannot assign to immutable variable 'x' |}]
+
+(* Const function cannot mutate mutable captured variables. *)
+let%expect_test _ =
+  evaluate_declarations "mut int x; type foo() const { x = 1; return int; } foo() y;";
+  [%expect{| Error: @1 cannot access mutable captured variable 'x' from pure context |}]
+
+(* Lambda nested within const lambda must itself be const *)
+let%expect_test _ =
+  evaluate_declarations "type foo() const { type t = int; type bar() { return t; } return bar; } void f(foo()() x) {}";
+  [%expect{| Error: @1 expected a const lambda |}]
+
+(* Const function can call another const function *)
+let%expect_test _ =
+  evaluate_declarations "type a() const { return int; } type b() const { return a(); } b() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name a)
+          (init_expr
+           ((@1
+             (Annotated External
+              (@1
+               (Lambda (@1 (Type Type)) () ((pure) (const))
+                (@1 (BoundFrame 0 ((@1 (Return ((@1 (Type Int)))))))))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name b)
+          (init_expr
+           ((@1
+             (Annotated External
+              (@1
+               (Lambda (@1 (Type Type)) () ((pure) (const))
+                (@1
+                 (BoundFrame 0
+                  ((@1
+                    (Return ((@1 (Call (@1 (BoundIdentifier a (0 0))) () ())))))))))))))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (2 0))))))
+    |}]
+
+(* Const function cannot call non-const function *)
+let%expect_test _ =
+  evaluate_declarations "type a() { return int; } type b() const { return a(); } b() x;";
+  [%expect{| Error: @1 'a' is not a compile-time constant |}]
+
+(* Nested const function captures caller's frame. *)
+let%expect_test _ =
+  evaluate_declarations "type foo() const { type t = int; type bar() const { return t; } return bar; } foo()() y;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name foo)
+          (init_expr
+           ((@1
+             (Annotated External
+              (@1
+               (Lambda (@1 (Type Type)) () ((pure) (const))
+                (@1
+                 (BoundFrame 2
+                  ((@1
+                    (BoundDeclaration
+                     ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+                      (init_expr ((@1 (Type Int)))))
+                     (0 1)))
+                   (@1
+                    (BoundDeclaration
+                     ((modifiers ())
+                      (type_expr
+                       ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+                      (name bar)
+                      (init_expr
+                       ((@1
+                         (Annotated External
+                          (@1
+                           (Lambda (@1 (Type Type)) () ((pure) (const))
+                            (@1
+                             (BoundFrame 0
+                              ((@1 (Return ((@1 (BoundIdentifier t (0 1))))))))))))))))
+                     (1 1)))
+                   (@1 (Return ((@1 (BoundIdentifier bar (1 1))))))))))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name y)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int make() const { int x = 1; return int lambda() const { return x; }; } int g = make();";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const))))))
+          (name make)
+          (init_expr
+           ((@1
+             (Annotated External
+              (@1
+               (Lambda (@1 (Type Int)) () ((pure) (const))
+                (@1
+                 (BoundFrame 1
+                  ((@1
+                    (BoundDeclaration
+                     ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+                      (init_expr ((@1 (IntLiteral 1)))))
+                     (0 1)))
+                   (@1
+                    (Return
+                     ((@1
+                       (Annotated External
+                        (@1
+                         (Lambda (@1 (Type Int)) () ((pure) (const))
+                          (@1
+                           (BoundFrame 0
+                            ((@1 (Return ((@1 (BoundIdentifier x (0 1))))))))))))))))))))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name g)
+          (init_expr ((@1 (Call (@1 (BoundIdentifier make (0 0))) () ())))))
+         (1 0))))))
+    |}]
+
 
