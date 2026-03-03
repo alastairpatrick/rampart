@@ -66,6 +66,28 @@ let%expect_test _ =
           (init_expr ((@1 (BoolLiteral false)))))
          (1 0))))))
     |}]
+    
+(* This pair of declarations forms a mutual reference (a -> b -> a). The
+   const-eval pass only reports cycles when they prevent evaluating a
+   declaration's type. Here both declarations' types can still be resolved,
+   so the pass returns the normalized program rather than emitting an error.
+   General cycle detection is deferred to the static type checker. *)
+let%expect_test _ =
+  evaluate_declarations "int a = b; int b = a;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+          (init_expr ((@1 (BoundIdentifier b (1 0))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
+          (init_expr ((@1 (BoundIdentifier a (0 0))))))
+         (1 0))))))
+    |}]
 
 let%expect_test _ =
   evaluate_declarations "type t = type; t x;";

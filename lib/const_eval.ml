@@ -85,7 +85,11 @@ let rec evaluate_statements env frame mode (statements : statement list) : state
   List.map (evaluate_statement env frame mode) statements
 
 and evaluate_order_independent env frame mode statements =
-  let in_queue = Queue.of_seq (Seq.map (fun s -> (s, "")) (List.to_seq statements)) in (* in_queue has a placeholder display name so it has the same shape as stalled_queue *)
+  (* `in_queue` uses a placeholder display name so it has the same pair shape
+    as `stalled_queue`. `stalled_queue` holds entries of the form
+    ((location, statement), display_name) so the pass can reliably
+    produce diagnostics tied to the original statement location. *)
+  let in_queue = Queue.of_seq (Seq.map (fun s -> (s, "")) (List.to_seq statements)) in
   let stalled_queue = Queue.create () in
   let out_queue = Queue.create() in
   let progress_made = ref false in
