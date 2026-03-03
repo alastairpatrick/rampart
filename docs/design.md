@@ -1,133 +1,128 @@
-Design: Static Type Checking and Compile-Time Constants
-======================================================
+**Rampart Design (Updated)**
 
-Purpose and goals
------------------
-This document records the short-term design for adding static type checking to Rampart by restricting declaration type expressions to a well-defined class of compile-time constants. The goal is to make type expressions fully evaluable at compile time so we can (1) build a static type environment, (2) run a sound static type checker, and (3) lower the program into a statically-typed IR amenable to ahead-of-time optimizations.
+This document describes the current design of Rampart's compile-time constant
+evaluation (CTCE), `pure` / `const` function semantics, and the compiler passes
+that lead up to static type checking. It's intentionally pragmatic — CTCE is
+conservative, avoids emulating runtime scheduling, and favors diagnostics that
+help later passes finish work safely.
 
-Design constraints and assumptions
- - The implementation contains runtime scheduling and effect machinery used by the interpreter; this is an implementation detail. The const-eval pass will be independent and must treat any runtime effect as a failure condition for compile-time evaluation.
+**Goals**
+- Allow some expressions (types, initializer expressions) to be resolved at
+  compile time so the static type checker can depend on those values.
+- Ensure compile-time evaluation is deterministic and side-effect free.
+- Provide clear, testable diagnostics when CTCE cannot proceed.
 
-Compiler passes (up to static type checking)
---------------------------------------------
-We describe the passes to implement (inputs/outputs, responsibilities):
+**Key Concepts**
+- Frame: a small runtime-like environment used by const-eval to model locals
+  and captured variables. Frames are plain OCaml records and are kept alive by
+  OCaml's GC if referenced by closures; however CTCE must still enforce
+  semantic restrictions to preserve determinism.
+- CTCE (const-eval): a conservative evaluator that substitutes compile-time
+  constant values into AST nodes so later passes can operate on concrete
+  expressions.
+- `pure` functions: runtime restriction enforced elsewhere (caller/callee
+  rules) preventing side-effectful operations in pure contexts.
+- `const` lambdas: stronger than `pure`. A `const` lambda can be executed at
+  compile time but only if all captured variables it reads are known CTCEs and
+  the returned values are themselves CTCEs.
 
-1. Lexer
-   - Input: source text
-   - Output: token stream
-   - Responsibility: recognize keywords (`lambda`, `pure`, `mut`, `type`, etc.), identifiers, literals, punctuation. No change required beyond existing lexer; `pure` must remain a reserved token for grammar.
+**Passes and Modes**
+- Lex / Parse / Bind: standard front-end phases produce a `Bound` AST where
+  identifiers are replaced with `BoundIdentifier` (with `slot` info) and
+  lambdas are bound into frames. The binder may annotate lambda nodes with
+  pass-specific annotations (e.g., `Annotated (Closure frame, ...)`) to record
+  capture frames.
+- Const-eval pass runs in two modes:
+  - `Search_for_declaration_types` — conservative traversal used to find
+    declarations whose *types* must be evaluated. It performs only low-risk
+    normalization (literal folding, tuple construction, type defaults) but
+    does NOT substitute identifiers or evaluate function calls. This avoids
+    false cyclic dependencies and prevents accidental compile-time side
+    effects or halts.
+  - `Evaluate_consts` — full CTCE mode for evaluating a specific declaration
+    type. This mode can substitute identifier values and may execute
+    `const` lambdas, but only under strict checks (callee annotated as
+    `const`, arguments must be CTCEs or explicitly allowed forms, returned
+    values must themselves be CTCEs, etc.). In the current design
+    `Evaluate_consts` is used to evaluate *declaration types*; declaration
+    initializers are evaluated only in the mode the pass was invoked with
+    (typically the conservative `Search_for_declaration_types`) and are not
+    automatically committed by `Evaluate_consts`. Only declaration *types*
+    may escape the const-eval pass — lambda expressions and their closures
+    are not written back into top-level AST nodes by CTCE.
 
-2. Parser
-   - Input: token stream
-   - Output: raw AST (including expressions for type positions)
-   - Responsibility: build AST nodes for expressions, declarations, lambdas, etc. The parser will still permit the syntactic forms allowed today (subject to grammar changes such as `pure` position). Parsing is not performing semantic checks.
+**CTCE Rules (Conservative Summary)**
+- Constant forms (always CTCE): integer/boolean literals, `Type` nodes, tuples
+  of CTCEs.
+- Identifier substitution: allowed only in `Evaluate_consts` mode and only if
+  the identifier maps to `Const_of_value` (a previously-identified CTCE) or to
+  `Non_const_of_value` that is *local* to a `const` frame being executed.
+  Reads of mutable or non-const captured variables are rejected during
+  `Evaluate_consts`.
+- Function calls at compile time: only `const` lambdas annotated with their
+  closure frame are eligible for execution by
+  `Evaluate_consts`. The evaluator creates a fresh callee frame with
+  `pure=true,const=true` and binds argument CTCEs into parameters. The body is
+  executed in `Evaluate_consts` mode; returns are captured via an exception
+  (`Return_exn`) and validated.
+- Return values from `Evaluate_consts` calls must be CTCEs (pass
+ - Return values from `Evaluate_consts` calls must be CTCEs (pass
+  `is_const_expression`). In practice the evaluator performs a conservative
+  traversal of the returned expression and rejects any *references* into the
+  callee's local frame or to non-CTCE captured variables. Concretely this
+  means rejecting `BoundIdentifier` nodes that resolve to slots in the callee
+  frame (or deeper) and rejecting `Annotated (Closure frame, ...)` where the
+  `closure` frame is the callee frame or an inner frame; such values would
+  otherwise expose ephemeral mutable state to later passes.
+- Assignments during `Evaluate_consts`: supported only in restricted cases.
+  The evaluator may update `Non_const_of_value` bindings in the current
+  const-local frame, but assignments to captured mutable variables are rejected.
 
-3. Binder (name resolution)
-   - Input: AST
-   - Output: Bound AST (identifiers replaced with `BoundIdentifier`, `BoundLet`, `BoundDeclaration`, `BoundFrame` for lambdas), slot allocation metadata
-   - Responsibility:
-     - Determine lexical scopes and allocate slots.
-     - Produce bound lambdas that capture an `enclosing_frame` depth (already implemented).
-     - This pass must also record, for each bound identifier used in a declaration-type expression, the declaration slot and whether the identifier is declared `mut` or immutable. This information will be used by the compile-time-constant evaluator.
+**Error Handling & Diagnostics**
+- CTCE raises `Located_error` for user-facing issues (cycles that prevent
+  evaluating a declaration type, invalid const-calls, illegal access of
+  mutable captured variables, escaping closures, etc.).
+- Non-recoverable internal invariants use `error_internal` to help debug the
+  compiler itself; these are not intended to be surfaced to end users.
+- Unit tests use `ppx_expect` and check both successful normalized ASTs and
+  diagnostic output when evaluation cannot proceed.
 
-4. Compile-time constant evaluator (const-eval)
-   - Input: bound AST and the binding environment (slot metadata)
-   - Output: a mapping from declaration -> compile-time-evaluated value (for declarations whose `type_expr` qualifies), or explicit compile-time error rejecting non-constant `type_expr`s
-   - Responsibilities and rules (see next section for the formal rules):
-     - Decide whether an expression is a compile-time constant following the conservative rules below.
-     - Evaluate constant expressions deterministically and without performing runtime effects (no I/O, no access to mutable captured variables).
-     - Mark declaration `type_expr` as resolved to a runtime `typ` (the internal type representation) if it is compile-time-constant and of category `type`; otherwise produce a compile-time error.
-   - Implementation notes:
-    - The evaluator must be conservative. If evaluation would access a mutable captured slot, the const-eval should abort and report the expression as non-constant.
-    - Calls are allowed only when the callee is provably pure and total, and all argument expressions are compile-time constants.
-    - The const-eval must be implemented as a focused, deterministic evaluator separate from the interpreter. It should abort on encountering any runtime-only behavior.
+**Semantics Notes & Rationale**
+- Big-step vs small-step: the current implementation uses a big-step
+  evaluator for simplicity. If the pass later needs to reason about fine
+  interleavings or step-limited evaluation to avoid halting, a small-step
+  engine can be introduced.
 
-5. Static type checker
-   - Input: bound AST + resolved declaration types (from const-eval)
-   - Output: type-annotated AST or typed IR; list of type errors
-   - Responsibilities:
-     - Use the compile-time-resolved types to build the global type environment.
-     - Type-check function bodies, expressions, and declarations using the resolved static types.
-     - Reject programs where inferred/declared types mismatch, or where runtime-only type constructs are used in type positions.
-   - Implementation notes:
-     - The checker should operate in phases: (a) collect resolved declaration types, (b) check signatures (function arities, parameter types), (c) check bodies (ensuring return types match, variables are used according to their types), (d) check purity constraints where relevant.
-     - For now the checker can be strict and require explicit type annotations on declarations; later we may add type inference.
+**Testing & Coverage**
+- Tests should cover:
+  - Literal and tuple folding.
+  - Type defaulting for declarations without initializers.
+  - `Search_for_declaration_types` conservative behavior — do not substitute
+    identifiers or evaluate calls.
+  - `Evaluate_consts` call execution for `const` lambdas and validation of
+    returned values (reject non-CTCE).
+  - Cycle detection that prevents declaration type evaluation (and expects
+    `Located_error`). Non-blocking cycles that do not prevent type evaluation
+    should be left for later passes (and tests should reflect that).
 
-Rules for compile-time constants
---------------------------------
-A compile-time constant expression (CTCE) is an expression that can be evaluated deterministically at compile time without causing runtime effects or depending on mutable state. Conservative rules:
+**Future Work / Enhancements**
+- Add a small-step execution mode or an evaluation-step limit to avoid
+  compile-time halting. A simple max-depth guard can be added as an
+  interim safeguard.
+- Strengthen `is_const_expression` to inspect closure annotations and ensure
+  captured variables are CTCEs where applicable.
 
-1. Base cases (immediate constants)
-   - type literals: `int`, `bool`, `type`, `void` are constants.
-   - integer/boolean literals (e.g., `7`, `true`). For clarity: numeric literals can be used in type-level tuples for convenience (e.g., `(int, 7)`) but this should be limited to contexts where they make sense.
+**References**
+- `lib/const_eval.ml` — current CTCE implementation.
+- `lib/test_const_eval.ml` — tests driving CTCE behavior.
+- `lib/evaluate.ml.legacy` — runtime evaluator; purity checks at runtime are
+  complementary to CTCE checks. This file is considered legacy, though is
+  still a useful reference. It will be deleted once all the features are
+  implemented in the const-eval and static type checking passes.
 
-2. Identifiers
-   - An identifier `x` is a CTCE only if:
-     - `x` is bound to a declaration that is immutable (`mut = false`), and
-     - the declaration's initializer (or the RHS of a `let` that defines it) itself is a compile-time constant.
-   - Note: this requires the binder to indicate whether the referenced declaration is `mut` and to provide the initializer expression for const-eval.
+---
 
-3. Composed expressions
-   - A composition (e.g., tuple construction, binary operations like `1+1`, construction of function types `int(int, bool)`) is a CTCE if all operand subexpressions are CTCEs and the syntactic operation is semantically constant (no allocation or side-effects that would change observable state).
-
-4. Function calls
-   - A call `f(a1, a2, ...)` is a CTCE only if:
-     - `f` is a known function value that is provably pure and total (e.g. no mutation of captured state), and
-     - every argument `ai` is a CTCE, and
-     - `f`'s behavior on constant inputs is deterministic and guaranteed not to depend on run-time environment or global mutable state.
-   - Practically, make this conservative: allow only calls to functions marked/annotated as `const` or `pure` where purity is statically known.
-
-5. Forbidden constructs
-   - Any expression that may cause I/O or access mutable captured slots is not a CTCE.
-
-Where CTCEs must be used
------------------------
-- Declaration `type_expr`: every `declaration.type_expr` that will be used for static type checking must be a CTCE and must evaluate to an entity of kind `type`. If not, compilation fails with a clear message.
-- Potential extensions: other compile-time computed metadata (e.g., size/layout annotations, compile-time macros) may also require CTCEs.
-
-Practical notes for implementation
-----------------------------------
-- Use the binder output to supply the const-eval with a directed acyclic graph of initializer dependencies to avoid infinite recursion; detect cycles and report errors.
--- Evaluate const expressions in a small-step deterministic evaluator distinct from runtime evaluation. This evaluator should:
-  - Treat any attempt to perform runtime scheduling, blocking, or other effects as an immediate failure (raise an error) rather than trying to emulate the runtime.
-  - Reject attempts to read `Uninitialized` slots or mutable captured slots.
-  - Allow only allowed builtins and pure/annotated functions.
-- Purity and totality for called functions:
-  - Start with a conservative annotation-based approach: only functions annotated `pure` and optionally `const` are allowed in compile-time calls.
-  - Later, you can add static purity analysis; dynamic checks are not sufficient for compile-time evaluation.
-
-Errors and diagnostics
-----------------------
-- If a declaration `type_expr` is not a CTCE or does not evaluate to a type, emit a clear compile-time error referencing the declaration site.
--- If const-eval encounters a runtime scheduling/blocking action or a mutable access, report that the expression is not a compile-time constant and indicate why.
-
-Benefits and limitations
-------------------------
-- Benefits:
-  - Once declaration types are compile-time constants, you can build a fixed type environment and perform full static checking.
-  - Static types make further optimizations possible: monomorphization, efficient calling conventions, removal of runtime type tags, and more predictable memory layout.
-- Limitations & further work:
-  - To approach performance parity with Java/C#/Rust you will need further work: AOT code generation, an optimizing backend, monomorphization for parametric code, and a managed runtime design (or native codegen).
-  - Generic/polymorphic features complicate const-eval and static checking; design decisions will be required.
-
-Next practical steps (implementation plan)
------------------------------------------
-1. Add a `const_eval` module (or pass) that consumes bound AST and outputs resolved declaration types or errors.
-2. Modify `bind.ml` to record initializer expressions and immutability for identifiers used in type positions.
-3. Implement the static type checker pass that relies on resolved declaration types from `const_eval`.
-4. Add test coverage: positive/negative tests for CTCEs (including pure-call const-eval), and end-to-end tests that verify static type errors are reported at compile time.
-
-Appendix: Example
------------------
-- Valid declaration-type expressions:
-  - `int`, `bool`
-  - `let x = int;` then `x` (if `x` is immutable and initializer is constant)
-  - `int(int, bool)` where `int` and `bool` are constants
-  - `CONST_FN(int)` where `CONST_FN` is a marked pure/const function and `int` is a constant
-
--- Invalid declaration-type expressions (rejected by const-eval):
-  - `let x = some_runtime_call();` then `x` used as a type
-  - any expression that would cause runtime scheduling/blocking or that depends on `mut` captured state
-
-
+Keep this document up to date as the CTCE pass expands. The design favors
+correctness and conservative safety over aggressive optimization of what can
+be evaluated at compile time.
 

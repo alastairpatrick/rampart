@@ -64,8 +64,19 @@ let rec get_assignable (frame : frame) ({index; depth}: slot) (display_name : st
 let get_assignable_value (index, variables) : value = 
   variables.(index).value
 
+let rec has_binds expression =
+  match expression with
+  | (_, BoundIdentifier _)
+  | (_, BoundLet _) -> true
+  | (_, Tuple elements) -> List.exists has_binds elements
+  | _ -> false
+
 let set_assignable_value (index, variables) (value : value) : unit =
-  variables.(index) <- { value }
+  match value with
+  | Const_of_value expression when has_binds expression ->
+    raise (error_internal "RHS of assignment should be impossible")
+  | _ ->
+    variables.(index) <- { value }
 
 let rec is_const_expression (expression : expression) : bool =
   match expression with
@@ -180,8 +191,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth} : slo
     | Const_of_value (_, const_expression) ->
       (location, const_expression)
     | Non_const_of_value (_, const_expression) ->
-      if depth <> frame.depth then begin
-        assert frame.const;
+      if not frame.const || depth <> frame.depth then begin
         raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
       end;
       (location, const_expression)
@@ -247,7 +257,10 @@ and evaluate_call env frame mode location callee args modifiers =
         evaluate_statements env callee_frame Evaluate_consts statements |> ignore;
         (location, Tuple [])
       with
-      | Return_exn Some return_value -> return_value
+      | Return_exn Some return_value ->
+        if not (is_const_expression return_value) then
+          raise (error_internal "non-constant return value should be impossible");
+        return_value
       | Return_exn None -> (location, Tuple [])
     end else begin
       (location, Call (callee, args, modifiers))
