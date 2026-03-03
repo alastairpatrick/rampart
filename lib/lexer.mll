@@ -12,6 +12,7 @@ rule token = parse
     | "arity"                           { ARITY }
     | "bool"                            { BOOL }
     | "case"                            { CASE }
+    | "const"                           { CONST }
     | "do"                              { DO }
     | "else"                            { ELSE }
     | "false"                           { FALSE }

@@ -5,8 +5,15 @@ open Bind
 open Error
 open Slot
 
-exception Saw_uninitialized of string
+(* Where possible, prefer to recover from errors in this pass, relying on a later pass to report them. Exceptions:
+  - It's okay to raise exceptions that will be caught within this module, such as Saw_uninitialized.
+  - Raise internal errors any time something "impossible" happens, for example if we encounter an AST node that we forgot to implement a case for. This is primarily to make it easier to detect and fix bugs in this module. Prefer these to assertions.
+  - Located_errors wrapping exceptions that this module must raise anyway is fine.
+  - Raise an Error exception when recovery is not practical.
+*)
 
+exception Saw_uninitialized of string
+  
 type value =
 | Uninitialized_of_type of (* expression_type: *) expression option
 | Const_of_value of expression
@@ -25,24 +32,31 @@ type frame = {
   enclosing_frame: frame option;
   variables: variable array;
   pure: bool;
+  const: bool;
 }
 
+type expression_annotation +=
+  | Closure of frame
+
 type eval_mode =
-  | Abandon_on_side_effect
-  | Substitute_consts_only
+  | Search_for_declaration_types
+  | Evaluate_consts
 
 let make_global_frame (num_globals : int) : frame = {
   depth = 0;
   enclosing_frame = None;
   variables = Array.make num_globals empty_variable;
   pure = false;
+  const = false;
 }
 
 let rec get_assignable (frame : frame) ({index; depth}: slot) (display_name : string) : assignable =
   if depth = frame.depth then
     index, frame.variables
   else begin
-    get_assignable (Option.get frame.enclosing_frame) {index; depth} display_name
+    match frame.enclosing_frame with
+    | Some enclosing -> get_assignable enclosing {index; depth} display_name
+    | None -> raise (error_internal (Printf.sprintf "invalid slot depth for %s" display_name))
   end
 
 let get_assignable_value (index, variables) : value = 
@@ -56,36 +70,31 @@ let rec is_const_expression (expression : expression) : bool =
   | _, IntLiteral _ -> true
   | _, Type _ -> true (* NB: if type expressions can incorporate ints, eg if we ever support fixed size arrays, would need to check that the ints are constants *)
   | _, Tuple elements -> List.for_all is_const_expression elements
+  | _, Annotated (Closure _, (_, Lambda (_, _, {const = true; _}, _))) -> true
   | _ -> false
 
-let rec default_value ((location, type_expression): expression) : expression option =
+let rec default_value ((location, type_expression): expression) : expression =
   match type_expression with
-  | Type Int -> Some (location, IntLiteral 0)
-  | Type Bool -> Some(location, BoolLiteral false)
+  | Type Int -> (location, IntLiteral 0)
+  | Type Bool -> (location, BoolLiteral false)
   | Tuple elements ->
-    let element_defaults = List.map default_value elements in
-    if List.for_all Option.is_some element_defaults then
-      Some (location, Tuple (List.map Option.get element_defaults))
-    else
-      None
-  | _ -> None
+    (location, Tuple (List.map default_value elements))
+  | _ -> raise (Invalid_argument (Printf.sprintf "no default value for type: %s" (Ast.show_expression (location, type_expression))))
 
 let rec evaluate_statements env frame mode (statements : statement list) : statement list =
   List.map (evaluate_statement env frame mode) statements
 
 and evaluate_order_independent env frame mode statements =
-  let in_queue = Queue.of_seq (List.to_seq statements) in
+  let in_queue = Queue.of_seq (Seq.map (fun s -> (s, "")) (List.to_seq statements)) in (* in_queue has a placeholder display name so it has the same shape as stalled_queue *)
   let stalled_queue = Queue.create () in
   let out_queue = Queue.create() in
-  let display_names = Queue.create() in
   let progress_made = ref false in
   while not (Queue.is_empty in_queue) do
     while not (Queue.is_empty in_queue) do
-      let statement = Queue.take in_queue in
+      let (statement, _) = Queue.take in_queue in
       match evaluate_statement env frame mode statement with
       | exception Saw_uninitialized display_name ->
-        Queue.add statement stalled_queue;
-        Queue.add display_name display_names
+        Queue.add (statement, display_name) stalled_queue;
 
       | evaluated_statement ->
         progress_made := true;
@@ -93,20 +102,23 @@ and evaluate_order_independent env frame mode statements =
     done;
 
     if not !progress_made then begin
-      if not (Queue.is_empty display_names) then begin (* defensive test; queue should never be empty here *)
-        let repeated = Queue.peek display_names in
-        Queue.add repeated display_names
-      end;
-
-      raise (Error (Printf.sprintf "found cyclic dependency: %s" (String.concat " -> " (List.of_seq (Queue.to_seq display_names)))))
+      match List.of_seq (Queue.to_seq stalled_queue) with
+        | [] -> raise (error_internal "a dependency cycle with no nodes should be impossible");
+        | head :: tail ->
+          let display_name (_, n) = n in
+          let location_of ((l, _), _) = l in
+          let msg = Printf.sprintf "found cyclic dependency: %s -> %s"
+            (String.concat " -> " (List.map display_name (head::tail)))
+            (display_name head)
+          in
+          raise (Located_error (location_of(head), msg))
     end;
 
-    Queue.clear display_names;
     Queue.transfer stalled_queue in_queue;
     progress_made := false
   done;
   List.of_seq (Queue.to_seq out_queue)
-  
+
 and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location, statement): statement) : statement =
   try
     match statement with
@@ -123,17 +135,25 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
-  | Tuple elements -> (location, Tuple (List.map (evaluate_expression env frame mode) elements))
+  | Tuple elements -> evaluate_tuple env frame mode location elements
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
-and evaluate_identifier _ frame _ location display_name slot =
-  let assignable = get_assignable frame slot display_name in
-  match get_assignable_value assignable with
-  | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name)
-  | Non_const_of_type _ -> (location, (BoundIdentifier (display_name, slot)))
-  | Const_of_value (_, const_expression) -> (location, const_expression)
+and evaluate_identifier _ frame mode location display_name ({index; depth} : slot) =
+  if mode = Search_for_declaration_types then
+    (location, BoundIdentifier (display_name, {index; depth}))
+  else
+    let assignable = get_assignable frame {index; depth} display_name in
+    match get_assignable_value assignable with
+    | Uninitialized_of_type _ ->
+      raise (Saw_uninitialized display_name)
+    | Non_const_of_type _ ->
+      if frame.const && depth <> frame.depth then
+        raise (error_not_a_compile_time_constant display_name);
+      (location, (BoundIdentifier (display_name, {index; depth})))
+    | Const_of_value (_, const_expression) ->
+      (location, const_expression)
 
 and evaluate_binary_op env frame mode location op a b =
   let a = evaluate_expression env frame mode a in
@@ -151,25 +171,36 @@ and evaluate_assignment env frame mode location a b =
      to a mutable variable in its local frame. *)
   (location, Assignment (a, b))
 
-and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements =
-    let return_type = evaluate_expression env frame mode return_type in
-    let lambda_frame = {
-      depth = frame.depth + 1;
-      enclosing_frame = Some frame;
-      variables = Array.make num_variables empty_variable;
-      pure = modifiers.pure;
-    } in
-    let params = List.mapi (fun i (location, param) -> match param with
-      | BoundDeclaration (declaration, slot) ->
-        let type_expr = evaluate_expression env frame mode (Option.get declaration.type_expr) in
-        lambda_frame.variables.(i) <- { value = Non_const_of_type type_expr };
-        (location, BoundDeclaration ( { declaration with type_expr = Some type_expr }, slot))
-      | _ -> print_endline (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))); assert false) params in
-    let statements = evaluate_statements env lambda_frame mode statements in
-    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))))
-
+and evaluate_tuple env frame mode location elements =
+  (location, Tuple (List.map (evaluate_expression env frame mode) elements))
+  
+and evaluate_lambda env frame _ location return_type params modifiers body_location num_variables statements =
+  let modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
+  let lambda_frame = {
+    depth = frame.depth + 1;
+    enclosing_frame = Some frame;
+    variables = Array.make num_variables empty_variable;
+    pure = modifiers.pure;
+    const = modifiers.const
+  } in
+  let return_type = evaluate_expression env frame Evaluate_consts return_type in
+  let params = List.mapi (fun i (location, param) -> match param with
+    | BoundDeclaration ({init_expr=init_expr; type_expr=Some type_expr; name=name; modifiers=modifiers}, slot) ->
+      let type_expr = evaluate_expression env frame Evaluate_consts type_expr in
+      lambda_frame.variables.(i) <- { value = Non_const_of_type type_expr };
+      (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
+    | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
+  let statements = evaluate_statements env lambda_frame Search_for_declaration_types statements in
+  let lambda = (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)))) in
+  (* TODO: need to check lambda actually meets requirements for pure or const *)
+  if modifiers.const then
+    (location, Annotated ((Closure frame), lambda))
+  else
+    lambda
+  
 and type_of_lambda ((location, expression): expression) : expression =
   match expression with
+  | Annotated (Closure _, (_, Lambda (return_type, params, _, _)))
   | Lambda (return_type, params, _, _) ->
     (location, Call (return_type, List.map (fun (_, param) ->
       match param with
@@ -181,7 +212,7 @@ and evaluate_declaration env frame mode _ declaration slot =
   let assignable = get_assignable frame slot declaration.name in
   match declaration with
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
-    let type_expr = evaluate_expression env frame mode type_expr in
+    let type_expr = evaluate_expression env frame Evaluate_consts type_expr in
     let init_expr = implicit_convert (evaluate_expression env frame mode init_expr) type_expr in
     if declaration.modifiers.mut || not (is_const_expression init_expr) then
       set_assignable_value assignable (Non_const_of_type type_expr)
@@ -190,8 +221,8 @@ and evaluate_declaration env frame mode _ declaration slot =
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
 
   | { type_expr=Some type_expr; init_expr=None; _} ->
-    let type_expr = evaluate_expression env frame mode type_expr in
-    let init_expr = default_value type_expr in
+    let type_expr = evaluate_expression env frame Evaluate_consts type_expr in
+    let init_expr = try Some (default_value (type_expr)) with Invalid_argument _ -> None in
     (match declaration.modifiers.mut, init_expr with
       | true, _ | _, None ->set_assignable_value assignable (Non_const_of_type type_expr)
       | _, Some init_expr -> set_assignable_value assignable (Const_of_value init_expr));
@@ -199,9 +230,12 @@ and evaluate_declaration env frame mode _ declaration slot =
 
   | { type_expr=None; init_expr=Some init_expr; _} ->
     let init_expr = evaluate_expression env frame mode init_expr in
-    (* This form of declaration is only used for lambda expressions, which we never treat as constants. *)
+    (* This form of declaration is only used for lambda expressions. *)
     let type_expr = type_of_lambda init_expr in
-    set_assignable_value assignable (Non_const_of_type (type_expr));
+    if declaration.modifiers.mut || not (is_const_expression init_expr) then
+      set_assignable_value assignable (Non_const_of_type (type_expr))
+    else
+      set_assignable_value assignable (Const_of_value init_expr);
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
     
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false

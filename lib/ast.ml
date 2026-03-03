@@ -3,11 +3,11 @@ open Sexplib
 open Sexplib.Std
 open Slot
 
-type external_value = ..
+type expression_annotation = ..
 
-let external_value_of_sexp _ : external_value = assert false
-let sexp_of_external_value _ : Sexp.t = Sexp.Atom "External"
-let pp_external_value _ _ = ()
+let expression_annotation_of_sexp _ : expression_annotation = assert false
+let sexp_of_expression_annotation _ : Sexp.t = Sexp.Atom "External"
+let pp_expression_annotation _ _ = ()
 
 type binary_op = Plus | Minus | Times | Div | Equals | NotEquals | Less | Greater
 
@@ -25,6 +25,7 @@ and ast_type =
 
 and lambda_modifiers = {
   pure: bool [@sexp.bool];
+  const: bool [@sexp.bool];
 }
 
 and expression_inner =
@@ -45,7 +46,7 @@ and expression_inner =
   | Tuple of expression list
   | Call of expression * expression list * (* pure: *) bool
   | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement
-  | External of external_value
+  | Annotated of expression_annotation * expression
   
 and expression = location * expression_inner
 
@@ -80,7 +81,7 @@ and statement = location * statement_inner
 [@@deriving sexp, show]
 
 let empty_declaration_modifiers : declaration_modifiers = { mut = false }
-let empty_lambda_modifiers : lambda_modifiers = { pure = false }
+let empty_lambda_modifiers : lambda_modifiers = { pure = false; const = false }
 
 let loc ((s: Lexing.position), (e: Lexing.position)) : location = make_location s e
 

@@ -301,7 +301,7 @@ and evaluate (thread : thread) (mode : result_mode) ((location, expression) : ex
 
 and make_variable_modifiers (modifiers : declaration_modifiers) : variable_modifiers =
   match modifiers with
-  | { mut = is_mut } -> { mut = is_mut }
+  | { mut = is_mut; _ } -> { mut = is_mut }
 
 and evaluate_declaration (thread : thread) _ (declaration : declaration) (slot : slot) : unit =
   let assignable = get_assignable thread.top_frame slot declaration.name in

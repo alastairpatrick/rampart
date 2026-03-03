@@ -322,6 +322,16 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
+  parse "int lambda() const {};";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1 (Lambda (@1 (Type Int)) () ((const)) (@1 (Compound ())))))))))
+    |}]
+
+let%expect_test _ =
   parse "lambda (int a, int b) {};";
   [% expect{|
     Error line 1, characters 1-6: unexpected 'lambda' keyword
@@ -367,6 +377,26 @@ let%expect_test _ =
               ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
                (init_expr ())))))
            ((pure)) (@1 (Compound ())))))))))
+    |}]
+
+let%expect_test _ =
+  parse "int lambda (int a, int b) const {};";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Lambda (@1 (Type Int))
+           ((@1
+             (Declaration
+              ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+               (init_expr ()))))
+            (@1
+             (Declaration
+              ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
+               (init_expr ())))))
+           ((const)) (@1 (Compound ())))))))))
     |}]
 
 let%expect_test _ =

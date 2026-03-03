@@ -8,6 +8,7 @@ let string_of_token (token : token) : string = match token with
   | CASE -> "'case' keyword"
   | COLON -> "':' symbol"
   | COMMA -> "',' symbol"
+  | CONST -> "'const' keyword"
   | DIV -> "'/' symbol"
   | DO -> "'do' keyword"
   | ELSE -> "'else' keyword"

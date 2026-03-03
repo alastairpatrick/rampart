@@ -137,9 +137,10 @@ and bind env pass ((location, expr) : expression) : env * expression =
   | BoundLet _
   | IntLiteral _
   | Type _
-  | External _
          -> env, (location, expr)
 
+  | Annotated (_, expr) -> bind env pass expr
+  
   | Assignment (a, b) ->
     let _, b = bind env pass b in
     let env, a = bind env pass a in
