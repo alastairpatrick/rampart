@@ -65,10 +65,8 @@ help later passes finish work safely.
   `pure=true,const=true` and binds argument CTCEs into parameters. The body is
   executed in `Evaluate_consts` mode; returns are captured via an exception
   (`Return_exn`) and validated.
-- Return values from `Evaluate_consts` calls must be CTCEs (pass
- - Return values from `Evaluate_consts` calls must be CTCEs (pass
-  `is_const_expression`). In practice the evaluator performs a conservative
-  traversal of the returned expression and rejects any *references* into the
+  - Return values from `Evaluate_consts` calls must be constant values (use `is_const_value`). In practice
+  the evaluator performs a conservative traversal of the returned expression and rejects any *references* into the
   callee's local frame or to non-CTCE captured variables. Concretely this
   means rejecting `BoundIdentifier` nodes that resolve to slots in the callee
   frame (or deeper) and rejecting `Annotated (Closure frame, ...)` where the
@@ -109,7 +107,7 @@ help later passes finish work safely.
 - Add a small-step execution mode or an evaluation-step limit to avoid
   compile-time halting. A simple max-depth guard can be added as an
   interim safeguard.
-- Strengthen `is_const_expression` to inspect closure annotations and ensure
+ - Strengthen `is_const_value` to inspect closure annotations and ensure
   captured variables are CTCEs where applicable.
 
 **References**

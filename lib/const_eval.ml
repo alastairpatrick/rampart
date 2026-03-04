@@ -78,6 +78,13 @@ let set_assignable_value (index, variables) (value : value) : unit =
   | _ ->
     variables.(index) <- { value }
 
+(* Constant expression aka compile-time constant expression (CTCE): an expression that can be evaluated to a const value at compile time
+   Constant value: a literal, a constant type, a const lambda expression or a tuple of constant values. Subset of the constant expressions.
+   Constant type: a constant value corresponding to a type. Subset of the constant values.
+
+   Constant expression > constant value > constant type
+*)
+
 let rec is_const_type (expression : expression) : bool =
   match expression with
   | _, Type _ -> true
@@ -90,28 +97,29 @@ let rec is_const_type (expression : expression) : bool =
 let check_is_const_type expression =
   if is_const_type expression then expression else raise error_type_expected
 
-let rec type_of_expression ((location, expression): expression) : expression =
+let rec is_const_value (expression : expression) : bool =
+  match expression with
+  | _, IntLiteral _ -> true
+  | _, Tuple elements -> List.for_all is_const_value elements
+  | _, Annotated (Closure _, (_, Lambda (_, _, {const = true; _}, _))) -> true
+  | _ when is_const_type expression -> true
+  | _ -> false
+
+(* This only needs to work for const values. Do not add cases for AST nodes that cannot be const values. *)
+let rec type_of_const_value ((location, expression): expression) : expression =
   match expression with
   | IntLiteral _ -> (location, Type Int)
   | BoolLiteral _ -> (location, Type Bool)
   | Type _ -> (location, Type Type)
-  | Tuple elements -> (location, Tuple (List.map type_of_expression elements))
+  | Tuple elements -> (location, Tuple (List.map type_of_const_value elements))
   | Lambda (return_type, params, modifiers, _) ->
     let param_types = List.map (fun (_, param) -> match param with
       | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
       | _ -> assert false) params in
     (location, Call(return_type, param_types, modifiers))
-  | Annotated (_, annotated) -> type_of_expression annotated
+  | Annotated (_, annotated) -> type_of_const_value annotated
   | _ when is_const_type (location, expression) -> (location, Type Type)
   | _ -> assert false (* TODO: implement for more expressions as needed *)
-
-let rec is_const_expression (expression : expression) : bool =
-  match expression with
-  | _, IntLiteral _ -> true
-  | _, Tuple elements -> List.for_all is_const_expression elements
-  | _, Annotated (Closure _, (_, Lambda (_, _, {const = true; _}, _))) -> true
-  | _ when is_const_type expression -> true
-  | _ -> false
 
 let rec default_value ((location, type_expression): expression) : expression =
   match type_expression with
@@ -235,7 +243,7 @@ and evaluate_assignment env frame mode location a b =
         | Non_const_of_type _ -> raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name)
         | Const_of_value _ -> raise (error_immutable_assignment display_name)
         | Non_const_of_value current ->
-          let b = implicit_convert b (type_of_expression current) in
+          let b = implicit_convert b (type_of_const_value current) in
           (*print_endline (Printf.sprintf "assigning to %s. was %s. now %s" display_name (Ast.show_expression v) (Ast.show_expression b));*)
           set_assignable_value assignable (Non_const_of_value b);
           a
@@ -262,7 +270,7 @@ and evaluate_call env frame mode location callee args modifiers =
         | BoundDeclaration ({type_expr=Some type_expr; name=name; _}, slot) ->
           let arg = List.nth args i in
           let arg = implicit_convert arg type_expr in
-          (*if not (is_const_expression arg) then
+          (*if not (is_const_value arg) then
             raise (error_not_a_compile_time_constant name);*)
           set_assignable_value (get_assignable callee_frame slot name) (Const_of_value arg)
         | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
@@ -271,7 +279,7 @@ and evaluate_call env frame mode location callee args modifiers =
         (location, Tuple [])
       with
       | Return_exn Some return_value ->
-        if not (is_const_expression return_value) then
+        if not (is_const_value return_value) then
           raise (error_internal "non-constant return value should be impossible");
         return_value
       | Return_exn None -> (location, Tuple [])
@@ -325,7 +333,7 @@ and evaluate_declaration env frame mode _ declaration slot =
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
     let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_consts type_expr) in
     let init_expr = implicit_convert (evaluate_expression env frame mode init_expr) type_expr in
-    if (declaration.modifiers.mut || not (is_const_expression init_expr)) then begin
+    if (declaration.modifiers.mut || not (is_const_value init_expr)) then begin
       if mode=Evaluate_consts && frame.const then
         set_assignable_value assignable (Non_const_of_value init_expr)
       else        
@@ -350,7 +358,7 @@ and evaluate_declaration env frame mode _ declaration slot =
     let init_expr = evaluate_expression env frame mode init_expr in
     (* This form of declaration is only used for lambda expressions. *)
     let type_expr = check_is_const_type (type_of_lambda init_expr) in
-    if declaration.modifiers.mut || not (is_const_expression init_expr) then begin
+    if declaration.modifiers.mut || not (is_const_value init_expr) then begin
       if mode=Evaluate_consts && frame.const then
         set_assignable_value assignable (Non_const_of_value init_expr)
       else        
