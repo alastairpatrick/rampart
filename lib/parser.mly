@@ -68,7 +68,7 @@ primary_expr
   | f=primary_expr LPAREN es=exprs0 RPAREN
     lm=lambda_modifiers                                     { loc $loc, Call (f, es, lm) }
   | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN
-    lm=lambda_modifiers b=compound_stat                     { loc $loc, Lambda (f, ps, lm, b) }
+    lm=lambda_modifiers b=compound_stat                     { loc $loc, Lambda (f, ps, lm, b, None) }
   | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, TypeOf e }
   | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
   ;
@@ -148,7 +148,7 @@ declaration
   : t=expr n=ID v=initialize? semi
                                                                 { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN
-    lm=lambda_modifiers b=compound_stat                         { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, lm, b)) } }
+    lm=lambda_modifiers b=compound_stat                         { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, lm, b, None)) } }
   | MUT d=declaration                                           { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;
 

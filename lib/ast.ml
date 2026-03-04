@@ -3,11 +3,11 @@ open Sexplib
 open Sexplib.Std
 open Slot
 
-type expression_annotation = ..
+type closure = ..
 
-let expression_annotation_of_sexp _ : expression_annotation = assert false
-let sexp_of_expression_annotation _ : Sexp.t = Sexp.Atom "External"
-let pp_expression_annotation _ _ = ()
+let closure_of_sexp _ : closure = assert false
+let sexp_of_closure _ : Sexp.t = Sexp.Atom "Closure"
+let pp_closure _ _ = ()
 
 type binary_op = Plus | Minus | Times | Div | Equals | NotEquals | Less | Greater
 
@@ -45,8 +45,7 @@ and expression_inner =
   | Conditional of expression * expression * expression
   | Tuple of expression list
   | Call of expression * expression list * lambda_modifiers
-  | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement
-  | Annotated of expression_annotation * expression
+  | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement * closure option
   
 and expression = location * expression_inner
 

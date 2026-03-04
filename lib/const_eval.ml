@@ -37,7 +37,7 @@ type frame = {
   const: bool;
 }
 
-type expression_annotation +=
+type closure +=
   | Closure of frame
 
 type eval_mode =
@@ -93,7 +93,6 @@ let rec is_const_type (expression : expression) : bool =
   | _, Tuple elements -> List.for_all is_const_type elements
   | _, Call (callee, param_types, _) ->
     is_const_type callee && List.for_all is_const_type param_types
-  | _, Annotated (_, annotated) -> is_const_type annotated
   | _ -> false
 
 let check_is_const_type expression =
@@ -103,7 +102,7 @@ let rec is_const_value (expression : expression) : bool =
   match expression with
   | _, IntLiteral _ -> true
   | _, Tuple elements -> List.for_all is_const_value elements
-  | _, Annotated (Closure _, (_, Lambda (_, _, {const = true; _}, _))) -> true
+  | _, Lambda (_, _, {const = true; _}, _, _) -> true
   | _ when is_const_type expression -> true
   | _ -> false
 
@@ -115,12 +114,11 @@ let rec type_of_expression ((location, expression): expression) : expression =
   | Type _ -> (location, Type Type)
   | Tuple elements -> (location, Tuple (List.map type_of_expression elements))
   | TypeOf _ -> (location, Type Type)
-  | Lambda (return_type, params, modifiers, _) ->
+  | Lambda (return_type, params, modifiers, _, _) ->
     let param_types = List.map (fun (_, param) -> match param with
       | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
       | _ -> assert false) params in
     (location, Call(return_type, param_types, modifiers))
-  | Annotated (_, annotated) -> type_of_expression annotated
   | _ when is_const_type (location, expression) -> (location, Type Type)
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false (* TODO: implement for more expressions as needed *)
 
@@ -130,7 +128,6 @@ let rec default_value ((location, const_type): expression) : expression =
   | Type Bool -> (location, BoolLiteral false)
   | Tuple elements ->
     (location, Tuple (List.map default_value elements))
-  | Annotated (_, annotated) -> default_value annotated
   | _ -> raise error_no_default_value
 
 let rec representative_value_of_type ((location, const_type): expression) : expression =
@@ -143,8 +140,7 @@ let rec representative_value_of_type ((location, const_type): expression) : expr
   | Call (return_type, param_types, modifiers) ->
     (location, Lambda (return_type,
       List.map (fun param_type -> (location, BoundDeclaration ({type_expr=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0}))) param_types,
-      modifiers, (location, Compound [])))
-  | Annotated (_, annotated) -> representative_value_of_type annotated
+      modifiers, (location, Compound []), None))
   | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_expression (location, const_type)))) 
 
 let rec evaluate_statements env frame mode (statements : statement list) : statement list =
@@ -209,10 +205,9 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Tuple elements -> evaluate_tuple env frame mode location elements
-  | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements))) ->
+  | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), _) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements
   | TypeOf e -> evaluate_typeof env frame mode location e
-  | Annotated (_, expression) -> evaluate_expression env frame mode expression
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
 and evaluate_identifier _ frame mode location display_name ({index; depth} : slot) =
@@ -290,10 +285,10 @@ and evaluate_call env frame mode location callee args modifiers =
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (evaluate_expression env frame mode) args in
   match callee with
-  | _, Lambda (return_type, _, _, _) when mode = Evaluate_type ->
+  | _, Lambda (return_type, _, _, _, _) when mode = Evaluate_type ->
     representative_value_of_type return_type
 
-  | _, Annotated (Closure closure_frame, (_, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statements))))) ->
+  | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statements)), Some Closure closure_frame) ->
     begin match mode with
     | Search_for_declaration_types ->
       (location, Call (callee, args, modifiers))
@@ -338,7 +333,7 @@ and evaluate_tuple env frame mode location elements =
 and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements =
   match mode with
   | Evaluate_type ->
-    representative_value_of_type (type_of_lambda (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)))))
+    representative_value_of_type (type_of_lambda (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), None)))
   | _ ->
     let modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
     if frame.const && not modifiers.const then
@@ -358,25 +353,19 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
       (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
     let statements = evaluate_statements env lambda_frame Search_for_declaration_types statements in
-    let lambda = (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)))) in
     (* TODO: need to check lambda actually meets requirements for pure or const *)
-    if modifiers.const then
-      (location, Annotated ((Closure frame), lambda))
-    else
-      lambda
+    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), if modifiers.const then Some (Closure frame) else None))
 
 and evaluate_typeof env frame _ _ e =
   type_of_expression (evaluate_expression env frame Evaluate_type e)
 
 and type_of_lambda ((location, expression): expression) : expression =
   match expression with
-  | Annotated (Closure _, (_, Lambda (return_type, params, modifiers, _)))
-  | Lambda (return_type, params, modifiers, _) ->
+  | Lambda (return_type, params, modifiers, _, _) ->
     (location, Call (return_type, List.map (fun (_, param) ->
       match param with
       | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
       | _ -> assert false) params, modifiers))
-  | Annotated (_, annotated) -> type_of_lambda annotated
   | _ -> assert false
 
 and evaluate_declaration env frame mode _ declaration slot =

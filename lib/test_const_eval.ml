@@ -172,7 +172,8 @@ let%expect_test _ =
                    (@1
                     (Assignment (@1 (BoundIdentifier called (0 0)))
                      (@1 (BoolLiteral true))))))
-                 (@1 (Return ((@1 (IntLiteral 0)))))))))))))
+                 (@1 (Return ((@1 (IntLiteral 0))))))))
+              ())))))
          (1 0)))
        (@1
         (BoundDeclaration
@@ -192,10 +193,9 @@ let%expect_test _ =
           (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const)))))) (name f)
           (init_expr
            ((@1
-             (Annotated External
-              (@1
-               (Lambda (@1 (Type Int)) () ((pure) (const))
-                (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0)))))))))))))))
+             (Lambda (@1 (Type Int)) () ((pure) (const))
+              (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0))))))))
+              (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -216,7 +216,7 @@ let%expect_test _ =
           (init_expr
            ((@1
              (Lambda (@1 (Type Int)) () ()
-              (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0)))))))))))))
+              (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0)))))))) ())))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -265,7 +265,7 @@ let%expect_test _ =
                  ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
                   (init_expr ()))
                  (0 1))))
-              () (@1 (BoundFrame 1 ())))))))
+              () (@1 (BoundFrame 1 ())) ())))))
          (0 0))))))
     |}]
 
@@ -312,7 +312,8 @@ let%expect_test _ =
                   (BoundDeclaration
                    ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name y)
                     (init_expr ((@1 (BoolLiteral false)))))
-                   (1 1)))))))))))
+                   (1 1))))))
+              ())))))
          (0 0))))))
     |}]
 
@@ -348,7 +349,8 @@ let%expect_test _ =
                    ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name y)
                     (init_expr ((@1 (BoolLiteral false)))))
                    (1 1)))
-                 (@1 (Expression (@1 (BoundIdentifier foo (0 0)))))))))))))
+                 (@1 (Expression (@1 (BoundIdentifier foo (0 0))))))))
+              ())))))
          (0 0))))))
     |}]
 let%expect_test _ =
@@ -369,23 +371,22 @@ let%expect_test _ =
           (name foo)
           (init_expr
            ((@1
-             (Annotated External
+             (Lambda (@1 (Type Bool))
+              ((@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+                  (init_expr ()))
+                 (0 1))))
+              ((pure) (const))
               (@1
-               (Lambda (@1 (Type Bool))
+               (BoundFrame 2
                 ((@1
                   (BoundDeclaration
-                   ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-                    (init_expr ()))
-                   (0 1))))
-                ((pure) (const))
-                (@1
-                 (BoundFrame 2
-                  ((@1
-                    (BoundDeclaration
-                     ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name y)
-                      (init_expr ((@1 (BoolLiteral false)))))
-                     (1 1)))
-                   (@1 (Expression (@1 (BoundIdentifier foo (0 0)))))))))))))))
+                   ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name y)
+                    (init_expr ((@1 (BoolLiteral false)))))
+                   (1 1)))
+                 (@1 (Expression (@1 (BoundIdentifier foo (0 0))))))))
+              (Closure))))))
          (0 0))))))
     |}]
 
@@ -402,10 +403,8 @@ let%expect_test _ =
           (name f)
           (init_expr
            ((@1
-             (Annotated External
-              (@1
-               (Lambda (@1 (Type Type)) () ((pure) (const))
-                (@1 (BoundFrame 0 ((@1 (Return ((@1 (Type Int)))))))))))))))
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1 (BoundFrame 0 ((@1 (Return ((@1 (Type Int)))))))) (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -427,21 +426,19 @@ let%expect_test _ =
           (name f)
           (init_expr
            ((@1
-             (Annotated External
+             (Lambda (@1 (Type Type))
+              ((@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+                  (init_expr ()))
+                 (0 1))))
+              ((pure) (const))
               (@1
-               (Lambda (@1 (Type Type))
+               (BoundFrame 1
                 ((@1
-                  (BoundDeclaration
-                   ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-                    (init_expr ()))
-                   (0 1))))
-                ((pure) (const))
-                (@1
-                 (BoundFrame 1
-                  ((@1
-                    (Return
-                     ((@1
-                       (Tuple ((@1 (Type Int)) (@1 (BoundIdentifier t (0 1)))))))))))))))))))
+                  (Return
+                   ((@1 (Tuple ((@1 (Type Int)) (@1 (BoundIdentifier t (0 1))))))))))))
+              (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -473,23 +470,22 @@ let%expect_test _ =
           (name f)
           (init_expr
            ((@1
-             (Annotated External
+             (Lambda (@1 (Type Type))
+              ((@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+                  (init_expr ()))
+                 (0 1))))
+              ((pure) (const))
               (@1
-               (Lambda (@1 (Type Type))
+               (BoundFrame 2
                 ((@1
                   (BoundDeclaration
-                   ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-                    (init_expr ()))
-                   (0 1))))
-                ((pure) (const))
-                (@1
-                 (BoundFrame 2
-                  ((@1
-                    (BoundDeclaration
-                     ((modifiers ((mut))) (type_expr ((@1 (Type Type))))
-                      (name s) (init_expr ((@1 (BoundIdentifier t (0 1))))))
-                     (1 1)))
-                   (@1 (Return ((@1 (BoundIdentifier s (1 1))))))))))))))))
+                   ((modifiers ((mut))) (type_expr ((@1 (Type Type)))) (name s)
+                    (init_expr ((@1 (BoundIdentifier t (0 1))))))
+                   (1 1)))
+                 (@1 (Return ((@1 (BoundIdentifier s (1 1)))))))))
+              (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -538,12 +534,10 @@ let%expect_test _ =
           (name foo)
           (init_expr
            ((@1
-             (Annotated External
+             (Lambda (@1 (Type Int)) () ((pure) (const))
               (@1
-               (Lambda (@1 (Type Int)) () ((pure) (const))
-                (@1
-                 (BoundFrame 0
-                  ((@1 (Expression (@1 (BoundIdentifier x (1 0)))))))))))))))
+               (BoundFrame 0 ((@1 (Expression (@1 (BoundIdentifier x (1 0))))))))
+              (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -565,22 +559,20 @@ let%expect_test _ =
           (name foo)
           (init_expr
            ((@1
-             (Annotated External
+             (Lambda (@1 (Type Type)) () ((pure) (const))
               (@1
-               (Lambda (@1 (Type Type)) () ((pure) (const))
-                (@1
-                 (BoundFrame 1
-                  ((@1
-                    (BoundDeclaration
-                     ((modifiers ((mut))) (type_expr ((@1 (Type Type))))
-                      (name t) (init_expr ((@1 (Type Int)))))
-                     (0 1)))
+               (BoundFrame 1
+                ((@1
+                  (BoundDeclaration
+                   ((modifiers ((mut))) (type_expr ((@1 (Type Type)))) (name t)
+                    (init_expr ((@1 (Type Int)))))
+                   (0 1)))
+                 (@1
+                  (Expression
                    (@1
-                    (Expression
-                     (@1
-                      (Assignment (@1 (BoundIdentifier t (0 1)))
-                       (@1 (Type Bool))))))
-                   (@1 (Return ((@1 (BoundIdentifier t (0 1))))))))))))))))
+                    (Assignment (@1 (BoundIdentifier t (0 1))) (@1 (Type Bool))))))
+                 (@1 (Return ((@1 (BoundIdentifier t (0 1)))))))))
+              (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -626,10 +618,8 @@ let%expect_test _ =
           (name a)
           (init_expr
            ((@1
-             (Annotated External
-              (@1
-               (Lambda (@1 (Type Type)) () ((pure) (const))
-                (@1 (BoundFrame 0 ((@1 (Return ((@1 (Type Int)))))))))))))))
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1 (BoundFrame 0 ((@1 (Return ((@1 (Type Int)))))))) (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -638,13 +628,11 @@ let%expect_test _ =
           (name b)
           (init_expr
            ((@1
-             (Annotated External
+             (Lambda (@1 (Type Type)) () ((pure) (const))
               (@1
-               (Lambda (@1 (Type Type)) () ((pure) (const))
-                (@1
-                 (BoundFrame 0
-                  ((@1
-                    (Return ((@1 (Call (@1 (BoundIdentifier a (0 0))) () ())))))))))))))))
+               (BoundFrame 0
+                ((@1 (Return ((@1 (Call (@1 (BoundIdentifier a (0 0))) () ()))))))))
+              (Closure))))))
          (1 0)))
        (@1
         (BoundDeclaration
@@ -671,32 +659,30 @@ let%expect_test _ =
           (name foo)
           (init_expr
            ((@1
-             (Annotated External
+             (Lambda (@1 (Type Type)) () ((pure) (const))
               (@1
-               (Lambda (@1 (Type Type)) () ((pure) (const))
-                (@1
-                 (BoundFrame 2
-                  ((@1
-                    (BoundDeclaration
-                     ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-                      (init_expr ((@1 (Type Int)))))
-                     (0 1)))
-                   (@1
-                    (BoundDeclaration
-                     ((modifiers ())
-                      (type_expr
-                       ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
-                      (name bar)
-                      (init_expr
-                       ((@1
-                         (Annotated External
-                          (@1
-                           (Lambda (@1 (Type Type)) () ((pure) (const))
-                            (@1
-                             (BoundFrame 0
-                              ((@1 (Return ((@1 (BoundIdentifier t (0 1))))))))))))))))
-                     (1 1)))
-                   (@1 (Return ((@1 (BoundIdentifier bar (1 1))))))))))))))))
+               (BoundFrame 2
+                ((@1
+                  (BoundDeclaration
+                   ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+                    (init_expr ((@1 (Type Int)))))
+                   (0 1)))
+                 (@1
+                  (BoundDeclaration
+                   ((modifiers ())
+                    (type_expr
+                     ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+                    (name bar)
+                    (init_expr
+                     ((@1
+                       (Lambda (@1 (Type Type)) () ((pure) (const))
+                        (@1
+                         (BoundFrame 0
+                          ((@1 (Return ((@1 (BoundIdentifier t (0 1)))))))))
+                        (Closure))))))
+                   (1 1)))
+                 (@1 (Return ((@1 (BoundIdentifier bar (1 1)))))))))
+              (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -717,25 +703,23 @@ let%expect_test _ =
           (name make)
           (init_expr
            ((@1
-             (Annotated External
+             (Lambda (@1 (Type Int)) () ((pure) (const))
               (@1
-               (Lambda (@1 (Type Int)) () ((pure) (const))
-                (@1
-                 (BoundFrame 1
-                  ((@1
-                    (BoundDeclaration
-                     ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-                      (init_expr ((@1 (IntLiteral 1)))))
-                     (0 1)))
-                   (@1
-                    (Return
-                     ((@1
-                       (Annotated External
-                        (@1
-                         (Lambda (@1 (Type Int)) () ((pure) (const))
-                          (@1
-                           (BoundFrame 0
-                            ((@1 (Return ((@1 (BoundIdentifier x (0 1))))))))))))))))))))))))))
+               (BoundFrame 1
+                ((@1
+                  (BoundDeclaration
+                   ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+                    (init_expr ((@1 (IntLiteral 1)))))
+                   (0 1)))
+                 (@1
+                  (Return
+                   ((@1
+                     (Lambda (@1 (Type Int)) () ((pure) (const))
+                      (@1
+                       (BoundFrame 0
+                        ((@1 (Return ((@1 (BoundIdentifier x (0 1)))))))))
+                      (Closure)))))))))
+              (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration

@@ -245,7 +245,8 @@ let%expect_test _ =
                     (Conditional
                      (@1
                       (BinaryOp Greater (@1 (Identifier a)) (@1 (Identifier b))))
-                     (@1 (Identifier a)) (@1 (Identifier b)))))))))))))))))))
+                     (@1 (Identifier a)) (@1 (Identifier b)))))))))
+              ()))))))))))
     |}]
  
 let%expect_test _ =
@@ -317,7 +318,8 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Lambda (@1 (Type Int)) () () (@1 (Compound ())))))))))
+      ((@1
+        (Expression (@1 (Lambda (@1 (Type Int)) () () (@1 (Compound ())) ())))))))
     |}]
 
 let%expect_test _ =
@@ -326,7 +328,8 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1
-        (Expression (@1 (Lambda (@1 (Type Int)) () ((pure)) (@1 (Compound ())))))))))
+        (Expression
+         (@1 (Lambda (@1 (Type Int)) () ((pure)) (@1 (Compound ())) ())))))))
     |}]
 
 let%expect_test _ =
@@ -336,7 +339,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (Lambda (@1 (Type Int)) () ((const)) (@1 (Compound ())))))))))
+         (@1 (Lambda (@1 (Type Int)) () ((const)) (@1 (Compound ())) ())))))))
     |}]
 
 let%expect_test _ =
@@ -364,7 +367,7 @@ let%expect_test _ =
              (Declaration
               ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
                (init_expr ())))))
-           () (@1 (Compound ())))))))))
+           () (@1 (Compound ())) ())))))))
     |}]
 
 let%expect_test _ =
@@ -384,7 +387,7 @@ let%expect_test _ =
              (Declaration
               ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
                (init_expr ())))))
-           ((pure)) (@1 (Compound ())))))))))
+           ((pure)) (@1 (Compound ())) ())))))))
     |}]
 
 let%expect_test _ =
@@ -404,7 +407,7 @@ let%expect_test _ =
              (Declaration
               ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
                (init_expr ())))))
-           ((const)) (@1 (Compound ())))))))))
+           ((const)) (@1 (Compound ())) ())))))))
     |}]
 
 let%expect_test _ =
@@ -426,7 +429,7 @@ let%expect_test _ =
                 (Declaration
                  ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
                   (init_expr ())))))
-              () (@1 (Compound ()))))))))))))
+              () (@1 (Compound ())) ()))))))))))
     |}]
 
 let%expect_test _ =
@@ -448,7 +451,7 @@ let%expect_test _ =
                 (Declaration
                  ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
                   (init_expr ())))))
-              ((pure)) (@1 (Compound ()))))))))))))
+              ((pure)) (@1 (Compound ())) ()))))))))))
     |}]
 
 
