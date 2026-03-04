@@ -205,6 +205,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Tuple elements -> evaluate_tuple env frame mode location elements
+  | Arity e -> evaluate_arity env frame mode location e
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), _) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements
   | TypeOf e -> evaluate_typeof env frame mode location e
@@ -330,6 +331,18 @@ and evaluate_call env frame mode location callee args modifiers =
 and evaluate_tuple env frame mode location elements =
   (location, Tuple (List.map (evaluate_expression env frame mode) elements))
   
+and evaluate_arity env frame mode location e =
+  match mode with
+  | Search_for_declaration_types ->
+    let e = evaluate_expression env frame mode e in
+    (location, Arity e)
+  | Evaluate_type -> representative_value_of_type (location, Type Int)
+  | Evaluate_const ->
+    let e = evaluate_expression env frame mode e in
+    match e with
+    | _, Tuple elements -> (location, IntLiteral (List.length elements))
+    | _ -> (location, IntLiteral 1)
+
 and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements =
   match mode with
   | Evaluate_type ->
@@ -376,6 +389,7 @@ and evaluate_declaration env frame mode _ declaration slot =
   match declaration with
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
     let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
+    set_assignable_value assignable (Uninitialized_of_type (Some type_expr));
     let init_expr = implicit_convert (evaluate_expression env frame mode init_expr) type_expr in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)

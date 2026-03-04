@@ -281,6 +281,208 @@ let%expect_test _ =
          (0 0))))))
     |}]
 
+(* Evaluates f() and stores the result value arity in n. *)
+let%expect_test _ =
+  evaluate_declarations "mut bool changed; (int, int) f() { changed = true; return (1, 2); } int n = arity(f());";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name changed)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()
+              (@1
+               (BoundFrame 0
+                ((@1
+                  (Expression
+                   (@1
+                    (Assignment (@1 (BoundIdentifier changed (0 0)))
+                     (@1 (BoolLiteral true))))))
+                 (@1
+                  (Return
+                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+              ())))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
+          (init_expr
+           ((@1 (Arity (@1 (Call (@1 (BoundIdentifier f (1 0))) () ())))))))
+         (2 0))))))
+    |}]
+
+(* Evaluates f() and stores the result value arity in n. *)
+let%expect_test _ =
+  evaluate_declarations "mut bool changed; (int, int) f() { changed = true; return (1, 2); } int n = arity(f());";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name changed)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()
+              (@1
+               (BoundFrame 0
+                ((@1
+                  (Expression
+                   (@1
+                    (Assignment (@1 (BoundIdentifier changed (0 0)))
+                     (@1 (BoolLiteral true))))))
+                 (@1
+                  (Return
+                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+              ())))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
+          (init_expr
+           ((@1 (Arity (@1 (Call (@1 (BoundIdentifier f (1 0))) () ())))))))
+         (2 0))))))
+    |}]
+
+(* Evaluates f() and stores the result value arity in n. *)
+let%expect_test _ =
+  evaluate_declarations "mut bool changed; (int, int) f() { changed = true; return (1, 2); } int n = arity(typeof(f()));";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name changed)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()
+              (@1
+               (BoundFrame 0
+                ((@1
+                  (Expression
+                   (@1
+                    (Assignment (@1 (BoundIdentifier changed (0 0)))
+                     (@1 (BoolLiteral true))))))
+                 (@1
+                  (Return
+                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+              ())))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
+          (init_expr
+           ((@1 (Arity (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))))))
+         (2 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int a = arity(typeof(b)); int b = arity(typeof(a));";
+  [%expect{|
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut bool changed; (int, int) f() { changed = true; return (1, 2); } typeof(arity(f())) x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name changed)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()
+              (@1
+               (BoundFrame 0
+                ((@1
+                  (Expression
+                   (@1
+                    (Assignment (@1 (BoundIdentifier changed (0 0)))
+                     (@1 (BoolLiteral true))))))
+                 (@1
+                  (Return
+                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+              ())))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (2 0))))))
+    |}]
+
+
+let%expect_test _ =
+  evaluate_declarations "mut bool changed; (int, int) f() { changed = true; return (1, 2); } type t = typeof(arity(f()));";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name changed)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))) () ()
+              (@1
+               (BoundFrame 0
+                ((@1
+                  (Expression
+                   (@1
+                    (Assignment (@1 (BoundIdentifier changed (0 0)))
+                     (@1 (BoolLiteral true))))))
+                 (@1
+                  (Return
+                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+              ())))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (2 0))))))
+    |}]
+
 (* Declarations types within foo are evaluated, even if foo is not called *)
 let%expect_test _ =
   evaluate_declarations "t foo(t x) { t y; } type t = bool;";
