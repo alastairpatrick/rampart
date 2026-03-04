@@ -180,7 +180,9 @@ and bind env pass ((location, expr) : expression) : env * expression =
     env, (location, Conditional (c, a, b))
 
   | Tuple es ->
-    env, (location, Tuple (List.map (fun e -> let _, e = bind env pass e in e) es))
+    (* All BoundLets in the tuple must be added to the surrounding environment *)
+    let env, es = List.fold_left (fun (env, es) e -> let env, e = bind env pass e in (env, e::es)) (env, []) es in
+    env, (location, Tuple (List.rev es))
 
   | TypeOf e ->
     let _, e = bind env pass e in

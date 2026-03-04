@@ -53,13 +53,13 @@ let make_global_frame (num_globals : int) : frame = {
   const = false;
 }
 
-let rec get_assignable (frame : frame) ({index; depth}: slot) (display_name : string) : assignable =
+let rec get_assignable (frame : frame) ({index; depth}: slot) : assignable =
   if depth = frame.depth then
     index, frame.variables
   else begin
     match frame.enclosing_frame with
-    | Some enclosing -> get_assignable enclosing {index; depth} display_name
-    | None -> raise (error_internal (Printf.sprintf "invalid slot depth for %s" display_name))
+    | Some enclosing -> get_assignable enclosing {index; depth}
+    | None -> raise (error_internal (Printf.sprintf "invalid slot depth"))
   end
 
 let get_assignable_value (index, variables) : value = 
@@ -201,6 +201,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoolLiteral _
   | Type _ -> (location, expression)
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
+  | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment") (* TODO: move this check to the bind pass so we don't have to duplicate it in multiple passes? *)
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
@@ -217,7 +218,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth} : slo
     (location, BoundIdentifier (display_name, {index; depth}))
 
   | Evaluate_type ->
-    let assignable = get_assignable frame {index; depth} display_name in
+    let assignable = get_assignable frame {index; depth} in
     begin match get_assignable_value assignable with
     | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
     | Uninitialized_of_type (Some const_type)
@@ -227,7 +228,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth} : slo
     end
 
   | Evaluate_const ->
-    let assignable = get_assignable frame {index; depth} display_name in
+    let assignable = get_assignable frame {index; depth} in
     match get_assignable_value assignable with
     | Uninitialized_of_type _ ->
       raise (Saw_uninitialized display_name)
@@ -255,18 +256,19 @@ and evaluate_assignment env frame mode location a b =
   match mode with
   | Search_for_declaration_types ->
     let b = evaluate_expression env frame mode b in
-    let a = evaluate_expression env frame mode a in
+    (* a is not searched here because there should be no declarations to find on the LHS of an assignment and there should be nothing to normalize on the LHS of an assignment *)
     (location, Assignment (a, b))
 
   | Evaluate_type ->
+    (* The result should be the RHS, implicitly converted to the same type as the LHS. The value doesn't matter in this case, so return any value with the same type as the LHS *)
     evaluate_expression env frame mode a
 
   | Evaluate_const ->
     let b = evaluate_expression env frame mode b in
-    let assign (a : expression) (b : expression) : expression =
-      match a with
-      | _, BoundIdentifier (display_name, slot) ->
-        let assignable = get_assignable frame slot display_name in
+    let rec assign (a : expression) (b : expression) : expression =
+      match a, b with
+      | (_, BoundIdentifier (display_name, slot)), _ ->
+        let assignable = get_assignable frame slot in
         let value = get_assignable_value assignable in
         begin match value with
         | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name) (* Raising this leaves the local frame unreachable so any side effects so far don't matter *)
@@ -276,8 +278,22 @@ and evaluate_assignment env frame mode location a b =
           let b = implicit_convert b (type_of_expression current) in
           (*print_endline (Printf.sprintf "assigning to %s. was %s. now %s" display_name (Ast.show_expression v) (Ast.show_expression b));*)
           set_assignable_value assignable (Non_const_of_value b);
-          a
+          b (* The result should be the RHS, implicitly converted to the same type as the LHS *)
         end
+
+      | (_, BoundLet (_, slot)), _ ->
+        let assignable = get_assignable frame slot in
+        (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
+           whereas, BoundIdentifiers are always initialized before any reassignment. *)
+        set_assignable_value assignable (Non_const_of_value b);
+        b (* The result should be the RHS, implicitly converted to the same type as the LHS, but the type of the LHS is inferred from the RHS in this case *)
+
+      | (_, Tuple froms), (_, Tuple tos) ->
+        (try
+          (location, Tuple (List.map2 assign froms tos))
+        with Invalid_argument _ -> raise error_type_mismatch)
+
+      | (_, Tuple _), _ -> raise error_type_mismatch
 
       | _ -> raise (error_internal (Printf.sprintf "assignment target not implemented: %s" (Ast.show_expression a))) in
     assign a b
@@ -308,12 +324,12 @@ and evaluate_call env frame mode location callee args modifiers =
         const = true;
       } in
       List.iteri (fun i (location, param) -> match param with
-        | BoundDeclaration ({type_expr=Some type_expr; name=name; _}, slot) ->
+        | BoundDeclaration ({type_expr=Some type_expr; _}, slot) ->
           let arg = List.nth args i in
           let arg = implicit_convert arg type_expr in
           (*if not (is_const_value arg) then
             raise (error_not_a_compile_time_constant name);*)
-          set_assignable_value (get_assignable callee_frame slot name) (Const_of_value arg)
+          set_assignable_value (get_assignable callee_frame slot) (Const_of_value arg)
         | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
       try
         evaluate_statements env callee_frame mode statements |> ignore;
@@ -376,7 +392,7 @@ and evaluate_typeof env frame _ _ e =
 and evaluate_declaration env frame mode _ declaration slot =
   assert (mode <> Evaluate_type);
 
-  let assignable = get_assignable frame slot declaration.name in
+  let assignable = get_assignable frame slot in
 
   let initialize_assignable type_expr init_expr =
     if (declaration.modifiers.mut || not (is_const_value init_expr)) then begin

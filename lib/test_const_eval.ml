@@ -760,6 +760,29 @@ let%expect_test _ =
          (1 0))))))
     |}]
 
+let%expect_test _ =
+  evaluate_declarations "int foo() const { x; } let x = 7;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const))))))
+          (name foo)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int)) () ((pure) (const))
+              (@1
+               (BoundFrame 0 ((@1 (Expression (@1 (BoundIdentifier x (1 0))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier x) (1 0))) (@1 (IntLiteral 7)))))))))
+    |}]
+
 (* Const function can mutate local frame. *)
 let%expect_test _ =
   evaluate_declarations "type foo() const { mut type t = int; t = bool; return t; } foo() x;";
@@ -906,6 +929,151 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
+  evaluate_declarations "type f() const { let t = (int, bool); return t; } f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1
+               (BoundFrame 1
+                ((@1
+                  (Expression
+                   (@1
+                    (Assignment (@1 (BoundLet (Identifier t) (0 1)))
+                     (@1 (Tuple ((@1 (Type Int)) (@1 (Type Bool)))))))))
+                 (@1 (Return ((@1 (BoundIdentifier t (0 1)))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Tuple ((@1 (Type Int)) (@1 (Type Bool))))))) (name x)
+          (init_expr
+           ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (BoolLiteral false))))))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { (let s, let t) = (int, bool); return t; } f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1
+               (BoundFrame 2
+                ((@1
+                  (Expression
+                   (@1
+                    (Assignment
+                     (@1
+                      (Tuple
+                       ((@1 (BoundLet (Identifier s) (0 1)))
+                        (@1 (BoundLet (Identifier t) (1 1))))))
+                     (@1 (Tuple ((@1 (Type Int)) (@1 (Type Bool)))))))))
+                 (@1 (Return ((@1 (BoundIdentifier t (1 1)))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { (let s, (let t, let u)) = (int, (bool, int)); return t; } f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1
+               (BoundFrame 3
+                ((@1
+                  (Expression
+                   (@1
+                    (Assignment
+                     (@1
+                      (Tuple
+                       ((@1 (BoundLet (Identifier s) (0 1)))
+                        (@1
+                         (Tuple
+                          ((@1 (BoundLet (Identifier t) (1 1)))
+                           (@1 (BoundLet (Identifier u) (2 1)))))))))
+                     (@1
+                      (Tuple
+                       ((@1 (Type Int))
+                        (@1 (Tuple ((@1 (Type Bool)) (@1 (Type Int))))))))))))
+                 (@1 (Return ((@1 (BoundIdentifier t (1 1)))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { (let s, let t) = int; return t; } f() x;";
+  [%expect{| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { (let s, let t) = (int, int, int); return t; } f() x;";
+  [%expect{| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { let s; return s; } f() x;";
+  [%expect{| Error: @1 'let' expressions may only appear to the left of an assignment |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { () = (); return int; } f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1
+               (BoundFrame 0
+                ((@1
+                  (Expression (@1 (Assignment (@1 (Tuple ())) (@1 (Tuple ()))))))
+                 (@1 (Return ((@1 (Type Int))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
   evaluate_declarations "int make() const { int x = 1; return int lambda() const { return x; }; } int g = make();";
   [%expect{|
     (@1
@@ -941,5 +1109,4 @@ let%expect_test _ =
           (init_expr ((@1 (Call (@1 (BoundIdentifier make (0 0))) () ())))))
          (1 0))))))
     |}]
-
 
