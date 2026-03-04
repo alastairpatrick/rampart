@@ -34,3 +34,4 @@ let error_cannot_access_mutable_captured_variable_from_pure_context name = Error
 let error_not_a_compile_time_constant (name: string) = Error (Printf.sprintf "'%s' is not a compile-time constant" name)
 let error_no_default_value = Error "no default value for this type"
 let error_expected_const_lambda = Error "expected a const lambda"
+let error_type_expected = Error "expected a type"

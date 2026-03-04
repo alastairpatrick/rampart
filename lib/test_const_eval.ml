@@ -343,7 +343,7 @@ let%expect_test _ =
 
 let%expect_test _ =
   evaluate_declarations "int f() const { return 0; } f() x;";
-  [%expect{| Error: @1 no default value for this type |}]
+  [%expect{| Error: @1 expected a type |}]
 
 let%expect_test _ =
   evaluate_declarations "type f() { return int; } f() x;";
