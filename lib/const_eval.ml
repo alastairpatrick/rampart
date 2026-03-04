@@ -106,7 +106,7 @@ let rec is_const_value (expression : expression) : bool =
   | _ when is_const_type expression -> true
   | _ -> false
 
-(* This must work on any const value or any representative value. *)
+(* This must work on any const value, any lambda (const or not) and any representative value. *)
 let rec type_of_expression ((location, expression): expression) : expression =
   match expression with
   | IntLiteral _ -> (location, Type Int)
@@ -333,7 +333,7 @@ and evaluate_tuple env frame mode location elements =
 and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements =
   match mode with
   | Evaluate_type ->
-    representative_value_of_type (type_of_lambda (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), None)))
+    representative_value_of_type (type_of_expression (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), None)))
   | _ ->
     let modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
     if frame.const && not modifiers.const then
@@ -358,15 +358,6 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
 
 and evaluate_typeof env frame _ _ e =
   type_of_expression (evaluate_expression env frame Evaluate_type e)
-
-and type_of_lambda ((location, expression): expression) : expression =
-  match expression with
-  | Lambda (return_type, params, modifiers, _, _) ->
-    (location, Call (return_type, List.map (fun (_, param) ->
-      match param with
-      | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
-      | _ -> assert false) params, modifiers))
-  | _ -> assert false
 
 and evaluate_declaration env frame mode _ declaration slot =
   assert (mode <> Evaluate_type);
@@ -398,7 +389,7 @@ and evaluate_declaration env frame mode _ declaration slot =
   | { type_expr=None; init_expr=Some init_expr; _} ->
     let init_expr = evaluate_expression env frame mode init_expr in
     (* This form of declaration is only used for lambda expressions. *)
-    let type_expr = check_is_const_type (type_of_lambda init_expr) in
+    let type_expr = check_is_const_type (type_of_expression init_expr) in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
     
