@@ -1,4 +1,4 @@
 (executable
- (public_name hello)
+ (public_name rampart)
  (name main)
- (libraries hello sexplib))
+ (libraries rampart sexplib))

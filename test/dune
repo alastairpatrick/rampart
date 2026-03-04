@@ -1,4 +1,4 @@
 (library
  (inline_tests)
- (name test_hello)
+ (name test_rampart)
  (preprocess (pps ppx_inline_test)))
