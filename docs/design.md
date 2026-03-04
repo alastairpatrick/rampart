@@ -32,46 +32,62 @@ help later passes finish work safely.
   lambdas are bound into frames. The binder may annotate lambda nodes with
   pass-specific annotations (e.g., `Annotated (Closure frame, ...)`) to record
   capture frames.
-- Const-eval pass runs in two modes:
-  - `Search_for_declaration_types` — conservative traversal used to find
-    declarations whose *types* must be evaluated. It performs only low-risk
-    normalization (literal folding, tuple construction, type defaults) but
-    does NOT substitute identifiers or evaluate function calls. This avoids
-    false cyclic dependencies and prevents accidental compile-time side
-    effects or halts.
-  - `Evaluate_const` — full CTCE mode for evaluating a specific declaration
-    type. This mode can substitute identifier values and may execute
-    `const` lambdas, but only under strict checks (callee annotated as
-    `const`, arguments must be CTCEs or explicitly allowed forms, returned
-    values must themselves be CTCEs, etc.). In the current design
-    `Evaluate_const` is used to evaluate *declaration types*; declaration
-    initializers are evaluated only in the mode the pass was invoked with
-    (typically the conservative `Search_for_declaration_types`) and are not
-    automatically committed by `Evaluate_const`. Only declaration *types*
-    may escape the const-eval pass — lambda expressions and their closures
-    are not written back into top-level AST nodes by CTCE.
+- Const-eval pass runs in three related modes:
+  - `Search_for_declaration_types` — the default traversal used when the
+    front end first visits a program. It walks the AST looking for
+    declarations whose *types* need to be resolved and, when a declaration is
+    encountered, immediately evaluates its type by recursively invoking
+    `Evaluate_const` on the type expression.  For other expressions the
+    traversal remains conservative: identifiers are left untouched and calls
+    are not evaluated outside of a declaration type.  This strategy prevents
+    spurious cyclic-dependency errors and avoids accidental side effects while
+    still ensuring that the _types_ of declarations are normalized early.
+  - `Evaluate_type` — a lightweight helper mode used when the pass needs the
+    *type* of an arbitrary expression without performing any side-effects or
+    unrolling of const lambdas.  It returns a representative value for the
+    expression's type.  (This mode isn’t used on statements.)
+  - `Evaluate_const` — full CTCE mode for evaluating a specific expression
+    (typically a declaration type). This mode may substitute identifier values
+    and execute `const` lambdas, but only under strict checks (callee must be
+    annotated `const`, arguments are required to be previously identified as
+    CTCEs or otherwise accepted, return values are checked for const-ness via
+    `is_const_value`, etc.).  As noted above, `Search_for_declaration_types`
+    dispatches to `Evaluate_const` when evaluating a declaration's type.  By
+    contrast, declaration *initializers* are evaluated only in whichever mode
+    the pass was invoked with (usually `Search_for_declaration_types`), and
+    the pass itself does not write initializer expressions back into the
+    program; only evaluated declaration *types* are committed.  Lambda
+    expressions and their closure annotations are likewise not leaked out of
+    CTCE except when they form part of a declaration type.
 
 **CTCE Rules (Conservative Summary)**
-- Constant forms (always CTCE): integer/boolean literals, `Type` nodes, tuples
-  of CTCEs.
+- Constant forms (always CTCE): integer/boolean literals, `Type` nodes,
+  tuples of CTCEs, and `const` lambda expressions (which are themselves
+  considered compile-time values).
 - Identifier substitution: allowed only in `Evaluate_const` mode and only if
   the identifier maps to `Const_of_value` (a previously-identified CTCE) or to
   `Non_const_of_value` that is *local* to a `const` frame being executed.
   Reads of mutable or non-const captured variables are rejected during
   `Evaluate_const`.
+  (The implementation additionally permits a `Non_const_of_type` binding in the
+  local const frame to be accessed, returning the identifier itself; this
+  provides a representative value for type inference without forcing an actual
+  constant.)
 - Function calls at compile time: only `const` lambdas annotated with their
   closure frame are eligible for execution by
   `Evaluate_const`. The evaluator creates a fresh callee frame with
   `pure=true,const=true` and binds argument CTCEs into parameters. The body is
   executed in `Evaluate_const` mode; returns are captured via an exception
   (`Return_exn`) and validated.
-  - Return values from `Evaluate_const` calls must be constant values (use `is_const_value`). In practice
-  the evaluator performs a conservative traversal of the returned expression and rejects any *references* into the
-  callee's local frame or to non-CTCE captured variables. Concretely this
-  means rejecting `BoundIdentifier` nodes that resolve to slots in the callee
-  frame (or deeper) and rejecting `Annotated (Closure frame, ...)` where the
-  `closure` frame is the callee frame or an inner frame; such values would
-  otherwise expose ephemeral mutable state to later passes.
+  - Return values from `Evaluate_const` calls must be constant values (the
+    check is performed by `is_const_value`).  The evaluator does **not** run a
+    separate traversal to validate the return expression; instead any illegal
+    references (for example, to slots in the callee's own frame or to mutable
+    captured variables) are detected via the normal identifier lookup rules
+    during evaluation, which will raise an appropriate `Located_error` if
+    such a value is constructed.  This distinction is reflected in the
+    implementation: `evaluate_call` simply tests `is_const_value` on the
+    result and trusts earlier checks to have prevented escaping bindings.
 - Assignments during `Evaluate_const`: supported only in restricted cases.
   The evaluator may update `Non_const_of_value` bindings in the current
   const-local frame, but assignments to captured mutable variables are rejected.
@@ -95,8 +111,9 @@ help later passes finish work safely.
 - Tests should cover:
   - Literal and tuple folding.
   - Type defaulting for declarations without initializers.
-  - `Search_for_declaration_types` conservative behavior — do not substitute
-    identifiers or evaluate calls.
+  - `Search_for_declaration_types` traversal and the fact that declaration
+    *types* are eagerly evaluated (including const-calls) while other
+    expressions remain inert.
   - `Evaluate_const` call execution for `const` lambdas and validation of
     returned values (reject non-CTCE).
   - Cycle detection that prevents declaration type evaluation (and expects
