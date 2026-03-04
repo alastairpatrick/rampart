@@ -275,7 +275,7 @@ and evaluate_assignment env frame mode location a b =
         | Non_const_of_type _ -> raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name)
         | Const_of_value _ -> raise (error_immutable_assignment display_name)
         | Non_const_of_value current ->
-          let b = implicit_convert b (type_of_expression current) in
+          let b = implicit_convert mode b (type_of_expression current) in
           (*print_endline (Printf.sprintf "assigning to %s. was %s. now %s" display_name (Ast.show_expression v) (Ast.show_expression b));*)
           set_assignable_value assignable (Non_const_of_value b);
           b (* The result should be the RHS, implicitly converted to the same type as the LHS *)
@@ -326,7 +326,7 @@ and evaluate_call env frame mode location callee args modifiers =
       List.iteri (fun i (location, param) -> match param with
         | BoundDeclaration ({type_expr=Some type_expr; _}, slot) ->
           let arg = List.nth args i in
-          let arg = implicit_convert arg type_expr in
+          let arg = implicit_convert mode arg type_expr in
           (*if not (is_const_value arg) then
             raise (error_not_a_compile_time_constant name);*)
           set_assignable_value (get_assignable callee_frame slot) (Const_of_value arg)
@@ -407,7 +407,7 @@ and evaluate_declaration env frame mode _ declaration slot =
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
     let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
     set_assignable_value assignable (Uninitialized_of_type (Some type_expr));
-    let init_expr = implicit_convert (evaluate_expression env frame mode init_expr) type_expr in
+    let init_expr = implicit_convert mode (evaluate_expression env frame mode init_expr) type_expr in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
 
@@ -434,7 +434,15 @@ and evaluate_return env frame mode _ e =
     | Evaluate_const -> raise (Return_exn e)
 
 
-and implicit_convert (location, value_expression) (_, type_expression) =
-  match value_expression, type_expression with
-  (* TODO: add some conversions *)
-  | _ -> (location, value_expression)
+and implicit_convert mode (value_location, value_expression) (_, to_type) =
+  match mode with
+  | Search_for_declaration_types -> (value_location, value_expression) (* just leave the node in place for a subsequent pass to actually do the implicit conversion *)
+  | Evaluate_type -> assert false; (* never actually called in this mode *)
+    (*representative_value_of_type (to_type_location, to_type)*) (* leave it to a subsequent pass to determine whether the conversion is valid *)
+  | Evaluate_const ->
+    let (_, from_type) = type_of_expression (value_location, value_expression) in
+    if from_type = to_type then
+      (* TODO: add some conversions *)
+      (value_location, value_expression)
+    else
+      raise error_type_mismatch

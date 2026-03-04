@@ -1110,3 +1110,8 @@ let%expect_test _ =
          (1 0))))))
     |}]
 
+(* Invalid implicit conversion during const evaluation *)
+let%expect_test _ =
+  evaluate_declarations "type f() const { int x = false; return int; } f() x;";
+  [%expect{| Error: @1 type mismatch |}]
+
