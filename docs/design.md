@@ -14,8 +14,8 @@ help later passes finish work safely.
 
 **Key Concepts**
 - Frame: a small runtime-like environment used by const-eval to model locals
-  and captured variables. Frames are plain OCaml records and are kept alive by
-  OCaml's GC if referenced by closures; however CTCE must still enforce
+  and captured variables. Frames are kept alive by
+  a garbage collector if referenced by closures; however CTCE must still enforce
   semantic restrictions to preserve determinism.
 - CTCE (const-eval): a conservative evaluator that substitutes compile-time
   constant values into AST nodes so later passes can operate on concrete
@@ -42,6 +42,18 @@ help later passes finish work safely.
     are not evaluated outside of a declaration type.  This strategy prevents
     spurious cyclic-dependency errors and avoids accidental side effects while
     still ensuring that the _types_ of declarations are normalized early.
+
+    Regardless of the mode, the pass has no obligation to expose or explain
+    the contents of a `Closure` frame to any later phase.  The only values that
+    escape const-eval are fully resolved types (or lambda expressions typed as
+    call‑types), and the invariant is that a subsequent pass will never need
+    to look inside a closure in order to compute a type.  Consequently there is
+    a clean *firewall* between const-eval and its successors: downstream
+    passes (e.g. static type checking) can treat closure annotations as
+    opaque metadata or even ignore them entirely.  The type system itself is
+    oblivious to the runtime environment captured by a const lambda, so there
+    is no semantic dependency on the const-eval representation.
+    
   - `Evaluate_type` — a lightweight helper mode used when the pass needs the
     *type* of an arbitrary expression without performing any side-effects or
     unrolling of const lambdas.  It returns a representative value for the
