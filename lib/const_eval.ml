@@ -201,7 +201,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoolLiteral _
   | Type _ -> (location, expression)
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
-  | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment") (* TODO: move this check to the bind pass so we don't have to duplicate it in multiple passes? *)
+  | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
@@ -299,7 +299,7 @@ and evaluate_assignment env frame mode location a b =
     assign a b
 
 and evaluate_call env frame mode location callee args modifiers =
-  (* TODO: is evaluating the callee prior to the arguments consistent with other imperative languages? *)
+  (* Consistent with other imperative languages, semantically, the callee is evaluated before any arguments. *)
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (evaluate_expression env frame mode) args in
   match callee with

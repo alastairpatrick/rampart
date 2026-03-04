@@ -29,9 +29,9 @@ help later passes finish work safely.
 **Passes and Modes**
 - Lex / Parse / Bind: standard front-end phases produce a `Bound` AST where
   identifiers are replaced with `BoundIdentifier` (with `slot` info) and
-  lambdas are bound into frames. The binder may annotate lambda nodes with
-  pass-specific annotations (e.g., `Annotated (Closure frame, ...)`) to record
-  capture frames.
+  lambdas are bound into frames. Lambdas carry an optional closure field (a
+  `Closure frame`) which the const-eval pass will populate for `const`
+  functions.
 - Const-eval pass runs in three related modes:
   - `Search_for_declaration_types` — the default traversal used when the
     front end first visits a program. It walks the AST looking for
@@ -48,8 +48,9 @@ help later passes finish work safely.
     expression's type.  (This mode isn’t used on statements.)
   - `Evaluate_const` — full CTCE mode for evaluating a specific expression
     (typically a declaration type). This mode may substitute identifier values
-    and execute `const` lambdas, but only under strict checks (callee must be
-    annotated `const`, arguments are required to be previously identified as
+    and execute `const` lambdas, but only under strict checks (the lambda's
+    modifiers.const flag must be true, and it must carry a closure frame when
+    it is executed), arguments are required to be previously identified as
     CTCEs or otherwise accepted, return values are checked for const-ness via
     `is_const_value`, etc.).  As noted above, `Search_for_declaration_types`
     dispatches to `Evaluate_const` when evaluating a declaration's type.  By
@@ -57,7 +58,7 @@ help later passes finish work safely.
     the pass was invoked with (usually `Search_for_declaration_types`), and
     the pass itself does not write initializer expressions back into the
     program; only evaluated declaration *types* are committed.  Lambda
-    expressions and their closure annotations are likewise not leaked out of
+    expressions and their optional closure field are likewise not leaked out of
     CTCE except when they form part of a declaration type.
 
 **CTCE Rules (Conservative Summary)**
@@ -73,9 +74,10 @@ help later passes finish work safely.
   local const frame to be accessed, returning the identifier itself; this
   provides a representative value for type inference without forcing an actual
   constant.)
-- Function calls at compile time: only `const` lambdas annotated with their
-  closure frame are eligible for execution by
-  `Evaluate_const`. The evaluator creates a fresh callee frame with
+- Function calls at compile time: only `const` lambdas that carry a
+  `Closure` frame (populated during evaluation of their definition) are
+  eligible for execution by `Evaluate_const`. The evaluator creates a fresh
+  callee frame with
   `pure=true,const=true` and binds argument CTCEs into parameters. The body is
   executed in `Evaluate_const` mode; returns are captured via an exception
   (`Return_exn`) and validated.
@@ -124,7 +126,7 @@ help later passes finish work safely.
 - Add a small-step execution mode or an evaluation-step limit to avoid
   compile-time halting. A simple max-depth guard can be added as an
   interim safeguard.
- - Strengthen `is_const_value` to inspect closure annotations and ensure
+ - Strengthen `is_const_value` to inspect the closure field and ensure
   captured variables are CTCEs where applicable.
 
 **References**
