@@ -59,7 +59,7 @@ let rec get_assignable (frame : frame) ({index; depth}: slot) : assignable =
   else begin
     match frame.enclosing_frame with
     | Some enclosing -> get_assignable enclosing {index; depth}
-    | None -> raise (error_internal (Printf.sprintf "invalid slot depth"))
+    | None -> raise (error_internal "invalid slot depth")
   end
 
 let get_assignable_value (index, variables) : value = 
@@ -376,11 +376,11 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
       const = modifiers.const
     } in
     let return_type = check_is_const_type (evaluate_expression env frame Evaluate_const return_type) in
-    let params = List.mapi (fun i (location, param) -> match param with
+    let params = List.map (fun (location, param) -> match param with
       | BoundDeclaration ({init_expr=init_expr; type_expr=Some type_expr; name=name; modifiers=modifiers}, slot) ->
-      let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
-      lambda_frame.variables.(i) <- { value = Non_const_of_type type_expr };
-      (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
+        let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
+        set_assignable_value (get_assignable lambda_frame slot) (Non_const_of_type type_expr);
+        (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
     let statements = evaluate_statements env lambda_frame Search_for_declaration_types statements in
     (* TODO: need to check lambda actually meets requirements for pure or const *)
