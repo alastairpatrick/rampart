@@ -41,9 +41,9 @@ type expression_annotation +=
   | Closure of frame
 
 type eval_mode =
-  | Search_for_declaration_types  (* Search AST for declarations and switch to Evaluate_consts mode to evaluate their types *)
+  | Search_for_declaration_types  (* Search AST for declarations and switch to Evaluate_const mode to evaluate their types *)
   | Evaluate_type                 (* Evaluate the type of an expression without causing side-effects. Returns a type representative rather than the type itself. Not used on statements. *)
-  | Evaluate_consts               (* Compile-time evaluation of constant expressions *)
+  | Evaluate_const                (* Compile-time evaluation of constant expressions *)
 
 let make_global_frame (num_globals : int) : frame = {
   depth = 0;
@@ -230,7 +230,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth} : slo
     | Non_const_of_value const_value -> const_value
     end
 
-  | Evaluate_consts ->
+  | Evaluate_const ->
     let assignable = get_assignable frame {index; depth} display_name in
     match get_assignable_value assignable with
     | Uninitialized_of_type _ ->
@@ -265,7 +265,7 @@ and evaluate_assignment env frame mode location a b =
   | Evaluate_type ->
     evaluate_expression env frame mode a
 
-  | Evaluate_consts ->
+  | Evaluate_const ->
     let b = evaluate_expression env frame mode b in
     let assign (a : expression) (b : expression) : expression =
       match a with
@@ -301,7 +301,7 @@ and evaluate_call env frame mode location callee args modifiers =
     | Evaluate_type ->
       representative_value_of_type return_type
 
-    | Evaluate_consts ->
+    | Evaluate_const ->
       assert lambda_modifiers.const; (* See evaluate_lambda *)
       let callee_frame = {
         depth = closure_frame.depth+1;
@@ -350,10 +350,10 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
       pure = modifiers.pure;
       const = modifiers.const
     } in
-    let return_type = check_is_const_type (evaluate_expression env frame Evaluate_consts return_type) in
+    let return_type = check_is_const_type (evaluate_expression env frame Evaluate_const return_type) in
     let params = List.mapi (fun i (location, param) -> match param with
       | BoundDeclaration ({init_expr=init_expr; type_expr=Some type_expr; name=name; modifiers=modifiers}, slot) ->
-      let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_consts type_expr) in
+      let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
       lambda_frame.variables.(i) <- { value = Non_const_of_type type_expr };
       (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
@@ -386,7 +386,7 @@ and evaluate_declaration env frame mode _ declaration slot =
 
   let initialize_assignable type_expr init_expr =
     if (declaration.modifiers.mut || not (is_const_value init_expr)) then begin
-      if mode=Evaluate_consts && frame.const then
+      if mode=Evaluate_const && frame.const then
         set_assignable_value assignable (Non_const_of_value init_expr)
       else        
         set_assignable_value assignable (Non_const_of_type type_expr)
@@ -395,13 +395,13 @@ and evaluate_declaration env frame mode _ declaration slot =
       
   match declaration with
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
-    let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_consts type_expr) in
+    let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
     let init_expr = implicit_convert (evaluate_expression env frame mode init_expr) type_expr in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
 
   | { type_expr=Some type_expr; init_expr=None; _} ->
-    let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_consts type_expr) in
+    let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
     let init_expr = default_value type_expr in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
@@ -420,7 +420,7 @@ and evaluate_return env frame mode _ e =
   match mode with
     | Search_for_declaration_types -> e
     | Evaluate_type -> assert false
-    | Evaluate_consts -> raise (Return_exn e)
+    | Evaluate_const -> raise (Return_exn e)
 
 
 and implicit_convert (location, value_expression) (_, type_expression) =
