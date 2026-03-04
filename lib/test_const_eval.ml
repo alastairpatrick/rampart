@@ -11,13 +11,13 @@ let evaluate_declarations text =
   try
     let lexbuf = Lexing.from_string text in
     let tokens = lex_pass lexbuf in
-      let statement = parse_recovering (make_diagnostic_sink ()) tokens in
-      let env = top_scope () in
-      let num_globals, statement = bind_program env statement in
-      let global_frame = make_global_frame num_globals in
-      let program = evaluate_statement env global_frame Search_for_declaration_types statement in
-      Sexplib.Sexp.output_hum stdout (Ast.sexp_of_statement program)
-    with Located_error (location, message) -> Printf.printf "Error: %s %s\n" (show_location location) message
+    let statement = parse_recovering (make_diagnostic_sink ()) tokens in
+    let env = top_scope () in
+    let num_globals, statement = bind_program env statement in
+    let global_frame = make_global_frame num_globals in
+    let program = evaluate_statement env global_frame Search_for_declaration_types statement in
+    Sexplib.Sexp.output_hum stdout (Ast.sexp_of_statement program)
+  with Located_error (location, message) -> Printf.printf "Error: %s %s\n" (show_location location) message
 
 let%expect_test _ =
   evaluate_declarations "1; 2;";
