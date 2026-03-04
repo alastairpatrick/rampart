@@ -124,6 +124,163 @@ let%expect_test _ =
          (1 0))))))
     |}]
 
+let%expect_test _ =
+  evaluate_declarations "type t = typeof((1+1, 2));";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "typeof(1+1) x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut bool called = false; int f() { called = true; return 0; } type t = typeof(f());";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name called)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Int)) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int)) () ()
+              (@1
+               (BoundFrame 0
+                ((@1
+                  (Expression
+                   (@1
+                    (Assignment (@1 (BoundIdentifier called (0 0)))
+                     (@1 (BoolLiteral true))))))
+                 (@1 (Return ((@1 (IntLiteral 0)))))))))))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (2 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() const { return 0; } type t = typeof(f());";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const)))))) (name f)
+          (init_expr
+           ((@1
+             (Annotated External
+              (@1
+               (Lambda (@1 (Type Int)) () ((pure) (const))
+                (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0)))))))))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() { return 0; } mut int x = f(); type t = typeof(x);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Int)) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int)) () ()
+              (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0)))))))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (Call (@1 (BoundIdentifier f (0 0))) () ())))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (2 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut int x; typeof(x = 1) y;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name y)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "typeof(void lambda(bool x) {}) y = void lambda(bool x) {};";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Void)) ((@1 (Type Bool))) ()))))
+          (name y)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void))
+              ((@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+                  (init_expr ()))
+                 (0 1))))
+              () (@1 (BoundFrame 1 ())))))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof(void lambda(bool x) {});";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Call (@1 (Type Void)) ((@1 (Type Bool))) ())))))
+         (0 0))))))
+    |}]
+
 (* Declarations types within foo are evaluated, even if foo is not called *)
 let%expect_test _ =
   evaluate_declarations "t foo(t x) { t y; } type t = bool;";
