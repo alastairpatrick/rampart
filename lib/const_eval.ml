@@ -278,6 +278,7 @@ and evaluate_assignment env frame mode location a b =
           set_assignable_value assignable (Non_const_of_value b);
           a
         end
+
       | _ -> raise (error_internal (Printf.sprintf "assignment target not implemented: %s" (Ast.show_expression a))) in
     assign a b
 

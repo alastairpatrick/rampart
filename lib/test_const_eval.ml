@@ -404,6 +404,18 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "int a = arity(typeof(b)); int b = arity(typeof(a));";
   [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
+          (init_expr ((@1 (Arity (@1 (Type Int)))))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+          (init_expr ((@1 (Arity (@1 (Type Int)))))))
+         (0 0))))))
     |}]
 
 let%expect_test _ =
