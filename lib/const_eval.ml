@@ -347,7 +347,9 @@ and evaluate_call env frame mode location callee args modifiers =
         | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
       try
         evaluate_statements env callee_frame mode statements |> ignore;
-        (location, Tuple [])
+        match return_type with
+        | _, Tuple [] -> (location, Tuple [])
+        | _ -> raise (Error "missing return statement")
       with
       | Return_exn return_value ->
         if not (is_const_value return_value) then

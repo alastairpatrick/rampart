@@ -110,6 +110,12 @@ help later passes finish work safely.
   (In addition, when a `Return` statement is executed the returned expression
   is implicitly converted to the enclosing function's return type; any
   mismatch produces a `type mismatch` error during const-evaluation.)
+  Furthermore, if a const lambda is executed and its declared return type is
+  not `void` the body must actually contain a `Return` statement; falling off
+  the end of the function triggers an explicit "missing return statement"
+  error during const-evaluation.  This guards against subtle issues caused by
+  the implicit `()`→`Type` conversion and mirrors the requirement that later
+  static checks will enforce.
 
 **Error Handling & Diagnostics**
 - CTCE raises `Located_error` for user-facing issues (cycles that prevent

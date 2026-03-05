@@ -1116,3 +1116,10 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "type f() const { int x = false; return int; } f() x;";
   [%expect{| Error: @1 type mismatch |}]
+
+(* Functions with return type other than 'void' must explicitly return.
+   This is motivated by there being an implicit conversion from () to type, so the
+   snippet below would actually type check without this additional rule. *)
+let%expect_test _ =
+  evaluate_declarations "type f() const {} f() x;";
+  [%expect{| Error: @1 missing return statement |}]
