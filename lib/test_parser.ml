@@ -306,15 +306,15 @@ let%expect_test _ =
   (* Lambdas & calls *)
 
 let%expect_test _ =
-  parse "lambda (a, b) {};";
+  parse "int \\ (a, b) {};";
   [% expect{|
-    Error line 1, characters 1-6: unexpected 'lambda' keyword
-    Error line 1, character 16: unexpected '}' symbol
+    Error line 1, character 5: unexpected '\' symbol
+    Error line 1, character 15: unexpected '}' symbol
     (@1 (OrderIndependent ()))
     |}]
 
 let%expect_test _ =
-  parse "int lambda() {};";
+  parse "\\int() {};";
   [% expect{|
     (@1
      (OrderIndependent
@@ -323,7 +323,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int lambda() pure {};";
+  parse "\\int() pure {};";
   [% expect{|
     (@1
      (OrderIndependent
@@ -333,7 +333,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int lambda() const {};";
+  parse "\\int() const {};";
   [% expect{|
     (@1
      (OrderIndependent
@@ -343,15 +343,28 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "lambda (int a, int b) {};";
+  parse "\\int(int a) const -> let b=a+1 in b;";
+
   [% expect{|
-    Error line 1, characters 1-6: unexpected 'lambda' keyword
-    Error line 1, character 24: unexpected '}' symbol
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Lambda (@1 (Type Int)) () ((const))
+           (@1 (Expression (@1 (IntLiteral 7)))) ())))))))
+    |}]
+
+let%expect_test _ =
+  parse "int\\ (int a, int b) {};";
+  [% expect{|
+    Error line 1, character 4: unexpected '\' symbol
+    Error line 1, character 22: unexpected '}' symbol
     (@1 (OrderIndependent ()))
     |}]
 
 let%expect_test _ =
-  parse "int lambda (int a, int b) {};";
+  parse "\\int(int a, int b) {};";
   [% expect{|
     (@1
      (OrderIndependent
@@ -371,7 +384,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int lambda (int a, int b) pure {};";
+  parse "\\int(int a, int b) pure {};";
   [% expect{|
     (@1
      (OrderIndependent
@@ -391,7 +404,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int lambda (int a, int b) const {};";
+  parse "\\int(int a, int b) const {};";
   [% expect{|
     (@1
      (OrderIndependent

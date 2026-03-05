@@ -20,7 +20,6 @@ rule token = parse
     | "if"                              { IF }
     | "in"                              { IN }
     | "int"                             { INT }
-    | "lambda"                          { LAMBDA }
     | "let"                             { LET }
     | "mut"                             { MUT }
     | "pure"                            { PURE }
@@ -41,6 +40,7 @@ rule token = parse
     | '+'                               { PLUS }
     | '-'                               { MINUS }
     | '*'                               { TIMES }
+    | '\\'                              { BACKSLASH }
     | '/'                               { DIV }
     | '?'                               { QUESTION }
     | ':'                               { COLON }

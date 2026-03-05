@@ -247,7 +247,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "typeof(void lambda(bool x) {}) y = void lambda(bool x) {};";
+  evaluate_declarations "typeof(\\void(bool x) {}) y = \\void(bool x) {};";
   [%expect{|
     (@1
      (OrderIndependent
@@ -269,7 +269,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "type t = typeof(void lambda(bool x) {});";
+  evaluate_declarations "type t = typeof(\\void(bool x) {});";
   [%expect{|
     (@1
      (OrderIndependent
@@ -1076,7 +1076,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int make() const { int x = 1; return int lambda() const { return x; }; } int g = make();";
+  evaluate_declarations "int make() const { int x = 1; return \\int() const { return x; }; } int g = make();";
   [%expect{|
     (@1
      (OrderIndependent

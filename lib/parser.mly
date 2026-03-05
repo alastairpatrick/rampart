@@ -9,14 +9,14 @@
 %token <int> INT_LIT
 
 %token ANY ARITY ASSIGN
-%token BOOL
+%token BACKSLASH BOOL
 %token CASE COLON COMMA CONST
 %token DIV DO
 %token ELSE EOF EOL EQUALS
 %token FALSE FOR
 %token GREATER
 %token IF IN INT
-%token LAMBDA LARROW LESS LCURLY LET LPAREN
+%token LARROW LESS LCURLY LET LPAREN
 %token MINUS MUT
 %token NOT_EQUALS
 %token PLUS PURE
@@ -65,17 +65,19 @@ primary_expr
   | LET p=pattern                                           { loc $loc, Let p }
   | ANY                                                     { loc $loc, Let Any }
   | LPAREN es=exprs0 RPAREN                                 { make_tuple_node (loc $loc) es }
-  | f=primary_expr LPAREN es=exprs0 RPAREN
-    lm=lambda_modifiers                                     { loc $loc, Call (f, es, lm) }
-  | f=primary_expr LAMBDA LPAREN ps=params0 RPAREN
-    lm=lambda_modifiers b=compound_stat                     { loc $loc, Lambda (f, ps, lm, b, None) }
   | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, TypeOf e }
   | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
   ;
 
-unary_expr
+call_expr
   : e=primary_expr                                          { e }
-  | MINUS e=unary_expr                                      { loc $loc, UnaryOp (Minus, e) }
+  | f=call_expr LPAREN es=exprs0 RPAREN
+    lm=lambda_modifiers                                     { loc $loc, Call (f, es, lm) }
+  ;
+
+unary_expr
+  : e=call_expr                                             { e }
+  | MINUS e=call_expr                                       { loc $loc, UnaryOp (Minus, e) }
   ;
 
 multiplicative_expr
@@ -118,7 +120,18 @@ in_expr
   | e=assign_expr                                           { e }
   ;
 
-expr: e=in_expr                             { e }
+lambda_body
+  : b=compound_stat                                         { b }
+  | RARROW e=in_expr                                        { loc $loc, Expression e }
+  ;
+
+lambda_expr
+  : e=in_expr                                               { e }
+  | BACKSLASH rt=primary_expr LPAREN ps=params0 RPAREN
+    lm=lambda_modifiers b=lambda_body                       { loc $loc, Lambda (rt, ps, lm, b, None) }
+  ;
+
+expr: e=lambda_expr                                         { e }
 
 exprs0 : es=separated_list(COMMA, expr)     { es };
 
