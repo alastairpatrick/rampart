@@ -126,6 +126,8 @@ let check_is_const_type expression =
 let rec is_const_value (expression : expression) : bool =
   match expression with
   | _, IntLiteral _ -> true
+  | _, BoolLiteral _ -> true
+  | _, Type _ -> true
   | _, Tuple elements -> List.for_all is_const_value elements
   | _, Lambda (_, _, {const = true; _}, _, _) -> true
   | _ when is_const_type expression -> true
