@@ -34,6 +34,16 @@ Short, actionable notes to help AI agents contribute to Rampart (OCaml/Dune).
 - **Dependencies & tools:**
   - Requires Dune >= 3.20 (see `dune-project`). Menhir and ocamllex are used; ensure Menhir is available when editing grammar.
 
-- **PR guidance for changes touching core evaluator or grammar:**
-  - Add or update tests under `test/` or `lib/` inline-tests.
-  - Keep changes small and preserve existing scheduling/deferral semantics in `lib/evaluate.ml` unless intentionally replacing the scheduler; include tests that exercise `Defer` behavior to avoid regressions.
+- **Code‑review checklist (project‑specific):**
+  - Ensure `dune build`/`dune runtest` succeed; many edits show up only as expectation mismatches.
+  - When modifying `const_eval.ml` or the evaluator, verify that `const_types_equal` and related helpers stay in sync.
+  - Look for accidental uses of polymorphic `=` comparing `expression` values; prefer `const_types_equal` for types.
+  - If you change the AST (e.g. lambda syntax, return shape, `BoundLet`), update parser/linker/binder and adjust all expectation strings in tests.
+  - Grammar edits: avoid clashes with the established call/tuple rules; the existing menhir file is highly sensitive to new productions.  After modifying `parser.mly` always run `dune build` and watch for shift/reduce or reduce/reduce conflicts printed by Menhir – these are the primary indicators that your new syntax has introduced ambiguity.
+  - Check `docs/design.md` after semantic changes; the design doc is treated as authoritative documentation and should reflect new behaviour.
+  - Leave TODO comments in place only if they still make sense; remove stale ones as you touch code.
+  - Pay special attention to `frame`, `closure` and `slot` structures – invariants around `depth` and `pure/const` flags drive many invariants in const‑eval.
+  - When in doubt, run `grep -n "TODO" lib` and `grep -R "const_types_equal"` to see related code paths.
+  - The reviewer should be comfortable with OCaml pattern matching and Menhir grammars, and know to search for `BoundIdentifier` / `BoundLet` when examining value binding logic.
+
+Adding a dedicated section here keeps the project‑specific review guidance alongside other meta‑notes; you can also copy portions into PR templates if needed.

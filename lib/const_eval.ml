@@ -104,9 +104,7 @@ let set_assignable_value (index, variables) (value : value) : unit =
    would evaluate to a type (for example a call to a const function) is
    treated as “not a const type” here unless it already has the required
    syntactic form.
-
-   TODO: ensure no other code still uses polymorphic `=` for type equality
-   rather than this helper. *)
+*)
 let rec const_types_equal (a : expression) (b : expression) : bool =
   match a, b with
   | (_, Type a_type), (_, Type b_type) -> a_type = b_type
@@ -175,9 +173,7 @@ let rec evaluate_statements env frame mode (statements : statement list) : state
 
 and evaluate_order_independent env frame mode statements =
   (* `in_queue` uses a placeholder display name so it has the same pair shape
-    as `stalled_queue`. `stalled_queue` holds entries of the form
-    ((location, statement), display_name) so the pass can reliably
-    produce diagnostics tied to the original statement location. *)
+    as `stalled_queue`.  *)
   let in_queue = Queue.of_seq (Seq.map (fun s -> (s, "")) (List.to_seq statements)) in
   let stalled_queue = Queue.create () in
   let out_queue = Queue.create() in
