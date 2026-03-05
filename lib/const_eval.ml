@@ -82,24 +82,31 @@ let set_assignable_value (index, variables) (value : value) : unit =
   | _ ->
     variables.(index) <- { value }
 
-(* Constant expression aka compile-time constant expression (CTCE): an expression that can be evaluated to a const value at compile time
-   Constant value: a literal, a constant type, a const lambda expression or a tuple of constant values. Subset of the constant expressions.
+(* Constant expression aka compile-time constant expression aka CTCE: an expression that can be evaluated to a const value at compile time
+   Constant value: a literal, a const lambda expression or a tuple of constant values. Subset of the constant expressions.
    Constant type: a constant value corresponding to a type. Subset of the constant values.
    Representative value: a value of a particular type that represents that type. Only the type of a representative value is meaningful.
 
    Constant expression > constant value > constant type
 *)
 
-let rec is_const_type (expression : expression) : bool =
-  match expression with
-  | _, Type _ -> true
-  | _, Tuple elements -> List.for_all is_const_type elements
-  | _, Call (callee, param_types, _) ->
-    is_const_type callee && List.for_all is_const_type param_types
-  | _ -> false
+(* Structural equality on type‑expressions, ignoring source locations.
+   Returns
 
-(* Equality, ignoring node locations *)
-(* TODO: check there is no remaining code that tests type equality using the OCaml '=' operator *)
+     * [true] when both [a] and [b] are *syntactic* constant‑type forms and
+       they denote the same type (eg. the same tuple shape or the same
+       function signature).
+
+     * [false] when both are constant types but differ, or when either
+       operand is not itself a constant‑type expression.
+
+   The test does **not** perform any sub‑evaluation; an expression that
+   would evaluate to a type (for example a call to a const function) is
+   treated as “not a const type” here unless it already has the required
+   syntactic form.
+
+   TODO: ensure no other code still uses polymorphic `=` for type equality
+   rather than this helper. *)
 let rec const_types_equal (a : expression) (b : expression) : bool =
   match a, b with
   | (_, Type a_type), (_, Type b_type) -> a_type = b_type
@@ -110,6 +117,8 @@ let rec const_types_equal (a : expression) (b : expression) : bool =
   | (_, Call (a_callee, a_param_types, a_modifiers)), (_, Call (b_callee, b_param_types, b_modifiers)) ->
     const_types_equal a_callee b_callee && List.for_all2 const_types_equal a_param_types b_param_types && a_modifiers = b_modifiers
   | _ -> false
+
+let is_const_type (expression : expression) : bool = const_types_equal expression expression
 
 let check_is_const_type expression =
   if is_const_type expression then expression else raise error_type_expected
