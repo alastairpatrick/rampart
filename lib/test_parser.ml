@@ -351,8 +351,21 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (Lambda (@1 (Type Int)) () ((const))
-           (@1 (Expression (@1 (IntLiteral 7)))) ())))))))
+          (Lambda (@1 (Type Int))
+           ((@1
+             (Declaration
+              ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+               (init_expr ())))))
+           ((const))
+           (@1
+            (Expression
+             (@1
+              (In
+               (@1
+                (Assignment (@1 (Let (Identifier b)))
+                 (@1 (BinaryOp Plus (@1 (Identifier a)) (@1 (IntLiteral 1))))))
+               (@1 (Identifier b))))))
+           ())))))))
     |}]
 
 let%expect_test _ =
