@@ -7,7 +7,7 @@ Short, actionable notes to help AI agents contribute to Rampart (OCaml/Dune).
 - **Build & test (common commands):**
   - Build: `dune build`
   - Run tests: `dune runtest`
-  - Run the executable: `dune exec -- hello` (public executable defined in [bin/dune](bin/dune))
+  - Run the executable: `dune exec -- rampart` (public executable defined in [bin/dune](bin/dune))
   - Generate opam (handled by Dune): `dune build -p rampart` / see `dune-project` and `rampart.opam` for packaging details.
 
 - **Key files to read before edits:**
@@ -27,7 +27,7 @@ Short, actionable notes to help AI agents contribute to Rampart (OCaml/Dune).
   - Edit `lib/parser.mly` / `lib/lexer.mll` and run `dune build` to regenerate parser artifacts. Menhir flags are defined in [lib/dune](lib/dune).
 
 - **Testing & debugging tips:**
-  - Use `dune build` then `dune exec -- hello` to exercise the runtime.
+  - Use `dune build` then `dune exec -- rampart` to exercise the runtime.
   - Inspect generated artifacts under `_build/default` to debug preprocessing or parser output (e.g., `_build/default/lib/parser.pp.ml`).
   - Runtime errors raise `Located_error` with location info — check `lib/diagnostic.ml`/`lib/error.ml` for error formatting.
 
