@@ -53,7 +53,7 @@ help later passes finish work safely.
     opaque metadata or even ignore them entirely.  The type system itself is
     oblivious to the runtime environment captured by a const lambda, so there
     is no semantic dependency on the const-eval representation.
-    
+
   - `Evaluate_type` — a lightweight helper mode used when the pass needs the
     *type* of an arbitrary expression without performing any side-effects or
     unrolling of const lambdas.  It returns a representative value for the
@@ -88,9 +88,11 @@ help later passes finish work safely.
   constant.)
 - Function calls at compile time: only `const` lambdas that carry a
   `Closure` frame (populated during evaluation of their definition) are
-  eligible for execution by `Evaluate_const`. The evaluator creates a fresh
-  callee frame with
-  `pure=true,const=true` and binds argument CTCEs into parameters. The body is
+  eligible for execution by `Evaluate_const`.  When the call is performed the
+  evaluator deliberately constructs the callee frame with both
+  `pure=true` and `const=true` – ensuring that the body is treated as a
+  compile-time pure/const procedure even if its source syntax omitted the
+  `pure` modifier.  Argument CTCEs are bound into parameters. The body is
   executed in `Evaluate_const` mode; returns are captured via an exception
   (`Return_exn`) and validated.
   - Return values from `Evaluate_const` calls must be constant values (the
@@ -105,6 +107,9 @@ help later passes finish work safely.
 - Assignments during `Evaluate_const`: supported only in restricted cases.
   The evaluator may update `Non_const_of_value` bindings in the current
   const-local frame, but assignments to captured mutable variables are rejected.
+  (In addition, when a `Return` statement is executed the returned expression
+  is implicitly converted to the enclosing function's return type; any
+  mismatch produces a `type mismatch` error during const-evaluation.)
 
 **Error Handling & Diagnostics**
 - CTCE raises `Located_error` for user-facing issues (cycles that prevent

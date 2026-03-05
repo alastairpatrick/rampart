@@ -98,6 +98,19 @@ let rec is_const_type (expression : expression) : bool =
     is_const_type callee && List.for_all is_const_type param_types
   | _ -> false
 
+(* Equality, ignoring node locations *)
+(* TODO: check there is no remaining code that tests type equality using the OCaml '=' operator *)
+let rec const_types_equal (a : expression) (b : expression) : bool =
+  match a, b with
+  | (_, Type a_type), (_, Type b_type) -> a_type = b_type
+  | (_, Tuple a_elements), (_, Tuple b_elements) ->
+    (try
+      List.for_all2 const_types_equal a_elements b_elements
+    with Invalid_argument _ -> false)
+  | (_, Call (a_callee, a_param_types, a_modifiers)), (_, Call (b_callee, b_param_types, b_modifiers)) ->
+    const_types_equal a_callee b_callee && List.for_all2 const_types_equal a_param_types b_param_types && a_modifiers = b_modifiers
+  | _ -> false
+
 let check_is_const_type expression =
   if is_const_type expression then expression else raise error_type_expected
 
@@ -343,7 +356,7 @@ and evaluate_call env frame mode location callee args modifiers =
 
     end
 
-  | _ -> (location, Call (callee, args, modifiers))
+  | _ -> (location, Call (callee, args, { modifiers with pure = modifiers.pure || modifiers.const }))
 
 and evaluate_tuple env frame mode location elements =
   (location, Tuple (List.map (evaluate_expression env frame mode) elements))
@@ -428,22 +441,21 @@ and evaluate_declaration env frame mode _ declaration slot =
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
 
 and evaluate_return env frame mode _ e =
-  let e = evaluate_expression env frame mode e in
+  let e = implicit_convert mode (evaluate_expression env frame mode e) frame.return_type in
   match mode with
     | Search_for_declaration_types -> e
     | Evaluate_type -> assert false
     | Evaluate_const -> raise (Return_exn e)
 
 
-and implicit_convert mode (value_location, value_expression) (_, to_type) =
+and implicit_convert mode from_expression to_type =
   match mode with
-  | Search_for_declaration_types -> (value_location, value_expression) (* just leave the node in place for a subsequent pass to actually do the implicit conversion *)
+  | Search_for_declaration_types -> from_expression (* just leave the node in place for a subsequent pass to actually do the implicit conversion *)
   | Evaluate_type -> assert false; (* never actually called in this mode *)
     (*representative_value_of_type (to_type_location, to_type)*) (* leave it to a subsequent pass to determine whether the conversion is valid *)
   | Evaluate_const ->
-    let (_, from_type) = type_of_expression (value_location, value_expression) in
-    if from_type = to_type then
-      (* TODO: add some conversions *)
-      (value_location, value_expression)
-    else
-      raise error_type_mismatch
+    let from_type = type_of_expression from_expression in
+    match to_type with
+    | _, Type Type when is_const_type from_expression -> from_expression
+    | _ when const_types_equal from_type to_type -> from_expression
+    | _ -> raise error_type_mismatch

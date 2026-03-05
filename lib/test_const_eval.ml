@@ -877,20 +877,24 @@ let%expect_test _ =
   evaluate_declarations "type a() { return int; } type b() const { return a(); } b() x;";
   [%expect{| Error: @1 'a' is not a compile-time constant |}]
 
-(* Nested const function captures caller's frame. *)
+(* Nested const function captures caller's frame. The return value of 'foo' has function type and foo's closure escapes, when it returns 'bar', which refers to a nested lambda that captures 't'.*)
 let%expect_test _ =
-  evaluate_declarations "type foo() const { type t = int; type bar() const { return t; } return bar; } foo()() y;";
+  evaluate_declarations "(type() const) foo() const { type t = int; type bar() const { return t; } return bar; } foo()() y;";
   [%expect{|
     (@1
      (OrderIndependent
       ((@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (type_expr
+           ((@1
+             (Call (@1 (Call (@1 (Type Type)) () ((pure) (const)))) ()
+              ((pure) (const))))))
           (name foo)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda (@1 (Call (@1 (Type Type)) () ((pure) (const)))) ()
+              ((pure) (const))
               (@1
                (BoundFrame 2
                 ((@1
