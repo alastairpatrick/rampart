@@ -2,7 +2,7 @@
 %{
     open Ast
     open Location
-    open Prelower
+    open ParserLowering
     let loc ((s: Lexing.position), (e: Lexing.position)) : location = make_location s e
 %}
 %token <string> ID
