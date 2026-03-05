@@ -276,7 +276,6 @@ and evaluate_assignment env frame mode location a b =
         | Const_of_value _ -> raise (error_immutable_assignment display_name)
         | Non_const_of_value current ->
           let b = implicit_convert mode b (type_of_expression current) in
-          (*print_endline (Printf.sprintf "assigning to %s. was %s. now %s" display_name (Ast.show_expression v) (Ast.show_expression b));*)
           set_assignable_value assignable (Non_const_of_value b);
           b (* The result should be the RHS, implicitly converted to the same type as the LHS *)
         end
@@ -285,7 +284,7 @@ and evaluate_assignment env frame mode location a b =
         let assignable = get_assignable frame slot in
         (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
            whereas, BoundIdentifiers are always initialized before any reassignment. *)
-        set_assignable_value assignable (Non_const_of_value b);
+        set_assignable_value assignable (Const_of_value b);
         b (* The result should be the RHS, implicitly converted to the same type as the LHS, but the type of the LHS is inferred from the RHS in this case *)
 
       | (_, Tuple froms), (_, Tuple tos) ->
@@ -327,8 +326,6 @@ and evaluate_call env frame mode location callee args modifiers =
         | BoundDeclaration ({type_expr=Some type_expr; _}, slot) ->
           let arg = List.nth args i in
           let arg = implicit_convert mode arg type_expr in
-          (*if not (is_const_value arg) then
-            raise (error_not_a_compile_time_constant name);*)
           set_assignable_value (get_assignable callee_frame slot) (Const_of_value arg)
         | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
       try
@@ -383,7 +380,7 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
         (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
     let statements = evaluate_statements env lambda_frame Search_for_declaration_types statements in
-    (* TODO: need to check lambda actually meets requirements for pure or const *)
+    (* A subsequent pass will verify that the lambda meets the requirements for pure or const. *)
     (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), if modifiers.const then Some (Closure frame) else None))
 
 and evaluate_typeof env frame _ _ e =

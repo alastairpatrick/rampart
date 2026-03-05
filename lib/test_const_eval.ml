@@ -961,6 +961,10 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
+  evaluate_declarations "type f() const { let t = int; t = bool; return t; } f() x;";
+  [%expect{| Error: @1 cannot assign to immutable variable 't' |}]
+
+let%expect_test _ =
   evaluate_declarations "type f() const { (let s, let t) = (int, bool); return t; } f() x;";
   [%expect{|
     (@1
