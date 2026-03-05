@@ -172,7 +172,7 @@ let%expect_test _ =
                    (@1
                     (Assignment (@1 (BoundIdentifier called (0 0)))
                      (@1 (BoolLiteral true))))))
-                 (@1 (Return ((@1 (IntLiteral 0))))))))
+                 (@1 (Return (@1 (IntLiteral 0)))))))
               ())))))
          (1 0)))
        (@1
@@ -194,8 +194,7 @@ let%expect_test _ =
           (init_expr
            ((@1
              (Lambda (@1 (Type Int)) () ((pure) (const))
-              (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0))))))))
-              (Closure))))))
+              (@1 (BoundFrame 0 ((@1 (Return (@1 (IntLiteral 0))))))) (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -216,7 +215,7 @@ let%expect_test _ =
           (init_expr
            ((@1
              (Lambda (@1 (Type Int)) () ()
-              (@1 (BoundFrame 0 ((@1 (Return ((@1 (IntLiteral 0)))))))) ())))))
+              (@1 (BoundFrame 0 ((@1 (Return (@1 (IntLiteral 0))))))) ())))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -309,8 +308,7 @@ let%expect_test _ =
                     (Assignment (@1 (BoundIdentifier changed (0 0)))
                      (@1 (BoolLiteral true))))))
                  (@1
-                  (Return
-                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+                  (Return (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))))
               ())))))
          (1 0)))
        (@1
@@ -349,8 +347,7 @@ let%expect_test _ =
                     (Assignment (@1 (BoundIdentifier changed (0 0)))
                      (@1 (BoolLiteral true))))))
                  (@1
-                  (Return
-                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+                  (Return (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))))
               ())))))
          (1 0)))
        (@1
@@ -389,8 +386,7 @@ let%expect_test _ =
                     (Assignment (@1 (BoundIdentifier changed (0 0)))
                      (@1 (BoolLiteral true))))))
                  (@1
-                  (Return
-                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+                  (Return (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))))
               ())))))
          (1 0)))
        (@1
@@ -445,8 +441,7 @@ let%expect_test _ =
                     (Assignment (@1 (BoundIdentifier changed (0 0)))
                      (@1 (BoolLiteral true))))))
                  (@1
-                  (Return
-                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+                  (Return (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))))
               ())))))
          (1 0)))
        (@1
@@ -484,8 +479,7 @@ let%expect_test _ =
                     (Assignment (@1 (BoundIdentifier changed (0 0)))
                      (@1 (BoolLiteral true))))))
                  (@1
-                  (Return
-                   ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))
+                  (Return (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))))
               ())))))
          (1 0)))
        (@1
@@ -618,7 +612,7 @@ let%expect_test _ =
           (init_expr
            ((@1
              (Lambda (@1 (Type Type)) () ((pure) (const))
-              (@1 (BoundFrame 0 ((@1 (Return ((@1 (Type Int)))))))) (Closure))))))
+              (@1 (BoundFrame 0 ((@1 (Return (@1 (Type Int))))))) (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -651,7 +645,7 @@ let%expect_test _ =
                (BoundFrame 1
                 ((@1
                   (Return
-                   ((@1 (Tuple ((@1 (Type Int)) (@1 (BoundIdentifier t (0 1))))))))))))
+                   (@1 (Tuple ((@1 (Type Int)) (@1 (BoundIdentifier t (0 1)))))))))))
               (Closure))))))
          (0 0)))
        (@1
@@ -698,7 +692,7 @@ let%expect_test _ =
                    ((modifiers ((mut))) (type_expr ((@1 (Type Type)))) (name s)
                     (init_expr ((@1 (BoundIdentifier t (0 1))))))
                    (1 1)))
-                 (@1 (Return ((@1 (BoundIdentifier s (1 1)))))))))
+                 (@1 (Return (@1 (BoundIdentifier s (1 1))))))))
               (Closure))))))
          (0 0)))
        (@1
@@ -808,7 +802,7 @@ let%expect_test _ =
                   (Expression
                    (@1
                     (Assignment (@1 (BoundIdentifier t (0 1))) (@1 (Type Bool))))))
-                 (@1 (Return ((@1 (BoundIdentifier t (0 1)))))))))
+                 (@1 (Return (@1 (BoundIdentifier t (0 1))))))))
               (Closure))))))
          (0 0)))
        (@1
@@ -856,7 +850,7 @@ let%expect_test _ =
           (init_expr
            ((@1
              (Lambda (@1 (Type Type)) () ((pure) (const))
-              (@1 (BoundFrame 0 ((@1 (Return ((@1 (Type Int)))))))) (Closure))))))
+              (@1 (BoundFrame 0 ((@1 (Return (@1 (Type Int))))))) (Closure))))))
          (0 0)))
        (@1
         (BoundDeclaration
@@ -868,7 +862,7 @@ let%expect_test _ =
              (Lambda (@1 (Type Type)) () ((pure) (const))
               (@1
                (BoundFrame 0
-                ((@1 (Return ((@1 (Call (@1 (BoundIdentifier a (0 0))) () ()))))))))
+                ((@1 (Return (@1 (Call (@1 (BoundIdentifier a (0 0))) () ())))))))
               (Closure))))))
          (1 0)))
        (@1
@@ -915,10 +909,10 @@ let%expect_test _ =
                        (Lambda (@1 (Type Type)) () ((pure) (const))
                         (@1
                          (BoundFrame 0
-                          ((@1 (Return ((@1 (BoundIdentifier t (0 1)))))))))
+                          ((@1 (Return (@1 (BoundIdentifier t (0 1))))))))
                         (Closure))))))
                    (1 1)))
-                 (@1 (Return ((@1 (BoundIdentifier bar (1 1)))))))))
+                 (@1 (Return (@1 (BoundIdentifier bar (1 1))))))))
               (Closure))))))
          (0 0)))
        (@1
@@ -948,7 +942,7 @@ let%expect_test _ =
                    (@1
                     (Assignment (@1 (BoundLet (Identifier t) (0 1)))
                      (@1 (Tuple ((@1 (Type Int)) (@1 (Type Bool)))))))))
-                 (@1 (Return ((@1 (BoundIdentifier t (0 1)))))))))
+                 (@1 (Return (@1 (BoundIdentifier t (0 1))))))))
               (Closure))))))
          (0 0)))
        (@1
@@ -988,7 +982,7 @@ let%expect_test _ =
                        ((@1 (BoundLet (Identifier s) (0 1)))
                         (@1 (BoundLet (Identifier t) (1 1))))))
                      (@1 (Tuple ((@1 (Type Int)) (@1 (Type Bool)))))))))
-                 (@1 (Return ((@1 (BoundIdentifier t (1 1)))))))))
+                 (@1 (Return (@1 (BoundIdentifier t (1 1))))))))
               (Closure))))))
          (0 0)))
        (@1
@@ -1028,7 +1022,7 @@ let%expect_test _ =
                       (Tuple
                        ((@1 (Type Int))
                         (@1 (Tuple ((@1 (Type Bool)) (@1 (Type Int))))))))))))
-                 (@1 (Return ((@1 (BoundIdentifier t (1 1)))))))))
+                 (@1 (Return (@1 (BoundIdentifier t (1 1))))))))
               (Closure))))))
          (0 0)))
        (@1
@@ -1067,7 +1061,7 @@ let%expect_test _ =
                (BoundFrame 0
                 ((@1
                   (Expression (@1 (Assignment (@1 (Tuple ())) (@1 (Tuple ()))))))
-                 (@1 (Return ((@1 (Type Int))))))))
+                 (@1 (Return (@1 (Type Int)))))))
               (Closure))))))
          (0 0)))
        (@1
@@ -1099,12 +1093,12 @@ let%expect_test _ =
                    (0 1)))
                  (@1
                   (Return
-                   ((@1
-                     (Lambda (@1 (Type Int)) () ((pure) (const))
-                      (@1
-                       (BoundFrame 0
-                        ((@1 (Return ((@1 (BoundIdentifier x (0 1)))))))))
-                      (Closure)))))))))
+                   (@1
+                    (Lambda (@1 (Type Int)) () ((pure) (const))
+                     (@1
+                      (BoundFrame 0
+                       ((@1 (Return (@1 (BoundIdentifier x (0 1))))))))
+                     (Closure))))))))
               (Closure))))))
          (0 0)))
        (@1
@@ -1118,4 +1112,3 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "type f() const { int x = false; return int; } f() x;";
   [%expect{| Error: @1 type mismatch |}]
-

@@ -72,7 +72,7 @@ and statement_inner =
   | If of expression * (* then: *) statement * (* else: *) statement
   | DoWhile of statement * expression
   | Switch of expression * switch_case list
-  | Return of expression option
+  | Return of expression
   | AllocLocals of int * int
 
 and statement = location * statement_inner

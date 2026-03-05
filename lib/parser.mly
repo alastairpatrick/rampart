@@ -162,7 +162,8 @@ stat
   | FOR LPAREN i=stat c=expr semi n=expr RPAREN b=compound_stat { prelower_for (loc($loc)) i c n b }
   | WHILE c=expr b=compound_stat                                { prelower_while (loc($loc)) c b }
   | DO b=compound_stat WHILE c=expr semi                        { loc $loc, DoWhile (b, c) }
-  | RETURN e=expr? semi                                         { loc $loc, Return e }
+  | RETURN e=expr semi                                          { loc $loc, Return e }
+  | RETURN semi                                                 { loc $loc, Return (loc $loc, Tuple []) }
   ;
 
 stats0

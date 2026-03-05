@@ -102,10 +102,8 @@ and bind_statement (env : env) (pass : bind_pass) ((location, statement) : state
       let cases = bind_switch_cases env pass cases in
       env, (location, Switch (expr, cases))
 
-    | Return None -> env, (location, Return None)
-
-    | Return Some expr ->
-      let _, expr = bind env pass expr in env, (location, Return (Some expr))
+    | Return expr ->
+      let _, expr = bind env pass expr in env, (location, Return expr)
 
     | BoundFrame _
 

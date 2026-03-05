@@ -3,6 +3,7 @@
 open Ast
 open Bind
 open Error
+open Location
 open Slot
 
 (* Where possible, prefer to recover from errors in this pass, relying on a later pass to report them. Exceptions:
@@ -13,7 +14,7 @@ open Slot
 *)
 
 exception Saw_uninitialized of string
-exception Return_exn of expression option
+exception Return_exn of expression
 
 type value =
 | Uninitialized_of_type of (* expression_type: *) expression option
@@ -33,6 +34,7 @@ type frame = {
   depth: int;
   enclosing_frame: frame option;
   variables: variable array;
+  return_type: expression;
   pure: bool;
   const: bool;
 }
@@ -49,6 +51,7 @@ let make_global_frame (num_globals : int) : frame = {
   depth = 0;
   enclosing_frame = None;
   variables = Array.make num_globals empty_variable;
+  return_type = (null_location, Type Void);
   pure = false;
   const = false;
 }
@@ -319,6 +322,7 @@ and evaluate_call env frame mode location callee args modifiers =
         depth = closure_frame.depth+1;
         enclosing_frame = Some closure_frame;
         variables = Array.make num_variables empty_variable;
+        return_type = return_type;
         pure = true;
         const = true;
       } in
@@ -332,11 +336,10 @@ and evaluate_call env frame mode location callee args modifiers =
         evaluate_statements env callee_frame mode statements |> ignore;
         (location, Tuple [])
       with
-      | Return_exn Some return_value ->
+      | Return_exn return_value ->
         if not (is_const_value return_value) then
           raise (error_internal "non-constant return value should be impossible");
         return_value
-      | Return_exn None -> (location, Tuple [])
 
     end
 
@@ -369,6 +372,7 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
       depth = frame.depth + 1;
       enclosing_frame = Some frame;
       variables = Array.make num_variables empty_variable;
+      return_type = return_type;
       pure = modifiers.pure;
       const = modifiers.const
     } in
@@ -424,7 +428,7 @@ and evaluate_declaration env frame mode _ declaration slot =
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
 
 and evaluate_return env frame mode _ e =
-  let e = Option.bind e (Fun.compose Option.some (evaluate_expression env frame mode)) in
+  let e = evaluate_expression env frame mode e in
   match mode with
     | Search_for_declaration_types -> e
     | Evaluate_type -> assert false

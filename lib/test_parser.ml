@@ -474,11 +474,11 @@ let%expect_test _ =
 
 let%expect_test _ =
   parse "return;";
-  [% expect{| (@1 (OrderIndependent ((@1 (Return ()))))) |}]
+  [% expect{| (@1 (OrderIndependent ((@1 (Return (@1 (Tuple ()))))))) |}]
 
 let%expect_test _ =
   parse "return 7;";
-  [% expect{| (@1 (OrderIndependent ((@1 (Return ((@1 (IntLiteral 7)))))))) |}]
+  [% expect{| (@1 (OrderIndependent ((@1 (Return (@1 (IntLiteral 7))))))) |}]
 
 
   (* Control flow Statements *)

@@ -244,31 +244,31 @@ let%expect_test _ =
                    (@1
                     (BinaryOp Equals (@1 (BoundIdentifier n (0 1)))
                      (@1 (IntLiteral 0))))
-                   (@1 (Compound ((@1 (Return ((@1 (IntLiteral 0))))))))
+                   (@1 (Compound ((@1 (Return (@1 (IntLiteral 0)))))))
                    (@1 (Compound ()))))
                  (@1
                   (If
                    (@1
                     (BinaryOp Equals (@1 (BoundIdentifier n (0 1)))
                      (@1 (IntLiteral 1))))
-                   (@1 (Compound ((@1 (Return ((@1 (IntLiteral 1))))))))
+                   (@1 (Compound ((@1 (Return (@1 (IntLiteral 1)))))))
                    (@1 (Compound ()))))
                  (@1
                   (Return
-                   ((@1
-                     (BinaryOp Plus
-                      (@1
-                       (Call (@1 (BoundIdentifier fib (0 0)))
-                        ((@1
-                          (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
-                           (@1 (IntLiteral 2)))))
-                        ()))
-                      (@1
-                       (Call (@1 (BoundIdentifier fib (0 0)))
-                        ((@1
-                          (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
-                           (@1 (IntLiteral 1)))))
-                        ()))))))))))
+                   (@1
+                    (BinaryOp Plus
+                     (@1
+                      (Call (@1 (BoundIdentifier fib (0 0)))
+                       ((@1
+                         (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
+                          (@1 (IntLiteral 2)))))
+                       ()))
+                     (@1
+                      (Call (@1 (BoundIdentifier fib (0 0)))
+                       ((@1
+                         (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
+                          (@1 (IntLiteral 1)))))
+                       ())))))))))
               ())))))
          (0 0))))))
     |}]
