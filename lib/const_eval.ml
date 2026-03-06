@@ -130,6 +130,13 @@ let rec is_const_value (expression : expression) : bool =
   | _ when is_const_type expression -> true
   | _ -> false
 
+(* Always use this function instead of directly constructing Const_of_value. *)
+let check_is_const_value (expression : expression) : value =
+  if (is_const_value expression) then
+    Const_of_value expression
+  else
+    raise (error_internal (Printf.sprintf "expected const value, got: %s" (Ast.show_expression expression)))
+
 (* This must work on any const value, any lambda (const or not) and any representative value. *)
 let rec type_of_expression ((location, expression): expression) : expression =
   match expression with
@@ -281,7 +288,7 @@ and evaluate_assignment env frame mode location a b =
       | (_, (BoundLet (_, slot))), _ ->
         let assignable = get_assignable frame slot in
         if is_const_value b then
-          set_assignable_value assignable (Const_of_value b)
+          set_assignable_value assignable (check_is_const_value b)
         else
           set_assignable_value assignable (Non_const_of_type (type_of_expression (evaluate_expression env frame Evaluate_type b)))
     
@@ -313,7 +320,7 @@ and evaluate_assignment env frame mode location a b =
           if not slot.mut then
             raise (error_immutable_assignment display_name);
           let b = implicit_convert mode b (type_of_expression current) in
-          set_assignable_value assignable (Const_of_value b);
+          set_assignable_value assignable (check_is_const_value b);
           b (* The result should be the RHS, implicitly converted to the same type as the LHS *)
         end
 
@@ -321,8 +328,7 @@ and evaluate_assignment env frame mode location a b =
         let assignable = get_assignable frame slot in
         (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
            whereas, BoundIdentifiers are always initialized before any reassignment. *)
-           assert (is_const_value b);
-        set_assignable_value assignable (Const_of_value b);
+        set_assignable_value assignable (check_is_const_value b);
         b (* The result should be the RHS, implicitly converted to the same type as the LHS, but the type of the LHS is inferred from the RHS in this case *)
 
       | (_, Tuple froms), (_, Tuple tos) ->
@@ -365,7 +371,7 @@ and evaluate_call env frame mode location callee args modifiers =
         | BoundDeclaration ({type_expr=Some type_expr; _}, slot) ->
           let arg = List.nth args i in
           let arg = implicit_convert mode arg type_expr in
-          set_assignable_value (get_assignable callee_frame slot) (Const_of_value arg)
+          set_assignable_value (get_assignable callee_frame slot) (check_is_const_value arg)
         | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
       try
         evaluate_statement env callee_frame mode statement |> ignore;
@@ -435,11 +441,11 @@ and evaluate_declaration env frame mode _ declaration slot =
   let initialize_assignable type_expr init_expr =
     if (declaration.modifiers.mut || not (is_const_value init_expr)) then begin
       if mode=Evaluate_const && frame.const then
-        set_assignable_value assignable (Const_of_value init_expr)
+        set_assignable_value assignable (check_is_const_value init_expr)
       else        
         set_assignable_value assignable (Non_const_of_type type_expr)
     end else
-      set_assignable_value assignable (Const_of_value init_expr) in
+      set_assignable_value assignable (check_is_const_value init_expr) in
       
   match declaration with
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
