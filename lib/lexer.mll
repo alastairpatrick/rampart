@@ -34,6 +34,8 @@ rule token = parse
     | ['0'-'9']+ as lxm                 { INT_LIT(int_of_string lxm) }
     | "=="                              { EQUALS }
     | "!="                              { NOT_EQUALS }
+    | "<="                              { LESS_EQUALS }
+    | ">="                              { GREATER_EQUALS }
     | "<-"                              { LARROW }
     | "->"                              { RARROW }
     | '='                               { ASSIGN }

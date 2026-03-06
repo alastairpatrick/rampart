@@ -32,6 +32,44 @@ let%expect_test _ =
   evaluate_declarations "1 + 2;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 3))))))) |}]
 
+let%expect_test _ =
+  evaluate_declarations "true ? 1 : 2;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 1))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "false ? 1 : 2;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 2))))))) |}]
+
+(* Static type checking will catch this error later. *)
+let%expect_test _ =
+  evaluate_declarations "1 ? 1 : 2;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Conditional (@1 (IntLiteral 1)) (@1 (IntLiteral 1))
+           (@1 (IntLiteral 2)))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut bool c; c ? 1 : 2;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name c)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Conditional (@1 (BoundIdentifier c (0 0))) (@1 (IntLiteral 1))
+           (@1 (IntLiteral 2)))))))))
+    |}]
+
 
 let%expect_test _ =
   evaluate_declarations "type t = int; t x;";
@@ -146,6 +184,23 @@ let%expect_test _ =
          ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
           (init_expr ((@1 (IntLiteral 0)))))
          (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut bool c; typeof(c ? 1 : 2) x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name c)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
     |}]
 
 let%expect_test _ =
@@ -782,6 +837,122 @@ let%expect_test _ =
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
           (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { return true ? int : bool; } f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { return false ? int : bool; } f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1
+               (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Bool)))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f(int c) const { return c ? int : bool; } f(7) x;";
+  [%expect{| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "type int_vector(int n) const { return n == 0 ? () : (int, int_vector(n-1)); } int_vector(3) x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Type Type)) ((@1 (Type Int))) ((pure) (const))))))
+          (name int_vector)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type))
+              ((@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
+                  (init_expr ()))
+                 (0 1))))
+              ((pure) (const))
+              (@1
+               (BoundFrame 1
+                (@1
+                 (Compound
+                  ((@1
+                    (Return
+                     (@1
+                      (Conditional
+                       (@1
+                        (BinaryOp Equals (@1 (BoundIdentifier n (0 1)))
+                         (@1 (IntLiteral 0))))
+                       (@1 (Tuple ()))
+                       (@1
+                        (Tuple
+                         ((@1 (Type Int))
+                          (@1
+                           (Call (@1 (BoundIdentifier int_vector (0 0)))
+                            ((@1
+                              (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
+                               (@1 (IntLiteral 1)))))
+                            ()))))))))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1
+             (Tuple
+              ((@1 (Type Int))
+               (@1
+                (Tuple
+                 ((@1 (Type Int)) (@1 (Tuple ((@1 (Type Int)) (@1 (Tuple ())))))))))))))
+          (name x)
+          (init_expr
+           ((@1
+             (Tuple
+              ((@1 (IntLiteral 0))
+               (@1
+                (Tuple
+                 ((@1 (IntLiteral 0))
+                  (@1 (Tuple ((@1 (IntLiteral 0)) (@1 (Tuple ()))))))))))))))
          (1 0))))))
     |}]
 

@@ -233,6 +233,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
+  | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | In (a, b) -> evaluate_in env frame mode location a b
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
@@ -277,8 +278,48 @@ and evaluate_binary_op env frame mode location op a b =
   let b = evaluate_expression env frame mode b in
   match op, a, b with
   | Plus, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a + b))
-  | Plus, _, _ -> (location, BinaryOp (Plus, a, b))
+  | Minus, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a - b))
+
+  | Equals, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a = b))
+  | LessEquals, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a <= b))
+  | Greater, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a > b))
+  | GreaterEquals, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a >= b))
+
+  | Plus, _, _
+  | Minus _, _, _
+  | Equals, _, _
+  | LessEquals, _, _
+  | Greater, _, _
+  | GreaterEquals, _, _ ->
+    (location, BinaryOp (op, a, b))
+
   | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s %s %s" (Ast.show_expression a) (Ast.show_binary_op op) (Ast.show_expression b)); assert false
+
+and evaluate_conditional env frame mode location condition consequent alternative =
+  match mode with
+  | Search_for_declaration_types ->
+    let condition = evaluate_expression env frame mode condition in
+    let consequent = evaluate_expression env frame mode consequent in
+    let alternative = evaluate_expression env frame mode alternative in
+    begin match condition with
+    | _, BoolLiteral true -> consequent
+    | _, BoolLiteral false -> alternative
+    | _ -> (location, Conditional (condition, consequent, alternative))
+    end
+
+  | Evaluate_type ->
+    let consequent = evaluate_expression env frame mode consequent in
+    let alternative = evaluate_expression env frame mode alternative in
+    if not (const_types_equal (type_of_expression consequent) (type_of_expression alternative)) then
+      raise error_type_mismatch;
+    consequent
+
+  | Evaluate_const ->
+    let condition = evaluate_expression env frame mode condition in
+    match condition with
+    | _, BoolLiteral true -> evaluate_expression env frame mode consequent
+    | _, BoolLiteral false -> evaluate_expression env frame mode alternative
+    | _ -> raise error_type_mismatch
 
 and evaluate_assignment env frame mode location a b =
   let b = evaluate_expression env frame mode b in

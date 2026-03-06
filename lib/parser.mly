@@ -14,9 +14,9 @@
 %token DIV DO
 %token ELSE EOF EOL EQUALS
 %token FALSE FOR
-%token GREATER
+%token GREATER GREATER_EQUALS
 %token IF IN INT
-%token LARROW LESS LCURLY LET LPAREN
+%token LARROW LESS LESS_EQUALS LCURLY LET LPAREN
 %token MINUS MUT
 %token NOT_EQUALS
 %token PLUS PURE
@@ -95,7 +95,10 @@ additive_expr
 relational_expr
   : e=additive_expr                                         { e }
   | a=relational_expr LESS b=additive_expr                  { loc $loc, BinaryOp (Less, a, b) }
+  | a=relational_expr LESS_EQUALS b=additive_expr           { loc $loc, BinaryOp (LessEquals, a, b) }
   | a=relational_expr GREATER b=additive_expr               { loc $loc, BinaryOp (Greater, a, b) }
+  | a=relational_expr GREATER_EQUALS b=additive_expr        { loc $loc, BinaryOp (GreaterEquals, a, b) }
+;
 
 equality_expr
   : e=relational_expr                                       { e }

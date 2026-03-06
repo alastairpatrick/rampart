@@ -9,7 +9,7 @@ let closure_of_sexp _ : closure = assert false
 let sexp_of_closure _ : Sexp.t = Sexp.Atom "Closure"
 let pp_closure _ _ = ()
 
-type binary_op = Plus | Minus | Times | Div | Equals | NotEquals | Less | Greater
+type binary_op = Plus | Minus | Times | Div | Equals | NotEquals | Less | LessEquals | Greater | GreaterEquals
 
 and unary_op = Minus
 
@@ -108,4 +108,6 @@ let show_binary_op = function
   | Equals -> "=="
   | NotEquals -> "!="
   | Less -> "<"
+  | LessEquals -> "<="
   | Greater -> ">"
+  | GreaterEquals -> ">="
