@@ -650,6 +650,56 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
+  evaluate_declarations "let f = (\\type() const -> int); f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier f) (0 0)))
+           (@1
+            (Lambda (@1 (Type Type)) () ((pure) (const))
+             (@1 (BoundFrame 0 (@1 (Return (@1 (Type Int)))))) (Closure)))))))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "(let f, let i) = (\\type() const -> int, 2); f() x; type t = typeof(i);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment
+           (@1
+            (Tuple
+             ((@1 (BoundLet (Identifier f) (0 0)))
+              (@1 (BoundLet (Identifier i) (1 0))))))
+           (@1
+            (Tuple
+             ((@1
+               (Lambda (@1 (Type Type)) () ((pure) (const))
+                (@1 (BoundFrame 0 (@1 (Return (@1 (Type Int)))))) (Closure)))
+              (@1 (IntLiteral 2)))))))))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (2 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (3 0))))))
+    |}]
+
+let%expect_test _ =
   evaluate_declarations "type f(type t) const { return (int, t); } f(bool) x;";
   [%expect{|
     (@1

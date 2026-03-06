@@ -277,18 +277,34 @@ and evaluate_binary_op env frame mode location op a b =
   | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s %s %s" (Ast.show_expression a) (Ast.show_binary_op op) (Ast.show_expression b)); assert false
 
 and evaluate_assignment env frame mode location a b =
+  let b = evaluate_expression env frame mode b in
   match mode with
   | Search_for_declaration_types ->
-    let b = evaluate_expression env frame mode b in
-    (* a is not searched here because there should be no declarations to find on the LHS of an assignment and there should be nothing to normalize on the LHS of an assignment *)
+    let rec initialize_bound_lets (a : expression) (b : expression) : unit =
+      match a, b with
+      | (_, (BoundLet (_, slot))), _ ->
+        let assignable = get_assignable frame slot in
+        if is_const_value b then
+          set_assignable_value assignable (Const_of_value b)
+        else
+          set_assignable_value assignable (Non_const_of_type (type_of_expression (evaluate_expression env frame Evaluate_type b)))
+    
+      | (_, Tuple froms), (_, Tuple tos) ->
+        (try
+          List.iter2 initialize_bound_lets froms tos
+        with Invalid_argument _ -> raise error_type_mismatch)
+
+      | _ -> ()
+    in
+    initialize_bound_lets a b;
     (location, Assignment (a, b))
 
   | Evaluate_type ->
+    (* TODO: probably want to initialize BoundLets for Evaluate_type mode too. *)
     (* The result should be the RHS, implicitly converted to the same type as the LHS. The value doesn't matter in this case, so return any value with the same type as the LHS *)
     evaluate_expression env frame mode a
 
   | Evaluate_const ->
-    let b = evaluate_expression env frame mode b in
     let rec assign (a : expression) (b : expression) : expression =
       match a, b with
       | (_, BoundIdentifier (display_name, slot)), _ ->
@@ -308,6 +324,7 @@ and evaluate_assignment env frame mode location a b =
         let assignable = get_assignable frame slot in
         (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
            whereas, BoundIdentifiers are always initialized before any reassignment. *)
+           assert (is_const_value b);
         set_assignable_value assignable (Const_of_value b);
         b (* The result should be the RHS, implicitly converted to the same type as the LHS, but the type of the LHS is inferred from the RHS in this case *)
 
