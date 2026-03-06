@@ -234,6 +234,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
+  | In (a, b) -> evaluate_in env frame mode location a b
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Tuple elements -> evaluate_tuple env frame mode location elements
   | Arity e -> evaluate_arity env frame mode location e
@@ -297,16 +298,44 @@ and evaluate_assignment env frame mode location a b =
           List.iter2 initialize_bound_lets froms tos
         with Invalid_argument _ -> raise error_type_mismatch)
 
+      | (_, Tuple _), _ -> raise error_type_mismatch
+
       | _ -> ()
     in
     initialize_bound_lets a b;
     (location, Assignment (a, b))
 
   | Evaluate_type ->
-    (* TODO: probably want to initialize BoundLets for Evaluate_type mode too. *)
-    (* The result should be the RHS, implicitly converted to the same type as the LHS. The value doesn't matter in this case, so return any value with the same type as the LHS *)
-    evaluate_expression env frame mode a
+    let rec type_of_assignment (a : expression) (b : expression) : expression =
+      match a, b with
+      | (_, BoundIdentifier (display_name, slot)), _ ->
+        let assignable = get_assignable frame slot in
+        let value = get_assignable_value assignable in
+        begin match value with
+        | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
+        | Uninitialized_of_type (Some const_type)
+        | Non_const_of_type const_type -> representative_value_of_type const_type
+        | Const_of_value const_value -> const_value
+        end
 
+      | (_, BoundLet (_, slot)), _ ->
+        let assignable = get_assignable frame slot in
+        (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
+           whereas, BoundIdentifiers are always initialized before any reassignment. *)
+        set_assignable_value assignable (check_is_const_value b); (* TODO: b is actually representative value, not necessarily a const value *)
+        b (* The result should be the RHS, implicitly converted to the same type as the LHS, but the type of the LHS is inferred from the RHS in this case *)
+
+      | (_, Tuple froms), (_, Tuple tos) ->
+        (try
+          (location, Tuple (List.map2 type_of_assignment froms tos))
+        with Invalid_argument _ -> raise error_type_mismatch)
+
+      | (_, Tuple _), _ -> raise error_type_mismatch
+
+      | _, _ -> raise (error_internal "assignment target not implemented for type evaluation") in
+    type_of_assignment a b
+
+  (* TODO: consider combining this with the case for Evaluate_type *)
   | Evaluate_const ->
     let rec assign (a : expression) (b : expression) : expression =
       match a, b with
@@ -340,6 +369,14 @@ and evaluate_assignment env frame mode location a b =
 
       | _ -> raise (error_internal (Printf.sprintf "assignment target not implemented: %s" (Ast.show_expression a))) in
     assign a b
+
+and evaluate_in env frame mode location a b =
+  let a = evaluate_expression env frame mode a in
+  let b = evaluate_expression env frame mode b in
+  match mode with
+  | Search_for_declaration_types -> (location, In (a, b))
+  | Evaluate_type
+  | Evaluate_const -> b
 
 and evaluate_call env frame mode location callee args modifiers =
   (* Consistent with other imperative languages, semantically, the callee is evaluated before any arguments. *)

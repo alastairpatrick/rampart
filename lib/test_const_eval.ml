@@ -1152,6 +1152,96 @@ let%expect_test _ =
   [%expect{| Error: @1 'let' expressions may only appear to the left of an assignment |}]
 
 let%expect_test _ =
+  evaluate_declarations "type f() const { return let s = int in s;} f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1
+               (BoundFrame 1
+                (@1
+                 (Compound
+                  ((@1
+                    (Return
+                     (@1
+                      (In
+                       (@1
+                        (Assignment (@1 (BoundLet (Identifier s) (0 1)))
+                         (@1 (Type Int))))
+                       (@1 (BoundIdentifier s (0 1))))))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "let x = 1 in x+1;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (In
+           (@1
+            (Assignment (@1 (BoundLet (Identifier x) (0 0))) (@1 (IntLiteral 1))))
+           (@1
+            (BinaryOp Plus (@1 (BoundIdentifier x (0 0))) (@1 (IntLiteral 1)))))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof(let x = 1 in x+1);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof((let x, let y) = (1, 2) in x+y);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut int y; type t = typeof((let x, y) = (1, 2) in x+y);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name y)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
   evaluate_declarations "type f() const { () = (); return int; } f() x;";
   [%expect{|
     (@1
