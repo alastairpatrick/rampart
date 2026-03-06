@@ -29,9 +29,9 @@ let top_scope () : env = { slots=StringMap.empty; scope=0; frame=0; num_slots=re
 let new_scope env : env = { env with scope=env.scope+1 }
 let new_frame env : env = { env with scope=env.scope+1; frame=env.frame+1; num_slots=ref 0 }
 
-let new_slot env : slot =
+let new_slot env mut : slot =
   env.num_slots := 1 + !(env.num_slots);
-  { index = !(env.num_slots) - 1; depth = env.frame }
+  { index = !(env.num_slots) - 1; depth = env.frame; mut }
 
 let find_slot (env : env) (name : string) : slot =
   let _, slot = StringMap.find name env.slots in slot
@@ -39,8 +39,8 @@ let find_slot (env : env) (name : string) : slot =
 let add_slot (env : env) (name : string) (slot : slot) : env =
   { env with slots=StringMap.add name (env.scope, slot) env.slots }
 
-let declare_slot (env : env) (name : string) : env * slot =
-  let slot = new_slot env in
+let declare_slot (env : env) (name : string) (mut : bool) : env * slot =
+  let slot = new_slot env mut in
   match StringMap.find_opt name env.slots with
   | Some (existing_scope, _) when existing_scope = env.scope -> raise (error_redeclaration name)
   | _ -> (add_slot env name slot), slot
@@ -69,7 +69,7 @@ and bind_statement (env : env) (pass : bind_pass) ((location, statement) : state
       assert (pass != OrderIndependent2);
       let _, type_expr = bind_opt env pass type_expr in
       let _, init_expr = bind_opt env pass init_expr in
-      let env, slot = declare_slot env name in
+      let env, slot = declare_slot env name modifiers.mut in
       env, (location, BoundDeclaration ({ modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr }, slot))
 
     | BoundDeclaration ({ modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr }, slot) ->
@@ -144,7 +144,7 @@ and bind env pass ((location, expr) : expression) : env * expression =
   
   | Let Identifier name ->
     assert (pass != OrderIndependent2);
-    let env, slot = declare_slot env name in
+    let env, slot = declare_slot env name false in
     env, (location, BoundLet (Identifier name, slot))
 
   | In (a, b) ->
@@ -155,7 +155,7 @@ and bind env pass ((location, expr) : expression) : env * expression =
 
   | Let Any ->
     assert (pass != OrderIndependent2);
-    env, (location, BoundLet (Any, new_slot env))
+    env, (location, BoundLet (Any, new_slot env false))
 
   | Identifier name ->
     if pass == OrderIndependent1 then env, (location, expr) else

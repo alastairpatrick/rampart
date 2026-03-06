@@ -20,7 +20,6 @@ type value =
 | Uninitialized_of_type of (* expression_type: *) expression option
 | Const_of_value of expression
 | Non_const_of_type of expression
-| Non_const_of_value of expression
 
 type variable = {
   value: value;
@@ -56,12 +55,12 @@ let make_global_frame (num_globals : int) : frame = {
   const = false;
 }
 
-let rec get_assignable (frame : frame) ({index; depth}: slot) : assignable =
+let rec get_assignable (frame : frame) ({index; depth; mut}: slot) : assignable =
   if depth = frame.depth then
     index, frame.variables
   else begin
     match frame.enclosing_frame with
-    | Some enclosing -> get_assignable enclosing {index; depth}
+    | Some enclosing -> get_assignable enclosing {index; depth; mut}
     | None -> raise (error_internal "invalid slot depth")
   end
 
@@ -164,7 +163,7 @@ let rec representative_value_of_type ((location, const_type): expression) : expr
     (location, Tuple (List.map representative_value_of_type elements))
   | Call (return_type, param_types, modifiers) ->
     (location, Lambda (return_type,
-      List.map (fun param_type -> (location, BoundDeclaration ({type_expr=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0}))) param_types,
+      List.map (fun param_type -> (location, BoundDeclaration ({type_expr=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
       modifiers, (location, Compound []), None))
   | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_expression (location, const_type)))) 
 
@@ -236,34 +235,31 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | TypeOf e -> evaluate_typeof env frame mode location e
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
-and evaluate_identifier _ frame mode location display_name ({index; depth} : slot) =
+and evaluate_identifier _ frame mode location display_name ({index; depth; mut} : slot) =
   match mode with
   | Search_for_declaration_types ->
-    (location, BoundIdentifier (display_name, {index; depth}))
+    (location, BoundIdentifier (display_name, {index; depth; mut}))
 
   | Evaluate_type ->
-    let assignable = get_assignable frame {index; depth} in
+    let assignable = get_assignable frame {index; depth; mut} in
     begin match get_assignable_value assignable with
     | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
     | Uninitialized_of_type (Some const_type)
     | Non_const_of_type const_type -> representative_value_of_type const_type
-    | Const_of_value const_value
-    | Non_const_of_value const_value -> const_value
+    | Const_of_value const_value -> const_value
     end
 
   | Evaluate_const ->
-    let assignable = get_assignable frame {index; depth} in
+    let assignable = get_assignable frame {index; depth; mut} in
     match get_assignable_value assignable with
     | Uninitialized_of_type _ ->
       raise (Saw_uninitialized display_name)
     | Non_const_of_type _ ->
       if not frame.const || depth <> frame.depth then
         raise (error_not_a_compile_time_constant display_name);
-      (location, (BoundIdentifier (display_name, {index; depth})))
+      (location, (BoundIdentifier (display_name, {index; depth; mut})))
     | Const_of_value (_, const_expression) ->
-      (location, const_expression)
-    | Non_const_of_value (_, const_expression) ->
-      if not frame.const || depth <> frame.depth then begin
+      if mut && (not frame.const || depth <> frame.depth) then begin
         raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
       end;
       (location, const_expression)
@@ -313,10 +309,11 @@ and evaluate_assignment env frame mode location a b =
         begin match value with
         | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name) (* Raising this leaves the local frame unreachable so any side effects so far don't matter *)
         | Non_const_of_type _ -> raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name)
-        | Const_of_value _ -> raise (error_immutable_assignment display_name)
-        | Non_const_of_value current ->
+        | Const_of_value current ->
+          if not slot.mut then
+            raise (error_immutable_assignment display_name);
           let b = implicit_convert mode b (type_of_expression current) in
-          set_assignable_value assignable (Non_const_of_value b);
+          set_assignable_value assignable (Const_of_value b);
           b (* The result should be the RHS, implicitly converted to the same type as the LHS *)
         end
 
@@ -438,7 +435,7 @@ and evaluate_declaration env frame mode _ declaration slot =
   let initialize_assignable type_expr init_expr =
     if (declaration.modifiers.mut || not (is_const_value init_expr)) then begin
       if mode=Evaluate_const && frame.const then
-        set_assignable_value assignable (Non_const_of_value init_expr)
+        set_assignable_value assignable (Const_of_value init_expr)
       else        
         set_assignable_value assignable (Non_const_of_type type_expr)
     end else
