@@ -122,7 +122,7 @@ in_expr
 
 lambda_body
   : b=compound_stat                                         { b }
-  | RARROW e=in_expr                                        { loc $loc, Expression e }
+  | RARROW e=in_expr                                        { loc $loc, Return e }
   ;
 
 lambda_expr

@@ -358,7 +358,7 @@ let%expect_test _ =
                (init_expr ())))))
            ((const))
            (@1
-            (Expression
+            (Return
              (@1
               (In
                (@1

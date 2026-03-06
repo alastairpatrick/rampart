@@ -212,6 +212,7 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
   try
     match statement with
     | Expression expression -> (location, Expression (evaluate_expression env frame mode expression))
+    | Compound statements -> (location, Compound (evaluate_statements env frame mode statements))
     | OrderIndependent statements -> (location, OrderIndependent (evaluate_order_independent env frame mode statements))
     | BoundDeclaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
     | Return e -> (location, Return (evaluate_return env frame mode location e))
@@ -230,8 +231,8 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Tuple elements -> evaluate_tuple env frame mode location elements
   | Arity e -> evaluate_arity env frame mode location e
-  | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), _) ->
-    evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements
+  | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), _) ->
+    evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement
   | TypeOf e -> evaluate_typeof env frame mode location e
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
@@ -328,7 +329,7 @@ and evaluate_call env frame mode location callee args modifiers =
   | _, Lambda (return_type, _, _, _, _) when mode = Evaluate_type ->
     representative_value_of_type return_type
 
-  | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statements)), Some Closure closure_frame) ->
+  | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some Closure closure_frame) ->
     begin match mode with
     | Search_for_declaration_types ->
       (location, Call (callee, args, modifiers))
@@ -353,7 +354,7 @@ and evaluate_call env frame mode location callee args modifiers =
           set_assignable_value (get_assignable callee_frame slot) (Const_of_value arg)
         | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
       try
-        evaluate_statements env callee_frame mode statements |> ignore;
+        evaluate_statement env callee_frame mode statement |> ignore;
         match return_type with
         | _, Tuple [] -> (location, Tuple [])
         | _ -> raise (Error "missing return statement")
@@ -382,10 +383,10 @@ and evaluate_arity env frame mode location e =
     | _, Tuple elements -> (location, IntLiteral (List.length elements))
     | _ -> (location, IntLiteral 1)
 
-and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statements =
+and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement =
   match mode with
   | Evaluate_type ->
-    representative_value_of_type (type_of_expression (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), None)))
+    representative_value_of_type (type_of_expression (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), None)))
   | _ ->
     let modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
     if frame.const && not modifiers.const then
@@ -405,9 +406,9 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
         set_assignable_value (get_assignable lambda_frame slot) (Non_const_of_type type_expr);
         (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
-    let statements = evaluate_statements env lambda_frame Search_for_declaration_types statements in
+    let statement = evaluate_statement env lambda_frame Search_for_declaration_types statement in
     (* A subsequent pass will verify that the lambda meets the requirements for pure or const. *)
-    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statements)), if modifiers.const then Some (Closure frame) else None))
+    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), if modifiers.const then Some (Closure frame) else None))
 
 and evaluate_typeof env frame _ _ e =
   type_of_expression (evaluate_expression env frame Evaluate_type e)

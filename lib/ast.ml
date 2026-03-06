@@ -66,7 +66,7 @@ and statement_inner =
   | Expression of expression
   | Declaration of declaration
   | BoundDeclaration of declaration * slot
-  | BoundFrame of int * statement list
+  | BoundFrame of int * statement
   | Compound of statement list
   | OrderIndependent of statement list
   | If of expression * (* then: *) statement * (* else: *) statement

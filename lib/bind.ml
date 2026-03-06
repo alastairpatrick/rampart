@@ -190,15 +190,13 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let _, e = bind env pass e in
     env, (location, Arity e)
     
-  | Lambda (return_type, params, modifiers, (_, Compound statements), _) ->
+  | Lambda (return_type, params, modifiers, statement, _) ->
     let _, return_type = bind env pass return_type in
     if pass == OrderIndependent1 then env, (location, expr) else
     let frame_env = new_frame env in
     let frame_env, params = bind_order_dependent frame_env params in
-    let _, statements = bind_order_dependent (new_scope frame_env) statements in
-    env, (location, Lambda (return_type, params, modifiers, (location, BoundFrame (!(frame_env.num_slots), statements)), None))
-
-  | Lambda _ -> assert false
+    let _, statement = bind_statement (new_scope frame_env) OrderDependent statement in
+    env, (location, Lambda (return_type, params, modifiers, (location, BoundFrame (!(frame_env.num_slots), statement)), None))
 
   | Call (callable, arg_exprs, pure) ->
     let _, callable = bind env pass callable in
