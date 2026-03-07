@@ -202,6 +202,19 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let _, callable = bind env pass callable in
     let arg_exprs = bind_expressions env pass arg_exprs in
     env, (location, Call (callable, arg_exprs, pure))
+
+  | DynamicArrayType t ->
+    let _, t = bind env pass t in
+    env, (location, DynamicArrayType t)
+
+  | DynamicArrayLiteral es ->
+    let es = Array.map (fun e -> let _, e = bind env pass e in e) es in
+    env, (location, DynamicArrayLiteral es)
+
+  | Index (a, b) ->
+    let _, a = bind env pass a in
+    let _, b = bind env pass b in
+    env, (location, Index (a, b))
   
 and bind_expressions env pass exprs =
   List.map (fun expr -> let _, expr = bind env pass expr in expr) exprs

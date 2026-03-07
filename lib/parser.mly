@@ -8,23 +8,24 @@
 %token <string> ID
 %token <int> INT_LIT
 
-%token ANY ARITY ASSIGN
-%token BACKSLASH BOOL
-%token CASE COLON COMMA CONST
+(* Please keep these in alphabetic order *)
+%token AMPERSAND ANY ARITY ASSIGN
+%token BACKSLASH BANG BOOL
+%token CARET CASE COLON COMMA CONST
 %token DIV DO
 %token ELSE EOF EOL EQUALS
 %token FALSE FOR
 %token GREATER GREATER_EQUALS
 %token IF IN INT
-%token LESS LESS_EQUALS LCURLY LET LOGICAL_AND LOGICAL_OR AMPERSAND PIPE CARET BANG TILDE LPAREN
+%token LBRACKET LESS LESS_EQUALS LCURLY LET LOGICAL_AND LOGICAL_OR LPAREN
 %token SHIFT_LEFT SHIFT_RIGHT
 %token MINUS MODULO MUT
 %token NOT_EQUALS
-%token PLUS PURE
+%token PIPE PLUS PURE
 %token QUESTION
-%token RARROW RETURN RCURLY RPAREN
+%token RARROW RBRACKET RETURN RCURLY RPAREN
 %token SEMI SWITCH
-%token TIMES TRUE TYPE TYPEOF
+%token TILDE TIMES TRUE TYPE TYPEOF
 %token VOID
 %token WHILE
 
@@ -66,21 +67,24 @@ primary_expr
   | LET p=pattern                                           { loc $loc, Let p }
   | ANY                                                     { loc $loc, Let Any }
   | LPAREN es=exprs0 RPAREN                                 { make_tuple_node (loc $loc) es }
+  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, DynamicArrayLiteral (Array.of_list es) }
   | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, TypeOf e }
   | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
   ;
 
-call_expr
+postfix_expr
   : e=primary_expr                                          { e }
-  | f=call_expr LPAREN es=exprs0 RPAREN
+  | f=postfix_expr LPAREN es=exprs0 RPAREN
     lm=lambda_modifiers                                     { loc $loc, Call (f, es, lm) }
+  | a=postfix_expr LBRACKET RBRACKET                        { loc $loc, DynamicArrayType a }
+  | a=postfix_expr LBRACKET e=expr RBRACKET                 { loc $loc, Index (a, e) }
   ;
 
 unary_expr
-  : e=call_expr                                             { e }
-  | MINUS e=call_expr                                       { loc $loc, UnaryOp (Negate, e) }
-  | BANG e=call_expr                                        { loc $loc, UnaryOp (LogicalNot, e) }
-  | TILDE e=call_expr                                       { loc $loc, UnaryOp (BitwiseInvert, e) }
+  : e=postfix_expr                                          { e }
+  | MINUS e=postfix_expr                                    { loc $loc, UnaryOp (Negate, e) }
+  | BANG e=postfix_expr                                     { loc $loc, UnaryOp (LogicalNot, e) }
+  | TILDE e=postfix_expr                                    { loc $loc, UnaryOp (BitwiseInvert, e) }
   ;
 
 multiplicative_expr

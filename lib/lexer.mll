@@ -59,6 +59,8 @@ rule token = parse
     | ')'                               { RPAREN }
     | '{'                               { LCURLY }
     | '}'                               { RCURLY }
+    | '['                               { LBRACKET }
+    | ']'                               { RBRACKET }
     | '<'                               { LESS }
     | '>'                               { GREATER }
     | ';'                               { SEMI }

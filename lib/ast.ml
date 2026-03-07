@@ -67,6 +67,9 @@ and expression_inner =
   | Tuple of expression list
   | Call of expression * expression list * lambda_modifiers
   | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement * closure option
+  | DynamicArrayType of expression
+  | DynamicArrayLiteral of expression array
+  | Index of expression * expression
   
 and expression = location * expression_inner
 
