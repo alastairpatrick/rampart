@@ -17,6 +17,7 @@
 %token GREATER GREATER_EQUALS
 %token IF IN INT
 %token LESS LESS_EQUALS LCURLY LET LOGICAL_AND LOGICAL_OR AMPERSAND PIPE CARET BANG TILDE LPAREN
+%token SHIFT_LEFT SHIFT_RIGHT
 %token MINUS MODULO MUT
 %token NOT_EQUALS
 %token PLUS PURE
@@ -95,12 +96,18 @@ additive_expr
   | a=additive_expr MINUS b=multiplicative_expr             { loc $loc, BinaryOp (Minus, a, b) }
   ;
 
+shift_expr
+  : e = additive_expr                                       { e }
+  | a=shift_expr SHIFT_LEFT b=additive_expr                 { loc $loc, BinaryOp (ShiftLeft, a, b) }
+  | a=shift_expr SHIFT_RIGHT b=additive_expr                { loc $loc, BinaryOp (ShiftRight, a, b) }
+  ;
+
 relational_expr
-  : e=additive_expr                                         { e }
-  | a=relational_expr LESS b=additive_expr                  { loc $loc, BinaryOp (Less, a, b) }
-  | a=relational_expr LESS_EQUALS b=additive_expr           { loc $loc, BinaryOp (LessEquals, a, b) }
-  | a=relational_expr GREATER b=additive_expr               { loc $loc, BinaryOp (Greater, a, b) }
-  | a=relational_expr GREATER_EQUALS b=additive_expr        { loc $loc, BinaryOp (GreaterEquals, a, b) }
+  : e=shift_expr                                            { e }
+  | a=relational_expr LESS b=shift_expr                    { loc $loc, BinaryOp (Less, a, b) }
+  | a=relational_expr LESS_EQUALS b=shift_expr             { loc $loc, BinaryOp (LessEquals, a, b) }
+  | a=relational_expr GREATER b=shift_expr                 { loc $loc, BinaryOp (Greater, a, b) }
+  | a=relational_expr GREATER_EQUALS b=shift_expr          { loc $loc, BinaryOp (GreaterEquals, a, b) }
 ;
 
 equality_expr

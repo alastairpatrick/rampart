@@ -376,6 +376,9 @@ and evaluate_binary_op env frame mode location op a b =
     end else
       (location, IntLiteral (if op = Div then num / denom else num mod denom))
 
+  | ShiftLeft, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a lsl b))
+  | ShiftRight, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a asr b))
+
   | BitwiseAnd, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a land b))
   | BitwiseAnd, (_, BoolLiteral a), (_, BoolLiteral b) -> (location, BoolLiteral (a && b))
   | BitwiseOr, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a lor b))

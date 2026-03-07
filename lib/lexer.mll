@@ -35,6 +35,8 @@ rule token = parse
     | "=="                              { EQUALS }
     | "!="                              { NOT_EQUALS }
     | "<="                              { LESS_EQUALS }
+    | "<<"                              { SHIFT_LEFT }
+    | ">>"                              { SHIFT_RIGHT }
     | ">="                              { GREATER_EQUALS }
     | "->"                              { RARROW }
     | "&&"                              { LOGICAL_AND }

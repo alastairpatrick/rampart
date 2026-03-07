@@ -26,6 +26,8 @@ type binary_op =
   | BitwiseAnd (* int or bool operands *)
   | BitwiseOr (* int or bool operands *)
   | BitwiseXor (* int or bool operands *)
+  | ShiftLeft   (* int operands only, C "<<" *)
+  | ShiftRight  (* int operands only, C ">>"; arithmetic shift like Java *)
 
 and unary_op =
   | Negate (* int operand *)
@@ -136,6 +138,8 @@ let show_binary_op = function
   | BitwiseAnd -> "&"
   | BitwiseOr -> "|"
   | BitwiseXor -> "^"
+  | ShiftLeft -> "<<"
+  | ShiftRight -> ">>"
 
 let show_unary_op = function
   | Negate -> "-"

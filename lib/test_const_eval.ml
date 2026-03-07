@@ -77,6 +77,18 @@ let%expect_test _ =
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 4))))))) |}]
 
 let%expect_test _ =
+  evaluate_declarations "1 << 2;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 4))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "8 >> 1;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 4))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "-8 >> 1;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral -4))))))) |}]
+
+let%expect_test _ =
   evaluate_declarations "true & false;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral false))))))) |}]
 
