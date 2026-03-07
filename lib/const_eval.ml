@@ -285,7 +285,35 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
       end;
       (location, const_expression)
 
+and evaluate_logical_op env frame mode location op a b =
+  let a = evaluate_expression env frame mode a in
+  match mode with
+  | Search_for_declaration_types ->
+    let b = evaluate_expression env frame mode b in
+    begin match op, a, b with
+    | LogicalAnd, (_, BoolLiteral a_value), (_, BoolLiteral b_value) -> (location, BoolLiteral (a_value && b_value))
+    | LogicalOr, (_, BoolLiteral a_value), (_, BoolLiteral b_value) -> (location, BoolLiteral (a_value || b_value))
+    | _ -> (location, BinaryOp (op, a, b))
+    end
+
+  | Evaluate_type -> 
+    let b = evaluate_expression env frame mode b in
+    begin match a, b with
+    | (_, BoolLiteral _), (_, BoolLiteral _) -> representative_value_of_type (location, Type Bool)
+    | _ -> raise error_type_mismatch
+    end
+
+  | Evaluate_const ->
+    begin match op, a with
+    | LogicalAnd, (_, BoolLiteral false) -> (location, BoolLiteral false)
+    | LogicalAnd, (_, BoolLiteral true) -> evaluate_expression env frame mode b
+    | LogicalOr, (_, BoolLiteral false) -> evaluate_expression env frame mode b
+    | LogicalOr, (_, BoolLiteral true) -> (location, BoolLiteral true)
+    | _, _ -> raise error_type_mismatch
+    end
+
 and evaluate_binary_op env frame mode location op a b =
+  if op = LogicalAnd || op = LogicalOr then evaluate_logical_op env frame mode location op a b else
   let a = evaluate_expression env frame mode a in
   let b = evaluate_expression env frame mode b in
   match op, a, b with
@@ -332,9 +360,13 @@ and evaluate_binary_op env frame mode location op a b =
   | LessEquals, _, _
   | Greater, _, _
   | GreaterEquals, _, _ ->
-    match mode with
+    begin match mode with
     | Search_for_declaration_types -> (location, BinaryOp (op, a, b))
     | _ -> raise error_type_mismatch
+    end
+
+  (* TODO: the rest of them *)
+  | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s" (Ast.show_binary_op op)); assert false
 
 and evaluate_conditional env frame mode location condition consequent alternative =
   match mode with

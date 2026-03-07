@@ -110,7 +110,7 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (UnaryOp Minus (@1 (Identifier x)))))))))
+      ((@1 (Expression (@1 (UnaryOp Negate (@1 (Identifier x)))))))))
     |}]
 
 let%expect_test _ =
@@ -536,7 +536,7 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1 (Expression (@1 (IntLiteral 1))))
-       (@1 (Expression (@1 (UnaryOp Minus (@1 (IntLiteral 1)))))))))
+       (@1 (Expression (@1 (UnaryOp Negate (@1 (IntLiteral 1)))))))))
     |}]
 
 let%expect_test _ =

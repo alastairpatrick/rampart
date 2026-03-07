@@ -21,8 +21,16 @@ type binary_op =
   | LessEquals
   | Greater
   | GreaterEquals
+  | LogicalAnd (* operands must be bool, can short-circuit *)
+  | LogicalOr (* operands must be bool, can short-circuit *)
+  | BitwiseAnd (* int or bool operands *)
+  | BitwiseOr (* int or bool operands *)
+  | BitwiseXor (* int or bool operands *)
 
-and unary_op = Minus
+and unary_op =
+  | Negate (* int operand *)
+  | LogicalNot (* bool operand *)
+  | BitwiseInvert (* int or bool operand *)
 
 and pattern =
   | Any
@@ -123,3 +131,13 @@ let show_binary_op = function
   | LessEquals -> "<="
   | Greater -> ">"
   | GreaterEquals -> ">="
+  | LogicalAnd -> "&&"
+  | LogicalOr -> "||"
+  | BitwiseAnd -> "&"
+  | BitwiseOr -> "|"
+  | BitwiseXor -> "^"
+
+let show_unary_op = function
+  | Negate -> "-"
+  | LogicalNot -> "!"
+  | BitwiseInvert -> "~"

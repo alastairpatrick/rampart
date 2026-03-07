@@ -38,6 +38,8 @@ rule token = parse
     | ">="                              { GREATER_EQUALS }
     | "<-"                              { LARROW }
     | "->"                              { RARROW }
+    | "&&"                              { LOGICAL_AND }
+    | "||"                              { LOGICAL_OR }
     | '='                               { ASSIGN }
     | '+'                               { PLUS }
     | '-'                               { MINUS }

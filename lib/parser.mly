@@ -16,7 +16,7 @@
 %token FALSE FOR
 %token GREATER GREATER_EQUALS
 %token IF IN INT
-%token LARROW LESS LESS_EQUALS LCURLY LET LPAREN
+%token LARROW LESS LESS_EQUALS LCURLY LET LOGICAL_AND LOGICAL_OR LPAREN
 %token MINUS MODULO MUT
 %token NOT_EQUALS
 %token PLUS PURE
@@ -77,7 +77,7 @@ call_expr
 
 unary_expr
   : e=call_expr                                             { e }
-  | MINUS e=call_expr                                       { loc $loc, UnaryOp (Minus, e) }
+  | MINUS e=call_expr                                       { loc $loc, UnaryOp (Negate, e) }
   ;
 
 multiplicative_expr
@@ -107,7 +107,17 @@ equality_expr
   | a=equality_expr NOT_EQUALS b=relational_expr            { loc $loc, BinaryOp (NotEquals, a, b) }
   ;
 
-binary_expr: e=equality_expr {e}
+logical_and_expr
+  : e=equality_expr                                         { e }
+  | a=logical_and_expr LOGICAL_AND b=equality_expr          { loc $loc, BinaryOp (LogicalAnd, a, b) }
+  ;
+
+logical_or_expr
+  : e=logical_and_expr                                      { e }
+  | a=logical_or_expr LOGICAL_OR b=logical_and_expr         { loc $loc, BinaryOp (LogicalOr, a, b) }
+  ;
+
+binary_expr: e=logical_or_expr {e}
 
 conditional_expr
   : e=binary_expr                                           { e }

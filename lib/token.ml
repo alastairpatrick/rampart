@@ -29,6 +29,8 @@ let string_of_token (token : token) : string = match token with
   | LESS_EQUALS -> "'<=' symbol"
   | LCURLY -> "'{' symbol"
   | LET -> "'let' keyword"
+  | LOGICAL_AND -> "'&&' symbol"
+  | LOGICAL_OR -> "'||' symbol"
   | LPAREN -> "'(' symbol"
   | MINUS -> "'-' symbol"
   | MODULO -> "'%' symbol"

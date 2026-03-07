@@ -64,6 +64,94 @@ let%expect_test _ =
   evaluate_declarations "3 >= 3;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral true))))))) |}]
 
+let%expect_test _ =
+  evaluate_declarations "true && false;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral false))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "false || true;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral true))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof(false || true);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Bool)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof(true && false);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Bool)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof(false || 0);";
+  [%expect{| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "(true && false ? int : bool) x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "(false || true ? int : bool) x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "(false || 0 ? int : bool) x;";
+  [%expect{| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "((true || (1/0 == 1)) ? int : bool) x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "((false && (1/0 == 1)) ? int : bool) x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (0 0))))))
+    |}]
+
 (* division by zero stays as BinaryOp during search *)
 let%expect_test _ =
   evaluate_declarations "1 / 0;";
