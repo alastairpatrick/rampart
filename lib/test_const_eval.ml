@@ -1138,7 +1138,7 @@ let%expect_test _ =
 
 let%expect_test _ =
   evaluate_declarations "type f() { return int; } f() x;";
-  [%expect{| Error: @1 'f' is not a compile-time constant |}]
+  [%expect{| Error: @1 invalid operation: cannot call non-const lambda in a constant expression |}]
 
 (* foo cannot recurse from within a declaration type. *)
 let%expect_test _ =
@@ -1315,7 +1315,7 @@ let%expect_test _ =
 (* Const function cannot call non-const function *)
 let%expect_test _ =
   evaluate_declarations "type a() { return int; } type b() const { return a(); } b() x;";
-  [%expect{| Error: @1 'a' is not a compile-time constant |}]
+  [%expect{| Error: @1 invalid operation: cannot call non-const lambda in a constant expression |}]
 
 (* Nested const function captures caller's frame. The return value of 'foo' has function type and foo's closure escapes, when it returns 'bar', which refers to a nested lambda that captures 't'.*)
 let%expect_test _ =

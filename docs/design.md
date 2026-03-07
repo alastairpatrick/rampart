@@ -75,13 +75,24 @@ help later passes finish work safely.
 
 **CTCE Rules (Conservative Summary)**
 - Constant forms (always CTCE): integer/boolean literals, `Type` nodes,
-  tuples of CTCEs, and `const` lambda expressions (which are themselves
-  considered compile-time values).
+  tuples of CTCEs, and **any** lambda expression.  The evaluator treats
+  every lambda literal as a constant value (even impure or non-`const` lambdas),
+  although only `const` lambdas may be invoked in `Evaluate_const` mode.  This
+  change ensures that *representative values* — the canonical elements used by
+  `Evaluate_type` when synthesising a type — are themselves always constant
+  values.
 - Identifier substitution: allowed only in `Evaluate_const` mode and only if
   the identifier maps to `Const_of_value` (a previously-identified CTCE) or to
   `Non_const_of_value` that is *local* to a `const` frame being executed.
   Reads of mutable or non-const captured variables are rejected during
   `Evaluate_const`.
+
+- **Representative-value invariant:** every value returned by the
+  `representative_value_of_type` helper is guaranteed to satisfy
+  `is_const_value`.  Because all lambdas are considered CTCE values, the
+  helper never needs to return a non-constant value, and clients can safely
+  treat representative values as compile-time constants when reasoning about
+  types.
   (The implementation additionally permits a `Non_const_of_type` binding in the
   local const frame to be accessed, returning the identifier itself; this
   provides a representative value for type inference without forcing an actual
@@ -119,8 +130,8 @@ help later passes finish work safely.
 
 **Error Handling & Diagnostics**
 - CTCE raises `Located_error` for user-facing issues (cycles that prevent
-  evaluating a declaration type, invalid const-calls, illegal access of
-  mutable captured variables, escaping closures, etc.).
+  evaluating a declaration type, illegal access of mutable captured
+  variables, escaping closures, etc.).
 - Non-recoverable internal invariants use `error_internal` to help debug the
   compiler itself; these are not intended to be surfaced to end users.
 - Unit tests use `ppx_expect` and check both successful normalized ASTs and

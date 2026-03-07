@@ -84,9 +84,10 @@ let set_assignable_value (index, variables) (value : value) : unit =
 (* Constant expression aka compile-time constant expression aka CTCE: an expression that can be evaluated to a const value at compile time
    Constant value: a literal, a const lambda expression or a tuple of constant values. Subset of the constant expressions.
    Constant type: a constant value corresponding to a type. Subset of the constant values.
-   Representative value: a value of a particular type that represents that type. Only the type of a representative value is meaningful.
+   Representative value: a constant value of a particular type that represents that type. Only the type of a representative value is meaningful.
 
    Constant expression > constant value > constant type
+                         constant_value > representative value
 *)
 
 (* Structural equality on type‑expressions, ignoring source locations.
@@ -138,7 +139,7 @@ let rec is_const_value (expression : expression) : bool =
   | _, BoolLiteral _ -> true
   | _, Type _ -> true
   | _, Tuple elements -> List.for_all is_const_value elements
-  | _, Lambda (_, _, {const = true; _}, _, _) -> true
+  | _, Lambda _ -> true
   | _ when is_const_type expression -> true
   | _ -> false
 
@@ -149,7 +150,7 @@ let check_is_const_value (expression : expression) : value =
   else
     raise (error_internal (Printf.sprintf "expected const value, got: %s" (Ast.show_expression expression)))
 
-(* This must work on any const value, any lambda (const or not) and any representative value. *)
+(* This must work on any const value, which by definition includes any lambda (const or not) and any representative value. *)
 let rec type_of_expression ((location, expression): expression) : expression =
   match expression with
   | IntLiteral _ -> (location, Type Int)
@@ -174,7 +175,7 @@ let rec default_value ((location, const_type): expression) : expression =
   | _ -> raise error_no_default_value
 
 let rec representative_value_of_type ((location, const_type): expression) : expression =
-  match const_type with
+  let representative_value = match const_type with
   | Type Int -> (location, IntLiteral 0)
   | Type Bool -> (location, BoolLiteral false)
   | Type Type -> (location, Type Type)
@@ -185,6 +186,11 @@ let rec representative_value_of_type ((location, const_type): expression) : expr
       List.map (fun param_type -> (location, BoundDeclaration ({type_expr=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
       modifiers, (location, Compound []), None))
   | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_expression (location, const_type)))) 
+  in
+    if (not (is_const_value representative_value)) then
+      raise (error_internal (Printf.sprintf "representative value should be a const value: %s" (Ast.show_expression representative_value)))
+    else
+      representative_value
 
 let rec evaluate_statements env frame mode (statements : statement list) : statement list =
   List.map (evaluate_statement env frame mode) statements
@@ -436,7 +442,7 @@ and evaluate_assignment env frame mode location a b =
         let assignable = get_assignable frame slot in
         (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
            whereas, BoundIdentifiers are always initialized before any reassignment. *)
-        set_assignable_value assignable (check_is_const_value b); (* TODO: b is actually representative value, not necessarily a const value *)
+        set_assignable_value assignable (check_is_const_value b);
         b (* The result should be the RHS, implicitly converted to the same type as the LHS, but the type of the LHS is inferred from the RHS in this case *)
 
       | (_, Tuple froms), (_, Tuple tos) ->
@@ -497,9 +503,6 @@ and evaluate_call env frame mode location callee args modifiers =
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (evaluate_expression env frame mode) args in
   match callee with
-  | _, Lambda (return_type, _, _, _, _) when mode = Evaluate_type ->
-    representative_value_of_type return_type
-
   | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some Closure (closure_frame, _)) ->
     begin match mode with
     | Search_for_declaration_types ->
@@ -535,6 +538,13 @@ and evaluate_call env frame mode location callee args modifiers =
           raise (error_internal "non-constant return value should be impossible");
         return_value
 
+    end
+
+  | _, Lambda (return_type, _, _, _, _) ->
+    begin match mode with
+    | Search_for_declaration_types -> (location, Call (callee, args, { modifiers with pure = modifiers.pure || modifiers.const }))
+    | Evaluate_type -> representative_value_of_type return_type
+    | Evaluate_const -> raise (error_invalid_operation "cannot call non-const lambda in a constant expression")
     end
 
   | _ -> (location, Call (callee, args, { modifiers with pure = modifiers.pure || modifiers.const }))
