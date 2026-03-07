@@ -42,8 +42,9 @@ rule token = parse
     | '+'                               { PLUS }
     | '-'                               { MINUS }
     | '*'                               { TIMES }
-    | '\\'                              { BACKSLASH }
+    | "%"                               { MODULO }
     | '/'                               { DIV }
+    | '\\'                              { BACKSLASH }
     | '?'                               { QUESTION }
     | ':'                               { COLON }
     | '('                               { LPAREN }

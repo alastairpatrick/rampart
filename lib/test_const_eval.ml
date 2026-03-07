@@ -33,6 +33,94 @@ let%expect_test _ =
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 3))))))) |}]
 
 let%expect_test _ =
+  evaluate_declarations "1 - 2;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral -1))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "2 * 3;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 6))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "5 / 2;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 2))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "5 % 2;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 1))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "1 < 2;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral true))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "1 <= 1;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral true))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "2 > 3;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral false))))))) |}]
+
+let%expect_test _ =
+  evaluate_declarations "3 >= 3;";
+  [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral true))))))) |}]
+
+(* division by zero stays as BinaryOp during search *)
+let%expect_test _ =
+  evaluate_declarations "1 / 0;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression (@1 (BinaryOp Div (@1 (IntLiteral 1)) (@1 (IntLiteral 0)))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "1 % 0;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1 (BinaryOp Modulo (@1 (IntLiteral 1)) (@1 (IntLiteral 0)))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof(1 / 0);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { return 1 / 0; } f() x;";
+  [%expect{| Error: @1 invalid operation: division by zero |}]
+
+let%expect_test _ =
+  evaluate_declarations "1 == true;";
+  [%expect{| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof(1 % 0);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Int)))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { return 1 % 0; } f() x;";
+  [%expect{| Error: @1 invalid operation: division by zero |}]
+
+let%expect_test _ =
   evaluate_declarations "true ? 1 : 2;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 1))))))) |}]
 

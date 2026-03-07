@@ -17,11 +17,11 @@
 %token GREATER GREATER_EQUALS
 %token IF IN INT
 %token LARROW LESS LESS_EQUALS LCURLY LET LPAREN
-%token MINUS MUT
+%token MINUS MODULO MUT
 %token NOT_EQUALS
 %token PLUS PURE
 %token QUESTION
-%token RARROW RETURN RINEQ RCURLY RPAREN
+%token RARROW RETURN RCURLY RPAREN
 %token SEMI SWITCH
 %token TIMES TRUE TYPE TYPEOF
 %token VOID
@@ -84,6 +84,7 @@ multiplicative_expr
   : e=unary_expr                                            { e }
   | a=multiplicative_expr TIMES b=unary_expr                { loc $loc, BinaryOp (Times, a, b) }
   | a=multiplicative_expr DIV b=unary_expr                  { loc $loc, BinaryOp (Div, a, b) }
+  | a=multiplicative_expr MODULO b=unary_expr               { loc $loc, BinaryOp (Modulo, a, b) }
   ;
 
 additive_expr

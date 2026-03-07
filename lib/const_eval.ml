@@ -120,6 +120,24 @@ let is_const_type (expression : expression) : bool = const_types_equal expressio
 let check_is_const_type expression =
   if is_const_type expression then expression else raise error_type_expected
 
+let rec const_values_equal (a : expression) (b : expression) : bool =
+  match a, b with
+  | (_, IntLiteral a), (_, IntLiteral b) -> a = b
+  | (_, BoolLiteral a), (_, BoolLiteral b) -> a = b
+  | (_, Tuple a_elements), (_, Tuple b_elements) ->
+    (try
+      List.for_all2 const_values_equal a_elements b_elements
+    with Invalid_argument _ -> false)
+
+  (* TODO: not sure what the semantics of lambda equality should be yet *)
+  | (_, Lambda (a_return_type, a_params, a_modifiers, a_statement, _)), (_, Lambda (b_return_type, b_params, b_modifiers, b_statement, _)) ->
+    const_types_equal a_return_type b_return_type && List.for_all2 (fun (_, a_param) (_, b_param) -> match a_param, b_param with
+      | BoundDeclaration ({type_expr=Some a_type; _}, _), BoundDeclaration ({type_expr=Some b_type; _}, _) -> const_types_equal a_type b_type
+      | _ -> assert false) a_params b_params && a_modifiers = b_modifiers && a_statement = b_statement
+
+  | _ when is_const_type a && is_const_type b -> const_types_equal a b
+  | _ -> false
+
 let rec is_const_value (expression : expression) : bool =
   match expression with
   | _, IntLiteral _ -> true
@@ -279,21 +297,50 @@ and evaluate_binary_op env frame mode location op a b =
   match op, a, b with
   | Plus, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a + b))
   | Minus, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a - b))
+  | Times, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a * b))
 
-  | Equals, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a = b))
+  | Less, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a < b))
   | LessEquals, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a <= b))
   | Greater, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a > b))
   | GreaterEquals, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a >= b))
 
+  | Div, (_, IntLiteral num), (_, IntLiteral denom)
+  | Modulo, (_, IntLiteral num), (_, IntLiteral denom) ->
+    if denom = 0 then begin
+      match mode with
+      | Search_for_declaration_types -> (location, BinaryOp (op, a, b)) (* TODO: new rule for CTCEs - division and modulo expressions are not CTCEs if the denominator is zero *)
+      | Evaluate_type -> representative_value_of_type (location, Type Int)
+      | Evaluate_const -> raise (error_invalid_operation "division by zero")
+    end else
+      (location, IntLiteral (if op = Div then num / denom else num mod denom))
+
+  | Equals, a, b
+  | NotEquals, a, b ->
+    if is_const_value a && is_const_value b then
+      if (const_types_equal (type_of_expression a) (type_of_expression b)) then
+        let are_equal = const_values_equal a b in
+        (location, BoolLiteral (if op = Equals then are_equal else not are_equal))
+      else
+        raise error_type_mismatch
+    else begin
+      match mode with
+      | Search_for_declaration_types -> (location, BinaryOp (op, a, b))
+      | Evaluate_type -> representative_value_of_type (location, Type Bool)
+      | Evaluate_const -> raise (error_internal "operands should be const values")
+    end
+
   | Plus, _, _
-  | Minus _, _, _
-  | Equals, _, _
+  | Minus, _, _
+  | Times, _, _
+  | Div, _, _
+  | Modulo, _, _
+  | Less, _, _
   | LessEquals, _, _
   | Greater, _, _
   | GreaterEquals, _, _ ->
-    (location, BinaryOp (op, a, b))
-
-  | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s %s %s" (Ast.show_expression a) (Ast.show_binary_op op) (Ast.show_expression b)); assert false
+    match mode with
+    | Search_for_declaration_types -> (location, BinaryOp (op, a, b))
+    | _ -> raise error_type_mismatch
 
 and evaluate_conditional env frame mode location condition consequent alternative =
   match mode with
