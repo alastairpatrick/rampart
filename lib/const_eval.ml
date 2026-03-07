@@ -39,7 +39,7 @@ type frame = {
 }
 
 type closure +=
-  | Closure of frame
+  | Closure of frame * unit ref   (* The unit ref is a placeholder value used to give the closure a unique identity, which we use for const lambda value equality checks. *)
 
 type eval_mode =
   | Search_for_declaration_types  (* Search AST for declarations and switch to Evaluate_const mode to evaluate their types *)
@@ -128,13 +128,7 @@ let rec const_values_equal (a : expression) (b : expression) : bool =
     (try
       List.for_all2 const_values_equal a_elements b_elements
     with Invalid_argument _ -> false)
-
-  (* TODO: not sure what the semantics of lambda equality should be yet *)
-  | (_, Lambda (a_return_type, a_params, a_modifiers, a_statement, _)), (_, Lambda (b_return_type, b_params, b_modifiers, b_statement, _)) ->
-    const_types_equal a_return_type b_return_type && List.for_all2 (fun (_, a_param) (_, b_param) -> match a_param, b_param with
-      | BoundDeclaration ({type_expr=Some a_type; _}, _), BoundDeclaration ({type_expr=Some b_type; _}, _) -> const_types_equal a_type b_type
-      | _ -> assert false) a_params b_params && a_modifiers = b_modifiers && a_statement = b_statement
-
+  | (_, Lambda (_, _, _, _, Some (Closure (_, a_identity)))), (_, Lambda (_, _, _, _, Some (Closure (_, b_identity)))) -> a_identity == b_identity
   | _ when is_const_type a && is_const_type b -> const_types_equal a b
   | _ -> false
 
@@ -474,7 +468,7 @@ and evaluate_call env frame mode location callee args modifiers =
   | _, Lambda (return_type, _, _, _, _) when mode = Evaluate_type ->
     representative_value_of_type return_type
 
-  | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some Closure closure_frame) ->
+  | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some Closure (closure_frame, _)) ->
     begin match mode with
     | Search_for_declaration_types ->
       (location, Call (callee, args, modifiers))
@@ -553,7 +547,7 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
     let statement = evaluate_statement env lambda_frame Search_for_declaration_types statement in
     (* A subsequent pass will verify that the lambda meets the requirements for pure or const. *)
-    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), if modifiers.const then Some (Closure frame) else None))
+    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), if modifiers.const then Some (Closure (frame, ref ())) else None))
 
 and evaluate_typeof env frame _ _ e =
   type_of_expression (evaluate_expression env frame Evaluate_type e)

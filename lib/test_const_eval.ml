@@ -1582,3 +1582,101 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "type f() const {} f() x;";
   [%expect{| Error: @1 missing return statement |}]
+
+(* Lambda value equality *)
+let%expect_test _ =
+  evaluate_declarations "void f() const {} (f == f) ? int : bool x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Void)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void)) () ((pure) (const))
+              (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "void f() const {} void g() const {} (f == g) ? int : bool x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Void)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void)) () ((pure) (const))
+              (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Void)) () ((pure) (const))))))
+          (name g)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void)) () ((pure) (const))
+              (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure))))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (2 0))))))
+    |}]
+
+(* f() == f() evaluates to false here because each call to f() returns a new closure with a unique identity *)
+let%expect_test _ =
+  evaluate_declarations "(void() const) f() const { void g() const {} return g; } (f() == f()) ? int : bool x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1
+             (Call (@1 (Call (@1 (Type Void)) () ((pure) (const)))) ()
+              ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Call (@1 (Type Void)) () ((pure) (const)))) ()
+              ((pure) (const))
+              (@1
+               (BoundFrame 1
+                (@1
+                 (Compound
+                  ((@1
+                    (BoundDeclaration
+                     ((modifiers ())
+                      (type_expr
+                       ((@1 (Call (@1 (Type Void)) () ((pure) (const))))))
+                      (name g)
+                      (init_expr
+                       ((@1
+                         (Lambda (@1 (Type Void)) () ((pure) (const))
+                          (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure))))))
+                     (0 1)))
+                   (@1 (Return (@1 (BoundIdentifier g (0 1))))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (1 0))))))
+    |}]
