@@ -262,6 +262,27 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | TypeOf e -> evaluate_typeof env frame mode location e
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
+(* Expression evaluation guidelines.
+
+Search_for_declaration_types:
+DO reduce constant expressions to constant values.
+DO reduce sub-expressions even if the whole expression can't be reduced.
+DO reduce declaration types to constant values by switching to Evaluate_const mode.
+DO NOT type check beyond that absolutely necessary to reduce constant expressions.
+
+Evaluate_type:
+DO type check; Evaluate_type mode often erases AST nodes that might contain semantic errors.
+DO treat representative values as constant values because they _are_.
+DO NOT interpret the value of a representative value as meaningful; only its type is meaningful.
+DO NOT return unreduced expressions; the result must be a representative value (and therefore a constant value) or an exception.
+
+Evaluate_const:
+DO type check
+DO NOT evaluate sub-expressions unless it is semantically correct to do so; such evaluations might have side effects or halt.
+DO NOT return unreduced non-constant expressions; the result must be a constant value or an exception.
+
+*)
+
 and evaluate_identifier _ frame mode location display_name ({index; depth; mut} : slot) =
   match mode with
   | Search_for_declaration_types ->
@@ -344,17 +365,13 @@ and evaluate_binary_op env frame mode location op a b =
 
   | Equals, a, b
   | NotEquals, a, b ->
-    if is_const_value a && is_const_value b then
-      if (const_types_equal (type_of_expression a) (type_of_expression b)) then
-        let are_equal = const_values_equal a b in
-        (location, BoolLiteral (if op = Equals then are_equal else not are_equal))
-      else
-        raise error_type_mismatch
+    if is_const_value a && is_const_value b && (const_types_equal (type_of_expression a) (type_of_expression b)) then
+      let are_equal = const_values_equal a b in
+      (location, BoolLiteral (if op = Equals then are_equal else not are_equal))
     else begin
       match mode with
       | Search_for_declaration_types -> (location, BinaryOp (op, a, b))
-      | Evaluate_type -> representative_value_of_type (location, Type Bool)
-      | Evaluate_const -> raise (error_internal "operands should be const values")
+      | _ -> raise error_type_mismatch
     end
 
   | Plus, _, _

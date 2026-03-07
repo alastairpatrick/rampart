@@ -190,6 +190,16 @@ let%expect_test _ =
 
 let%expect_test _ =
   evaluate_declarations "1 == true;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1 (BinaryOp Equals (@1 (IntLiteral 1)) (@1 (BoolLiteral true)))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut int a; mut bool b; type t = typeof(a == b);";
   [%expect{| Error: @1 type mismatch |}]
 
 let%expect_test _ =

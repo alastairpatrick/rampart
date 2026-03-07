@@ -73,6 +73,34 @@ help later passes finish work safely.
     expressions and their optional closure field are likewise not leaked out of
     CTCE except when they form part of a declaration type.
 
+**Expression evaluation strategy**
+
+To keep the implementation predictable and to make the CTCE invariants easy
+to reason about, the evaluator follows a small set of informal guidelines,
+which are implemented in `evaluate_expression` and its helpers:
+
+* Evaluation is left-to-right and strict on most operators; the callee is
+  evaluated before its arguments, and arguments are evaluated in order.  This
+  matches the language's runtime semantics and ensures that, when in
+  `Evaluate_const` mode, any side-effectful or non-terminating sub-expression
+  is only executed if it is actually needed for the result.
+* `Search_for_declaration_types` reduces *every* constant sub-expression it
+  encounters, even if the enclosing operation cannot be evaluated.  This lets
+  declaration types be normalised eagerly without accidentally executing
+  unrelated code.
+* `Evaluate_type` is a purely type-level mode: it must return a representative
+  value (which, by invariant, is also a constant value) and may not perform
+  any side-effects or leave behind unreduced nodes.  It is sometimes invoked
+  on expressions whose value would be non-constant at runtime (e.g. calls to
+  non-`const` lambdas), but callers rely only on the resulting **type**.
+* `Evaluate_const` performs full constant evaluation but only when it is
+  semantically safe to do so; notably, logical operators short-circuit so the
+  second operand is skipped when the first operand determines the result.  A
+  non-`const` lambda call in this mode raises an explicit error rather than
+  attempting evaluation.  The result returned by `Evaluate_const` must always
+  be a constant value; any attempt to produce a non-constant value is treated
+  as a bug in the evaluator itself.
+
 **CTCE Rules (Conservative Summary)**
 - Constant forms (always CTCE): integer/boolean literals, `Type` nodes,
   tuples of CTCEs, and **any** lambda expression.  The evaluator treats
