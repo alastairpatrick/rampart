@@ -250,6 +250,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Type _ -> (location, expression)
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
+  | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
@@ -339,6 +340,18 @@ and evaluate_logical_op env frame mode location op a b =
     | _, _ -> raise error_type_mismatch
     end
 
+and evaluate_unary_op env frame mode location op e =
+  let e = evaluate_expression env frame mode e in
+  match op, e with
+  | Negate, (_, IntLiteral v) -> (location, IntLiteral (-v))
+  | LogicalNot, (_, BoolLiteral b) -> (location, BoolLiteral (not b))
+  | BitwiseInvert, (_, IntLiteral v) -> (location, IntLiteral (lnot v))
+  | BitwiseInvert, (_, BoolLiteral b) -> (location, BoolLiteral (not b))
+  | _, _ ->
+      match mode with
+      | Search_for_declaration_types -> (location, UnaryOp (op, e))
+      | _ -> raise error_type_mismatch
+
 and evaluate_binary_op env frame mode location op a b =
   if op = LogicalAnd || op = LogicalOr then evaluate_logical_op env frame mode location op a b else
   let a = evaluate_expression env frame mode a in
@@ -362,6 +375,13 @@ and evaluate_binary_op env frame mode location op a b =
       | Evaluate_const -> raise (error_invalid_operation "division by zero")
     end else
       (location, IntLiteral (if op = Div then num / denom else num mod denom))
+
+  | BitwiseAnd, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a land b))
+  | BitwiseAnd, (_, BoolLiteral a), (_, BoolLiteral b) -> (location, BoolLiteral (a && b))
+  | BitwiseOr, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a lor b))
+  | BitwiseOr, (_, BoolLiteral a), (_, BoolLiteral b) -> (location, BoolLiteral (a || b))
+  | BitwiseXor, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a lxor b))
+  | BitwiseXor, (_, BoolLiteral a), (_, BoolLiteral b) -> (location, BoolLiteral (a <> b))
 
   | Equals, a, b
   | NotEquals, a, b ->

@@ -16,7 +16,7 @@
 %token FALSE FOR
 %token GREATER GREATER_EQUALS
 %token IF IN INT
-%token LARROW LESS LESS_EQUALS LCURLY LET LOGICAL_AND LOGICAL_OR LPAREN
+%token LESS LESS_EQUALS LCURLY LET LOGICAL_AND LOGICAL_OR AMPERSAND PIPE CARET BANG TILDE LPAREN
 %token MINUS MODULO MUT
 %token NOT_EQUALS
 %token PLUS PURE
@@ -78,6 +78,8 @@ call_expr
 unary_expr
   : e=call_expr                                             { e }
   | MINUS e=call_expr                                       { loc $loc, UnaryOp (Negate, e) }
+  | BANG e=call_expr                                        { loc $loc, UnaryOp (LogicalNot, e) }
+  | TILDE e=call_expr                                       { loc $loc, UnaryOp (BitwiseInvert, e) }
   ;
 
 multiplicative_expr
@@ -107,9 +109,24 @@ equality_expr
   | a=equality_expr NOT_EQUALS b=relational_expr            { loc $loc, BinaryOp (NotEquals, a, b) }
   ;
 
-logical_and_expr
+bitwise_and_expr
   : e=equality_expr                                         { e }
-  | a=logical_and_expr LOGICAL_AND b=equality_expr          { loc $loc, BinaryOp (LogicalAnd, a, b) }
+  | a=bitwise_and_expr AMPERSAND b=equality_expr            { loc $loc, BinaryOp (BitwiseAnd, a, b) }
+  ;
+
+bitwise_xor_expr
+  : e=bitwise_and_expr                                      { e }
+  | a=bitwise_xor_expr CARET b=bitwise_and_expr             { loc $loc, BinaryOp (BitwiseXor, a, b) }
+  ;
+
+bitwise_or_expr
+  : e=bitwise_xor_expr                                      { e }
+  | a=bitwise_or_expr PIPE b=bitwise_xor_expr               { loc $loc, BinaryOp (BitwiseOr, a, b) }
+  ;
+
+logical_and_expr
+  : e=bitwise_or_expr                                       { e }
+  | a=logical_and_expr LOGICAL_AND b=bitwise_or_expr        { loc $loc, BinaryOp (LogicalAnd, a, b) }
   ;
 
 logical_or_expr

@@ -1,11 +1,14 @@
 open Parser
 
 let string_of_token (token : token) : string = match token with
+  | AMPERSAND -> "'&' symbol"
   | ANY -> "'any' keyword"
   | ARITY -> "'arity' keyword"
   | ASSIGN -> "'=' symbol"
   | BACKSLASH -> "'\\' symbol"
+  | BANG -> "'!' symbol"
   | BOOL -> "'bool' keyword"
+  | CARET -> "'^' symbol"
   | CASE -> "'case' keyword"
   | COLON -> "':' symbol"
   | COMMA -> "',' symbol"
@@ -24,7 +27,6 @@ let string_of_token (token : token) : string = match token with
   | IN -> "'in' keyword"
   | INT -> "'int' keyword"
   | INT_LIT _ -> "integer literal"
-  | LARROW -> "'<-' symbol"
   | LESS -> "'<' symbol"
   | LESS_EQUALS -> "'<=' symbol"
   | LCURLY -> "'{' symbol"
@@ -36,6 +38,7 @@ let string_of_token (token : token) : string = match token with
   | MODULO -> "'%' symbol"
   | MUT -> "'mut' keyword"
   | NOT_EQUALS -> "'!=' symbol"
+  | PIPE -> "'|' symbol"
   | PLUS -> "'+' symbol"
   | PURE -> "'pure' keyword"
   | QUESTION -> "'?' symbol"
@@ -46,6 +49,7 @@ let string_of_token (token : token) : string = match token with
   | RPAREN -> "')' symbol"
   | SEMI -> "';' symbol"
   | SWITCH -> "'switch' keyword"
+  | TILDE -> "'~' symbol"
   | TIMES -> "'*' symbol"
   | TRUE -> "'true' keyword"
   | TYPE -> "'type' keyword"

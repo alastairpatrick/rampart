@@ -36,10 +36,14 @@ rule token = parse
     | "!="                              { NOT_EQUALS }
     | "<="                              { LESS_EQUALS }
     | ">="                              { GREATER_EQUALS }
-    | "<-"                              { LARROW }
     | "->"                              { RARROW }
     | "&&"                              { LOGICAL_AND }
     | "||"                              { LOGICAL_OR }
+    | "&"                               { AMPERSAND }
+    | "|"                               { PIPE }
+    | "^"                               { CARET }
+    | "!"                               { BANG }
+    | "~"                               { TILDE }
     | '='                               { ASSIGN }
     | '+'                               { PLUS }
     | '-'                               { MINUS }
