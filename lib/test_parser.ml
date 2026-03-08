@@ -155,14 +155,14 @@ let%expect_test _ =
         (Expression
          (@1
           (DynamicArrayLiteral
-           ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))))))))))
+           ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))) ())))))))
     |}]
 let%expect_test _ =
   parse "[int];";
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (DynamicArrayLiteral ((@1 (Type Int))))))))))
+      ((@1 (Expression (@1 (DynamicArrayLiteral ((@1 (Type Int))) ())))))))
     |}]
 
 let%expect_test _ =
@@ -170,7 +170,19 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Index (@1 (Identifier x)) (@1 (IntLiteral 0)))))))))
+      ((@1 (Expression (@1 (Index (@1 (Identifier x)) ((@1 (IntLiteral 0))))))))))
+    |}]
+  
+let%expect_test _ =
+  parse "z[1] = 2;";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (Index (@1 (Identifier z)) ((@1 (IntLiteral 1)))))
+           (@1 (IntLiteral 2)))))))))
     |}]
 
 let%expect_test _ =

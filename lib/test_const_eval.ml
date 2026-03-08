@@ -1826,3 +1826,109 @@ let%expect_test _ =
           (init_expr ((@1 (BoolLiteral false)))))
          (1 0))))))
     |}]
+
+let%expect_test _ =
+  evaluate_declarations "let x = [];";
+  [%expect{| Error: @1 cannot infer type of empty array literal |}]
+
+let%expect_test _ =
+  evaluate_declarations "let x = [1, 2][1];";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier x) (0 0))) (@1 (IntLiteral 2)))))))))
+    |}]
+
+
+let%expect_test _ =
+  evaluate_declarations "let x = [1, 2][3];";
+  [%expect{| Error: @1 invalid operation: array index out of bounds: 3 |}]
+
+let%expect_test _ =
+  evaluate_declarations "let x = [1, 2][-3];";
+  [%expect{| Error: @1 invalid operation: array index out of bounds: -3 |}]
+
+let%expect_test _ =
+  evaluate_declarations "let x = 1[3];";
+  [%expect{| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "let x = [1,2][false];";
+  [%expect{| Error: @1 type mismatch |}]
+
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof([1,2]);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Index (@1 (Index (@1 (Type Int)) ())) ())))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof([1,2][3]);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Index (@1 (Type Int)) ())))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type t = typeof(1[3]);";
+  [%expect{| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { return [int, bool][1]; } f() x;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Type)) () ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1
+               (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Bool)))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
+          (init_expr ((@1 (BoolLiteral false)))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { return [int, bool][2]; } f() x;";
+  [%expect{| Error: @1 invalid operation: array index out of bounds: 2 |}]
+
+let%expect_test _ =
+  evaluate_declarations "int[] a; type t = typeof(a);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Index (@1 (Type Int)) ())))) (name a)
+          (init_expr ((@1 (DynamicArrayLiteral () ((@1 (Type Int))))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Index (@1 (Type Int)) ())))))
+         (1 0))))))
+    |}]

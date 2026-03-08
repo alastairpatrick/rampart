@@ -67,7 +67,7 @@ primary_expr
   | LET p=pattern                                           { loc $loc, Let p }
   | ANY                                                     { loc $loc, Let Any }
   | LPAREN es=exprs0 RPAREN                                 { make_tuple_node (loc $loc) es }
-  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, DynamicArrayLiteral (Array.of_list es) }
+  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, DynamicArrayLiteral (Array.of_list es, None) }
   | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, TypeOf e }
   | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
   ;
@@ -76,8 +76,7 @@ postfix_expr
   : e=primary_expr                                          { e }
   | f=postfix_expr LPAREN es=exprs0 RPAREN
     lm=lambda_modifiers                                     { loc $loc, Call (f, es, lm) }
-  | a=postfix_expr LBRACKET RBRACKET                        { loc $loc, DynamicArrayType a }
-  | a=postfix_expr LBRACKET e=expr RBRACKET                 { loc $loc, Index (a, e) }
+  | a=postfix_expr LBRACKET e=expr? RBRACKET                 { loc $loc, Index (a, e) }
   ;
 
 unary_expr
@@ -154,7 +153,7 @@ conditional_expr
 
 assign_expr
   : e = conditional_expr                                    { e }
-  | a=primary_expr ASSIGN b=assign_expr                     { loc $loc, Assignment (a, b) }
+  | a=postfix_expr ASSIGN b=assign_expr                     { loc $loc, Assignment (a, b) }
   ;
 
 in_expr

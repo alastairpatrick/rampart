@@ -46,7 +46,7 @@ let%expect_test _ =
           (Assignment (@1 (BoundLet (Identifier a) (0 0)))
            (@1
             (DynamicArrayLiteral
-             ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))))))))))))
+             ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))) ())))))))))
     |}]
 
 let%expect_test _ =
@@ -56,8 +56,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (DynamicArrayType (@1 (Type Int))))))
-          (name x) (init_expr ()))
+         ((modifiers ()) (type_expr ((@1 (Index (@1 (Type Int)) ())))) (name x)
+          (init_expr ()))
          (0 0))))))
     |}]
 
@@ -68,14 +68,14 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (DynamicArrayType (@1 (Type Int))))))
-          (name x) (init_expr ()))
+         ((modifiers ()) (type_expr ((@1 (Index (@1 (Type Int)) ())))) (name x)
+          (init_expr ()))
          (0 0)))
        (@1
         (Expression
          (@1
           (Assignment (@1 (BoundLet (Identifier y) (1 0)))
-           (@1 (Index (@1 (BoundIdentifier x (0 0))) (@1 (IntLiteral 0)))))))))))
+           (@1 (Index (@1 (BoundIdentifier x (0 0))) ((@1 (IntLiteral 0))))))))))))
     |}]
 
 let%expect_test _ =
@@ -89,8 +89,9 @@ let%expect_test _ =
           (Assignment (@1 (BoundLet (Identifier z) (0 0)))
            (@1
             (Index
-             (@1 (DynamicArrayLiteral ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))
-             (@1 (IntLiteral 1)))))))))))
+             (@1
+              (DynamicArrayLiteral ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))) ()))
+             ((@1 (IntLiteral 1))))))))))))
     |}]
 
 let%expect_test _ =
