@@ -39,7 +39,13 @@ type frame = {
 }
 
 type closure +=
-  | Closure of frame * unit ref   (* The unit ref is a placeholder value used to give the closure a unique identity, which we use for const lambda value equality checks. *)
+  | Closure of frame * int        (* The int is a placeholder value used to give the closure a unique identity, which we use for const lambda value equality checks. *)
+
+let next_closure_identity = ref 0
+let distinct_closure_identity () =
+  let identity = !next_closure_identity in
+  next_closure_identity := identity + 1;
+  identity
 
 type eval_mode =
   | Search_for_declaration_types  (* Search AST for declarations and switch to Evaluate_const mode to evaluate their types *)
@@ -67,19 +73,8 @@ let rec get_assignable (frame : frame) ({index; depth; mut}: slot) : assignable 
 let get_assignable_value (index, variables) : value = 
   variables.(index).value
 
-let rec has_binds expression =
-  match expression with
-  | (_, BoundIdentifier _)
-  | (_, BoundLet _) -> true
-  | (_, Tuple elements) -> List.exists has_binds elements
-  | _ -> false
-
 let set_assignable_value (index, variables) (value : value) : unit =
-  match value with
-  | Const_of_value expression when has_binds expression ->
-    raise (error_internal "RHS of assignment should be impossible")
-  | _ ->
-    variables.(index) <- { value }
+  variables.(index) <- { value }
 
 (* Constant expression aka compile-time constant expression aka CTCE: an expression that can be evaluated to a const value at compile time
    Constant value: a literal, a const lambda expression or a tuple of constant values. Subset of the constant expressions.
@@ -89,6 +84,12 @@ let set_assignable_value (index, variables) (value : value) : unit =
    Constant expression > constant value > constant type
                          constant_value > representative value
 *)
+
+let deref_const_identifier display_name slot frame =
+  match get_assignable_value (get_assignable frame slot) with
+  | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name)
+  | Const_of_value const_expression -> Some const_expression
+  | _ -> None
 
 (* Structural equality on type‑expressions, ignoring source locations.
    Returns
@@ -116,6 +117,13 @@ let rec const_types_equal (a : expression) (b : expression) : bool =
     const_types_equal a_callee b_callee && List.for_all2 const_types_equal a_param_types b_param_types && a_modifiers = b_modifiers
   | (_, Index (a_type, None)), (_, Index (b_type, None)) -> (* TODO: for now, only dynamic arrays are supported. In the future, the size expression can be an int literal for fixed size arrays. *)
     const_types_equal a_type b_type
+
+  | (_, BoundIdentifier (display_name_a, slot_a, Some Closure (frame_a, _))), _ ->
+    begin match deref_const_identifier display_name_a slot_a frame_a with
+    | Some const_expression -> const_types_equal const_expression b
+    | None -> false
+    end
+
   | _ -> false
 
 let is_const_type (expression : expression) : bool = const_types_equal expression expression
@@ -136,8 +144,22 @@ let rec const_values_equal (a : expression) (b : expression) : bool =
     (try
       Array.for_all2 const_values_equal a_elements b_elements && const_types_equal a_type b_type
     with Invalid_argument _ -> false)
-  | (_, Lambda (_, _, _, _, Some (Closure (_, a_identity)))), (_, Lambda (_, _, _, _, Some (Closure (_, b_identity)))) -> a_identity == b_identity
+  | (_, Lambda (_, _, _, _, Some (Closure (_, a_identity)))), (_, Lambda (_, _, _, _, Some (Closure (_, b_identity)))) ->
+    a_identity == b_identity
   | _ when is_const_type a && is_const_type b -> const_types_equal a b
+
+  | (_, BoundIdentifier (display_name, slot, Some Closure (frame, _))), _ ->
+    begin match deref_const_identifier display_name slot frame with
+    | Some const_expression -> const_values_equal const_expression b
+    | None -> false
+    end
+
+  | _, (_, BoundIdentifier (display_name, slot, Some Closure (frame, _))) ->
+    begin match deref_const_identifier display_name slot frame with
+    | Some const_expression -> const_values_equal a const_expression
+    | None -> false
+    end
+
   | _ -> false
 
 let rec is_const_value (expression : expression) : bool =
@@ -149,6 +171,13 @@ let rec is_const_value (expression : expression) : bool =
   | _, DynamicArrayLiteral (elements, Some element_type) -> Array.for_all is_const_value elements && is_const_type element_type
   | _, Lambda _ -> true
   | _ when is_const_type expression -> true
+
+  | _, BoundIdentifier (display_name, slot, Some Closure (frame, _)) ->
+    begin match deref_const_identifier display_name slot frame with
+    | Some const_expression -> is_const_value const_expression
+    | None -> false
+    end
+
   | _ -> false
 
 (* Always use this function instead of directly constructing Const_of_value. *)
@@ -172,6 +201,15 @@ let rec type_of_expression ((location, expression): expression) : expression =
       | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
       | _ -> assert false) params in
     (location, Call(return_type, param_types, modifiers))
+
+  | BoundIdentifier (display_name, slot, Some Closure (frame, _)) ->
+    begin match get_assignable_value (get_assignable frame slot) with
+    | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
+    | Uninitialized_of_type (Some const_type)
+    | Non_const_of_type const_type -> const_type
+    | Const_of_value const_expression -> type_of_expression const_expression
+    end
+
   | _ when is_const_type (location, expression) -> (location, Type Type)
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false (* TODO: implement for more expressions as needed *)
 
@@ -261,7 +299,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | IntLiteral _
   | BoolLiteral _
   | Type _ -> (location, expression)
-  | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
+  | BoundIdentifier (display_name, slot, _) -> evaluate_identifier env frame mode location display_name slot
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
@@ -307,7 +345,7 @@ DO NOT return unreduced non-constant expressions; the result must be a constant 
 and evaluate_identifier _ frame mode location display_name ({index; depth; mut} : slot) =
   match mode with
   | Search_for_declaration_types ->
-    (location, BoundIdentifier (display_name, {index; depth; mut}))
+    (location, BoundIdentifier (display_name, {index; depth; mut}, Some (Closure (frame, distinct_closure_identity ()))))
 
   | Evaluate_type ->
     let assignable = get_assignable frame {index; depth; mut} in
@@ -326,7 +364,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
     | Non_const_of_type _ ->
       if not frame.const || depth <> frame.depth then
         raise (error_not_a_compile_time_constant display_name);
-      (location, (BoundIdentifier (display_name, {index; depth; mut})))
+      (location, (BoundIdentifier (display_name, {index; depth; mut}, None)))
     | Const_of_value (_, const_expression) ->
       if mut && (not frame.const || depth <> frame.depth) then begin
         raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
@@ -517,7 +555,7 @@ and evaluate_assignment env frame mode location a b =
   | Evaluate_type ->
     let rec type_of_assignment (a : expression) (b : expression) : expression =
       match a, b with
-      | (_, BoundIdentifier (display_name, slot)), _ ->
+      | (_, BoundIdentifier (display_name, slot, _)), _ ->
         let assignable = get_assignable frame slot in
         let value = get_assignable_value assignable in
         begin match value with
@@ -548,7 +586,7 @@ and evaluate_assignment env frame mode location a b =
   | Evaluate_const ->
     let rec assign (a : expression) (b : expression) : expression =
       match a, b with
-      | (_, BoundIdentifier (display_name, slot)), _ ->
+      | (_, BoundIdentifier (display_name, slot, _)), _ ->
         let assignable = get_assignable frame slot in
         let value = get_assignable_value assignable in
         begin match value with
@@ -591,6 +629,7 @@ and evaluate_call env frame mode location callee args modifiers =
   (* Consistent with other imperative languages, semantically, the callee is evaluated before any arguments. *)
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (evaluate_expression env frame mode) args in
+  let modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
   match callee with
   | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some Closure (closure_frame, _)) ->
     begin match mode with
@@ -601,7 +640,8 @@ and evaluate_call env frame mode location callee args modifiers =
       representative_value_of_type return_type
 
     | Evaluate_const ->
-      assert lambda_modifiers.const; (* See evaluate_lambda *)
+      if not lambda_modifiers.const then
+        raise (error_invalid_operation "cannot call non-const lambda in a constant expression");
       let callee_frame = {
         depth = closure_frame.depth+1;
         enclosing_frame = Some closure_frame;
@@ -629,14 +669,9 @@ and evaluate_call env frame mode location callee args modifiers =
 
     end
 
-  | _, Lambda (return_type, _, _, _, _) ->
-    begin match mode with
-    | Search_for_declaration_types -> (location, Call (callee, args, { modifiers with pure = modifiers.pure || modifiers.const }))
-    | Evaluate_type -> representative_value_of_type return_type
-    | Evaluate_const -> raise (error_invalid_operation "cannot call non-const lambda in a constant expression")
-    end
+  | _, Lambda _ -> raise (error_internal "all lambda should have closures added before calling them" )
 
-  | _ -> (location, Call (callee, args, { modifiers with pure = modifiers.pure || modifiers.const }))
+  | _ -> (location, Call (callee, args, modifiers))
 
 and evaluate_tuple env frame mode location elements =
   (location, Tuple (List.map (evaluate_expression env frame mode) elements))
@@ -702,7 +737,7 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
     let statement = evaluate_statement env lambda_frame Search_for_declaration_types statement in
     (* A subsequent pass will verify that the lambda meets the requirements for pure or const. *)
-    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), if modifiers.const then Some (Closure (frame, ref ())) else None))
+    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (Closure (frame, distinct_closure_identity ()))))
 
 and evaluate_typeof env frame _ _ e =
   type_of_expression (evaluate_expression env frame Evaluate_type e)
