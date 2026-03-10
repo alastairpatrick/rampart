@@ -200,6 +200,10 @@ let%expect_test _ =
          (0 0))))))
     |}]
 
+let%expect_test _ =
+  evaluate_declarations "typeof(1 ? 2 : 3) x;";
+  [%expect{| Error: @1 type mismatch |}]
+
 (* division by zero stays as BinaryOp during search *)
 let%expect_test _ =
   evaluate_declarations "1 / 0;";
@@ -1868,7 +1872,7 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Index (@1 (Index (@1 (Type Int)) ())) ())))))
+          (init_expr ((@1 (Index (@1 (Type Int)) ())))))
          (0 0))))))
     |}]
 
@@ -1880,7 +1884,7 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Index (@1 (Type Int)) ())))))
+          (init_expr ((@1 (Type Int)))))
          (0 0))))))
     |}]
 

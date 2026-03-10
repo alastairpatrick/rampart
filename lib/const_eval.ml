@@ -462,9 +462,9 @@ and evaluate_binary_op env frame mode location op a b =
   | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s" (Ast.show_binary_op op)); assert false
 
 and evaluate_conditional env frame mode location condition consequent alternative =
+  let condition = evaluate_expression env frame mode condition in
   match mode with
   | Search_for_declaration_types ->
-    let condition = evaluate_expression env frame mode condition in
     let consequent = evaluate_expression env frame mode consequent in
     let alternative = evaluate_expression env frame mode alternative in
     begin match condition with
@@ -478,10 +478,12 @@ and evaluate_conditional env frame mode location condition consequent alternativ
     let alternative = evaluate_expression env frame mode alternative in
     if not (const_types_equal (type_of_expression consequent) (type_of_expression alternative)) then
       raise error_type_mismatch;
-    consequent
-
+    begin match condition with
+    | _, BoolLiteral false -> alternative
+    | _ -> raise error_type_mismatch
+    end
+    
   | Evaluate_const ->
-    let condition = evaluate_expression env frame mode condition in
     match condition with
     | _, BoolLiteral true -> evaluate_expression env frame mode consequent
     | _, BoolLiteral false -> evaluate_expression env frame mode alternative
@@ -658,7 +660,7 @@ and evaluate_dynamic_array_literal env frame mode location elements element_type
       | _ -> type_of_expression elements.(0) in
       if Array.exists (fun e -> not (const_types_equal (type_of_expression e) element_type)) elements then
         raise error_type_mismatch;
-      (location, DynamicArrayLiteral (elements, Some (location, Index (element_type, None))))
+      (location, DynamicArrayLiteral (elements, Some element_type))
     end else
       (location, DynamicArrayLiteral (elements, element_type))
   end
