@@ -362,6 +362,19 @@ DO NOT return unreduced non-constant expressions; the result must be a constant 
 
 *)
 
+(* In cases where evaluate_identifier returns a BoundIdentifier to hide a lambda, this
+   function can reveal the underlying constant value. It only ever needs to "unwrap" one
+   level of BoundIdentifier. We also don't raise Saw_uninitialized here, nor is there
+   any need to, so as to not provoke a false cyclic dependency. *)
+and unwrap_const_identifier expression =
+  match expression with
+  | (_, BoundIdentifier (_, slot, Some Closure (frame, _))) ->
+    begin match get_assignable_value (get_assignable frame slot) with
+    | Const_of_value const_value -> const_value
+    | _ -> expression
+    end
+  | _ -> expression
+
 and evaluate_identifier _ frame mode location display_name ({index; depth; mut} : slot) =
   let assignable = get_assignable frame {index; depth; mut} in
   match mode with
@@ -561,7 +574,7 @@ and evaluate_assignment env frame mode location a b =
   match mode with
   | Search_for_declaration_types ->
     let rec initialize_bound_lets (a : expression) (b : expression) : unit =
-      match a, b with
+      match a, (unwrap_const_identifier b) with
       | (_, (BoundLet (_, slot))), _ ->
         let assignable = get_assignable frame slot in
         if is_const_value b then
@@ -733,7 +746,12 @@ and evaluate_arity env frame mode location e =
   match mode with
   | Search_for_declaration_types ->
     let e = evaluate_expression env frame mode e in
-    (location, Arity e)
+    begin match unwrap_const_identifier (evaluate_expression env frame mode e) with
+    | _, Tuple elements -> (location, IntLiteral (List.length elements))
+    | _ when is_const_value e -> (location, IntLiteral 1)
+    | _ -> (location, Arity e)
+    end
+
   | Evaluate_type -> representative_value_of_type (location, Type Int)
   | Evaluate_const ->
     let e = evaluate_expression env frame mode e in

@@ -182,6 +182,78 @@ let%expect_test _ =
          (2 0))))))
     |}]
 
+(* Ultimately, e's initializer is int literal 2 *)
+let%expect_test _ =
+  evaluate_declarations "void f() {} let a = (f, 1); let b = a; (let c, let d) = b; let e = d+d; let t = typeof(d+d);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Void)) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void)) () ()
+              (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier a) (1 0)))
+           (@1
+            (Tuple
+             ((@1 (BoundIdentifier f (0 0) (Closure))) (@1 (IntLiteral 1)))))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier b) (2 0)))
+           (@1 (BoundIdentifier a (1 0) (Closure)))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment
+           (@1
+            (Tuple
+             ((@1 (BoundLet (Identifier c) (3 0)))
+              (@1 (BoundLet (Identifier d) (4 0))))))
+           (@1 (BoundIdentifier b (2 0) (Closure)))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier e) (5 0))) (@1 (IntLiteral 2))))))
+       (@1
+        (Expression
+         (@1 (Assignment (@1 (BoundLet (Identifier t) (6 0))) (@1 (Type Int)))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "void f() {} let a = (f, 1); let b = arity(a);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Void)) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void)) () ()
+              (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier a) (1 0)))
+           (@1
+            (Tuple
+             ((@1 (BoundIdentifier f (0 0) (Closure))) (@1 (IntLiteral 1)))))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier b) (2 0))) (@1 (IntLiteral 2)))))))))
+    |}]
+
 let%expect_test _ =
   evaluate_declarations "(true && false ? int : bool) x;";
   [%expect{|
@@ -720,8 +792,7 @@ let%expect_test _ =
        (@1
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
-          (init_expr
-           ((@1 (Arity (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))))))
+          (init_expr ((@1 (IntLiteral 2)))))
          (2 0))))))
     |}]
 
@@ -733,12 +804,12 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
-          (init_expr ((@1 (Arity (@1 (Type Int)))))))
+          (init_expr ((@1 (IntLiteral 1)))))
          (1 0)))
        (@1
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
-          (init_expr ((@1 (Arity (@1 (Type Int)))))))
+          (init_expr ((@1 (IntLiteral 1)))))
          (0 0))))))
     |}]
 
