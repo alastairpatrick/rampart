@@ -308,6 +308,82 @@ let%expect_test _ =
              ((@1 (IntLiteral 1))))))))))))
     |}]
 
+(* b evaluates to literal true*)
+let%expect_test _ =
+  evaluate_declarations "void f() {} let a = (f, 1); let b = a == a;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Void)) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void)) () ()
+              (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier a) (1 0)))
+           (@1
+            (Tuple
+             ((@1 (BoundIdentifier f (0 0) (Closure))) (@1 (IntLiteral 1)))))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier b) (2 0)))
+           (@1 (BoolLiteral true)))))))))
+    |}]
+
+
+(* a evaluates to literal 3 *)
+let%expect_test _ =
+  evaluate_declarations "int f(int a, int b) const { return a+b; } let a = f(1, 2);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1
+             (Call (@1 (Type Int)) ((@1 (Type Int)) (@1 (Type Int)))
+              ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int))
+              ((@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+                  (init_expr ()))
+                 (0 1)))
+               (@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
+                  (init_expr ()))
+                 (1 1))))
+              ((pure) (const))
+              (@1
+               (BoundFrame 2
+                (@1
+                 (Compound
+                  ((@1
+                    (Return
+                     (@1
+                      (BinaryOp Plus (@1 (BoundIdentifier a (0 1) (Closure)))
+                       (@1 (BoundIdentifier b (1 1) (Closure))))))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier a) (1 0))) (@1 (IntLiteral 3)))))))))
+    |}]
+
+
 let%expect_test _ =
   evaluate_declarations "void f() {} let a = (f, 1); let b = arity(a);";
   [%expect{|
@@ -1429,7 +1505,7 @@ let%expect_test _ =
 
 let%expect_test _ =
   evaluate_declarations "type f() const { mut int x; type g() const { x; return int; } return g(); } f() y;";
-  [%expect{| Error: @1 cannot access mutable captured variable 'x' from pure context |}]
+  [%expect{| Error: @1 'x' is not a compile-time constant |}]
 
 (* Const function can capture const variables. *)
 let%expect_test _ =
@@ -1568,13 +1644,7 @@ let%expect_test _ =
           (init_expr
            ((@1
              (Lambda (@1 (Type Type)) () ((pure) (const))
-              (@1
-               (BoundFrame 0
-                (@1
-                 (Compound
-                  ((@1
-                    (Return
-                     (@1 (Call (@1 (BoundIdentifier a (0 0) (Closure))) () ())))))))))
+              (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
               (Closure))))))
          (1 0)))
        (@1
@@ -1888,18 +1958,22 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int make() const { int x = 1; return \\int() const { return x; }; } int g = make();";
+  evaluate_declarations "int() const make() const { int x = 1; return \\int() const { return x; }; } int g = make();";
   [%expect{|
     (@1
      (OrderIndependent
       ((@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const))))))
+          (type_expr
+           ((@1
+             (Call (@1 (Call (@1 (Type Int)) () ((pure) (const)))) ()
+              ((pure) (const))))))
           (name make)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ((pure) (const))
+             (Lambda (@1 (Call (@1 (Type Int)) () ((pure) (const)))) ()
+              ((pure) (const))
               (@1
                (BoundFrame 1
                 (@1
@@ -1923,7 +1997,11 @@ let%expect_test _ =
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Type Int)))) (name g)
           (init_expr
-           ((@1 (Call (@1 (BoundIdentifier make (0 0) (Closure))) () ())))))
+           ((@1
+             (Lambda (@1 (Type Int)) () ((pure) (const))
+              (@1
+               (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (IntLiteral 1)))))))))
+              (Closure))))))
          (1 0))))))
     |}]
 

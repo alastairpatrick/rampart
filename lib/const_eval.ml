@@ -654,16 +654,19 @@ and evaluate_in env frame mode location a b =
   | Evaluate_type
   | Evaluate_const -> b
 
-and evaluate_call env frame mode location callee args modifiers =
+and evaluate_call env frame mode location callee args type_modifiers =
   (* Consistent with other imperative languages, semantically, the callee is evaluated before any arguments. *)
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (evaluate_expression env frame mode) args in
-  let modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
-  match callee with
+  let type_modifiers = { type_modifiers with pure = type_modifiers.pure || type_modifiers.const } in
+  match unwrap_const_identifier callee with
   | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some Closure (closure_frame, _)) ->
     begin match mode with
     | Search_for_declaration_types ->
-      (location, Call (callee, args, modifiers))
+      if lambda_modifiers.const && is_const_value callee && List.for_all is_const_value args then
+        evaluate_expression env frame Evaluate_const (location, Call (callee, args, type_modifiers))
+      else
+        (location, Call (callee, args, type_modifiers))
 
     | Evaluate_type ->
       representative_value_of_type return_type
@@ -700,7 +703,7 @@ and evaluate_call env frame mode location callee args modifiers =
 
   | _, Lambda _ -> raise (error_internal "all lambda should have closures added before calling them" )
 
-  | _ -> (location, Call (callee, args, modifiers))
+  | _ -> (location, Call (callee, args, type_modifiers))
 
 and evaluate_tuple env frame mode location elements =
   (location, Tuple (List.map (evaluate_expression env frame mode) elements))
