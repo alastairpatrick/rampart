@@ -85,11 +85,18 @@ let set_assignable_value (index, variables) (value : value) : unit =
                          constant_value > representative value
 *)
 
-let deref_const_identifier display_name slot frame : expression option=
-  match get_assignable_value (get_assignable frame slot) with
-  | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name)
-  | Const_of_value const_expression -> Some const_expression
-  | _ -> None
+let rec normalized_const_value ((location, expression) : expression) : expression =
+  match (expression) with
+  | Tuple elements -> location, Tuple (List.map normalized_const_value elements)
+  | DynamicArrayLiteral (elements, element_type) -> location, DynamicArrayLiteral (Array.map normalized_const_value elements, element_type)
+  | BoundIdentifier (display_name, slot, Some Closure (frame, _)) ->
+    begin match get_assignable_value (get_assignable frame slot) with
+    | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name)
+    | Const_of_value const_expression -> normalized_const_value const_expression
+    | _ -> location, expression
+    end
+  | _ -> location, expression
+
 
 (* Structural equality on type‑expressions, ignoring source locations.
    Returns
@@ -106,90 +113,59 @@ let deref_const_identifier display_name slot frame : expression option=
    treated as “not a const type” here unless it already has the required
    syntactic form.
 *)
-let rec const_types_equal (a : expression) (b : expression) : bool =
-  match a, b with
-  | (_, Type a_type), (_, Type b_type) -> a_type = b_type
-  | (_, Tuple a_elements), (_, Tuple b_elements) ->
-    (try
-      List.for_all2 const_types_equal a_elements b_elements
-    with Invalid_argument _ -> false)
-  | (_, Call (a_callee, a_param_types, a_modifiers)), (_, Call (b_callee, b_param_types, b_modifiers)) ->
-    const_types_equal a_callee b_callee && List.for_all2 const_types_equal a_param_types b_param_types && a_modifiers = b_modifiers
-  | (_, Index (a_type, None)), (_, Index (b_type, None)) -> (* TODO: for now, only dynamic arrays are supported. In the future, the size expression can be an int literal for fixed size arrays. *)
-    const_types_equal a_type b_type
 
-  | (_, BoundIdentifier (display_name_a, slot_a, Some Closure (frame_a, _))), _ ->
-    begin match deref_const_identifier display_name_a slot_a frame_a with
-    | Some const_expression -> const_types_equal const_expression b
-    | None -> false
-    end
-
-  | _ -> false
+let const_types_equal (a : expression) (b : expression) : bool =
+  let rec helper a b =
+    match a, b with
+    | (_, Type a_type), (_, Type b_type) -> a_type = b_type
+    | (_, Tuple a_elements), (_, Tuple b_elements) ->
+      (try
+        List.for_all2 helper a_elements b_elements
+      with Invalid_argument _ -> false)
+    | (_, Call (a_callee, a_param_types, a_modifiers)), (_, Call (b_callee, b_param_types, b_modifiers)) ->
+      helper a_callee b_callee && List.for_all2 helper a_param_types b_param_types && a_modifiers = b_modifiers
+    | (_, Index (a_type, None)), (_, Index (b_type, None)) -> (* TODO: for now, only dynamic arrays are supported. In the future, the size expression can be an int literal for fixed size arrays. *)
+      helper a_type b_type
+    | _ -> false
+  in helper (normalized_const_value a) (normalized_const_value b)
 
 let is_const_type (expression : expression) : bool = const_types_equal expression expression
 
 let check_is_const_type expression =
   if is_const_type expression then expression else raise error_type_expected
 
-let rec const_values_equal (a : expression) (b : expression) : bool =
-  match a, b with
-  | (_, IntLiteral a), (_, IntLiteral b) -> a = b
-  | (_, BoolLiteral a), (_, BoolLiteral b) -> a = b
-  | (_, Tuple a_elements), (_, Tuple b_elements) ->
-    (try
-      List.for_all2 const_values_equal a_elements b_elements
-    with Invalid_argument _ -> false)
-  (* Invariant on dynamic arrays of constant value: all elements have the type designated by the element type field, which is never None. *)
-  | (_, DynamicArrayLiteral (a_elements, Some a_type)), (_, DynamicArrayLiteral (b_elements, Some b_type)) ->
-    (try
-      Array.for_all2 const_values_equal a_elements b_elements && const_types_equal a_type b_type
-    with Invalid_argument _ -> false)
-  | (_, Lambda (_, _, _, _, Some (Closure (_, a_identity)))), (_, Lambda (_, _, _, _, Some (Closure (_, b_identity)))) ->
-    a_identity == b_identity
-  | _ when is_const_type a && is_const_type b -> const_types_equal a b
+let const_values_equal (a : expression) (b : expression) : bool =
+  let rec helper a b =
+    match a, b with
+    | (_, IntLiteral a), (_, IntLiteral b) -> a = b
+    | (_, BoolLiteral a), (_, BoolLiteral b) -> a = b
+    | (_, Tuple a_elements), (_, Tuple b_elements) ->
+      (try
+        List.for_all2 helper a_elements b_elements
+      with Invalid_argument _ -> false)
+    (* Invariant on dynamic arrays of constant value: all elements have the type designated by the element type field, which is never None. *)
+    | (_, DynamicArrayLiteral (a_elements, Some a_type)), (_, DynamicArrayLiteral (b_elements, Some b_type)) ->
+      (try
+        Array.for_all2 helper a_elements b_elements && const_types_equal a_type b_type
+      with Invalid_argument _ -> false)
+    | (_, Lambda (_, _, _, _, Some (Closure (_, a_identity)))), (_, Lambda (_, _, _, _, Some (Closure (_, b_identity)))) ->
+      a_identity == b_identity
+    | _ when is_const_type a && is_const_type b -> const_types_equal a b
+    | _ -> false
+  in helper (normalized_const_value a) (normalized_const_value b)
 
-  | (_, BoundIdentifier (display_name, slot, Some Closure (frame, _))), _ ->
-    begin match deref_const_identifier display_name slot frame with
-    | Some const_expression -> const_values_equal const_expression b
-    | None -> false
-    end
-
-  | _, (_, BoundIdentifier (display_name, slot, Some Closure (frame, _))) ->
-    begin match deref_const_identifier display_name slot frame with
-    | Some const_expression -> const_values_equal a const_expression
-    | None -> false
-    end
-
-  | _ -> false
-
-let rec is_const_value (expression : expression) : bool =
-  match expression with
-  | _, IntLiteral _ -> true
-  | _, BoolLiteral _ -> true
-  | _, Type _ -> true
-  | _, Tuple elements -> List.for_all is_const_value elements
-  | _, DynamicArrayLiteral (elements, Some element_type) -> Array.for_all is_const_value elements && is_const_type element_type
-  | _, Lambda _ -> true
-  | _ when is_const_type expression -> true
-
-  | _, BoundIdentifier (display_name, slot, Some Closure (frame, _)) ->
-    begin match deref_const_identifier display_name slot frame with
-    | Some const_expression -> is_const_value const_expression
-    | None -> false
-    end
-
-  | _ -> false
-
-let rec normalized_const_value ((location, expression) : expression) : expression =
-  match (expression) with
-  | Tuple elements -> location, Tuple (List.map normalized_const_value elements)
-  | DynamicArrayLiteral (elements, element_type) -> location, DynamicArrayLiteral (Array.map normalized_const_value elements, element_type)
-  | BoundIdentifier (display_name, slot, Some Closure (frame, _)) ->
-      begin match deref_const_identifier display_name slot frame with
-      | Some expression -> normalized_const_value expression
-      | None -> location, expression
-      end
-  | _ -> location, expression
+let is_const_value (expression : expression) : bool =
+  let rec helper expression =
+    match expression with
+    | _, IntLiteral _ -> true
+    | _, BoolLiteral _ -> true
+    | _, Type _ -> true
+    | _, Tuple elements -> List.for_all helper elements
+    | _, DynamicArrayLiteral (elements, Some element_type) -> Array.for_all helper elements && is_const_type element_type
+    | _, Lambda _ -> true
+    | _ when is_const_type expression -> true
+    | _ -> false
+  in helper (normalized_const_value expression)
 
 (* Always use this function instead of directly constructing Const_of_value. *)
 let check_is_const_value (expression : expression) : value =
@@ -198,70 +174,69 @@ let check_is_const_value (expression : expression) : value =
   else
     raise (error_internal (Printf.sprintf "expected const value, got: %s" (Ast.show_expression expression)))
 
-let rec const_value_for_all (predicate : expression -> bool) expression : bool =
-  match expression with
-  | _, Tuple elements -> List.for_all (const_value_for_all predicate) elements
-  | _, DynamicArrayLiteral (elements, _) -> Array.for_all (const_value_for_all predicate) elements
-  | _ -> predicate expression 
+let const_value_for_all (predicate : expression -> bool) expression : bool =
+  let rec helper predicate expression =
+    match expression with
+    | _, Tuple elements -> List.for_all (helper predicate) elements
+    | _, DynamicArrayLiteral (elements, _) -> Array.for_all (helper predicate) elements
+    | _ -> predicate expression 
+  in helper predicate (normalized_const_value expression)
 
 let const_value_exists (predicate : expression -> bool) expression : bool =
   not (const_value_for_all (fun e -> not (predicate e)) expression)
 
 (* This must work on any const value, which by definition includes any lambda (const or not) and any representative value. *)
-let rec type_of_expression ((location, expression): expression) : expression =
-  match expression with
-  | IntLiteral _ -> (location, Type Int)
-  | BoolLiteral _ -> (location, Type Bool)
-  | Type _ -> (location, Type Type)
-  | Tuple elements -> (location, Tuple (List.map type_of_expression elements))
-  | TypeOf _ -> (location, Type Type)
-  | DynamicArrayLiteral (_, Some element_type) -> (location, Index (element_type, None))
-  | Lambda (return_type, params, modifiers, _, _) ->
-    let param_types = List.map (fun (_, param) -> match param with
-      | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
-      | _ -> assert false) params in
-    (location, Call(return_type, param_types, modifiers))
+let type_of_expression (expression: expression) : expression =
+  let rec helper (location, expression) =
+    match expression with
+    | IntLiteral _ -> (location, Type Int)
+    | BoolLiteral _ -> (location, Type Bool)
+    | Type _ -> (location, Type Type)
+    | Tuple elements -> (location, Tuple (List.map helper elements))
+    | TypeOf _ -> (location, Type Type)
+    | DynamicArrayLiteral (_, Some element_type) -> (location, Index (element_type, None))
+    | Lambda (return_type, params, modifiers, _, _) ->
+      let param_types = List.map (fun (_, param) -> match param with
+        | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
+        | _ -> assert false) params in
+      (location, Call(return_type, param_types, modifiers))
+    | _ when is_const_type (location, expression) -> (location, Type Type)
+    | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false (* TODO: implement for more expressions as needed *)
+  in helper (normalized_const_value expression)
 
-  | BoundIdentifier (display_name, slot, Some Closure (frame, _)) ->
-    begin match get_assignable_value (get_assignable frame slot) with
-    | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
-    | Uninitialized_of_type (Some const_type)
-    | Non_const_of_type const_type -> const_type
-    | Const_of_value const_expression -> type_of_expression const_expression
-    end
+let default_value (const_type: expression) : expression =
+  let rec helper (location, const_type) =
+    match const_type with
+    | Type Int -> (location, IntLiteral 0)
+    | Type Bool -> (location, BoolLiteral false)
+    | Tuple elements ->
+      (location, Tuple (List.map helper elements))
+    | Index (element_type, None) ->
+      (location, DynamicArrayLiteral ([| |], Some element_type))
+    | _ -> raise error_no_default_value
+  in helper (normalized_const_value const_type)
 
-  | _ when is_const_type (location, expression) -> (location, Type Type)
-  | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false (* TODO: implement for more expressions as needed *)
-
-let rec default_value ((location, const_type): expression) : expression =
-  match const_type with
-  | Type Int -> (location, IntLiteral 0)
-  | Type Bool -> (location, BoolLiteral false)
-  | Tuple elements ->
-    (location, Tuple (List.map default_value elements))
-  | Index (element_type, None) ->
-    (location, DynamicArrayLiteral ([| |], Some element_type))
-  | _ -> raise error_no_default_value
-
-let rec representative_value_of_type ((location, const_type): expression) : expression =
-  let representative_value = match const_type with
-  | Type Int -> (location, IntLiteral 0)
-  | Type Bool -> (location, BoolLiteral false)
-  | Type Type -> (location, Type Type)
-  | Tuple elements ->
-    (location, Tuple (List.map representative_value_of_type elements))
-  | Call (return_type, param_types, modifiers) ->
-    (location, Lambda (return_type,
-      List.map (fun param_type -> (location, BoundDeclaration ({type_expr=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
-      modifiers, (location, Compound []), None))
-  | Index (element_type, None) ->
-    (location, DynamicArrayLiteral ([| |], Some element_type))
-  | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_expression (location, const_type)))) 
-  in
-    if (not (is_const_value representative_value)) then
-      raise (error_internal (Printf.sprintf "representative value should be a const value: %s" (Ast.show_expression representative_value)))
-    else
-      representative_value
+let representative_value_of_type (const_type: expression) : expression =
+  let rec helper (location, const_type) =
+    let representative_value = match const_type with
+      | Type Int -> (location, IntLiteral 0)
+      | Type Bool -> (location, BoolLiteral false)
+      | Type Type -> (location, Type Type)
+      | Tuple elements ->
+        (location, Tuple (List.map helper elements))
+      | Call (return_type, param_types, modifiers) ->
+        (location, Lambda (return_type,
+          List.map (fun param_type -> (location, BoundDeclaration ({type_expr=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
+          modifiers, (location, Compound []), None))
+      | Index (element_type, None) ->
+        (location, DynamicArrayLiteral ([| |], Some element_type))
+      | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_expression (location, const_type)))) 
+    in
+      if (not (is_const_value representative_value)) then
+        raise (error_internal (Printf.sprintf "representative value should be a const value: %s" (Ast.show_expression representative_value)))
+      else
+        representative_value
+  in helper (normalized_const_value const_type)
 
 let rec evaluate_statements env frame mode (statements : statement list) : statement list =
   List.map (evaluate_statement env frame mode) statements
