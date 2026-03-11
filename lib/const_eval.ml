@@ -85,7 +85,7 @@ let set_assignable_value (index, variables) (value : value) : unit =
                          constant_value > representative value
 *)
 
-let deref_const_identifier display_name slot frame =
+let deref_const_identifier display_name slot frame : expression option=
   match get_assignable_value (get_assignable frame slot) with
   | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name)
   | Const_of_value const_expression -> Some const_expression
@@ -180,12 +180,32 @@ let rec is_const_value (expression : expression) : bool =
 
   | _ -> false
 
+let rec normalized_const_value ((location, expression) : expression) : expression =
+  match (expression) with
+  | Tuple elements -> location, Tuple (List.map normalized_const_value elements)
+  | DynamicArrayLiteral (elements, element_type) -> location, DynamicArrayLiteral (Array.map normalized_const_value elements, element_type)
+  | BoundIdentifier (display_name, slot, Some Closure (frame, _)) ->
+      begin match deref_const_identifier display_name slot frame with
+      | Some expression -> normalized_const_value expression
+      | None -> location, expression
+      end
+  | _ -> location, expression
+
 (* Always use this function instead of directly constructing Const_of_value. *)
 let check_is_const_value (expression : expression) : value =
   if (is_const_value expression) then
-    Const_of_value expression
+    Const_of_value (normalized_const_value expression)
   else
     raise (error_internal (Printf.sprintf "expected const value, got: %s" (Ast.show_expression expression)))
+
+let rec const_value_for_all (predicate : expression -> bool) expression : bool =
+  match expression with
+  | _, Tuple elements -> List.for_all (const_value_for_all predicate) elements
+  | _, DynamicArrayLiteral (elements, _) -> Array.for_all (const_value_for_all predicate) elements
+  | _ -> predicate expression 
+
+let const_value_exists (predicate : expression -> bool) expression : bool =
+  not (const_value_for_all (fun e -> not (predicate e)) expression)
 
 (* This must work on any const value, which by definition includes any lambda (const or not) and any representative value. *)
 let rec type_of_expression ((location, expression): expression) : expression =
@@ -343,12 +363,23 @@ DO NOT return unreduced non-constant expressions; the result must be a constant 
 *)
 
 and evaluate_identifier _ frame mode location display_name ({index; depth; mut} : slot) =
+  let assignable = get_assignable frame {index; depth; mut} in
   match mode with
   | Search_for_declaration_types ->
-    (location, BoundIdentifier (display_name, {index; depth; mut}, Some (Closure (frame, distinct_closure_identity ()))))
+    begin match get_assignable_value assignable with
+    | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name)
+    | Const_of_value const_value ->
+      if mut && (not frame.const || depth <> frame.depth) then
+        raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
+      if (const_value_exists (function _, Lambda _ -> true | _ -> false) const_value) then
+        (* Never return a constant value incorporating a lamda here; it could cause the lambda to be relocated in the AST. *)
+        (location, BoundIdentifier (display_name, {index; depth; mut}, Some (Closure (frame, distinct_closure_identity ()))))
+      else
+        const_value
+    | Non_const_of_type _ -> (location, BoundIdentifier (display_name, {index; depth; mut}, Some (Closure (frame, distinct_closure_identity ()))))
+    end
 
   | Evaluate_type ->
-    let assignable = get_assignable frame {index; depth; mut} in
     begin match get_assignable_value assignable with
     | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
     | Uninitialized_of_type (Some const_type)
@@ -357,7 +388,6 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
     end
 
   | Evaluate_const ->
-    let assignable = get_assignable frame {index; depth; mut} in
     match get_assignable_value assignable with
     | Uninitialized_of_type _ ->
       raise (Saw_uninitialized display_name)
@@ -366,9 +396,8 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
         raise (error_not_a_compile_time_constant display_name);
       (location, (BoundIdentifier (display_name, {index; depth; mut}, None)))
     | Const_of_value (_, const_expression) ->
-      if mut && (not frame.const || depth <> frame.depth) then begin
+      if mut && (not frame.const || depth <> frame.depth) then
         raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
-      end;
       (location, const_expression)
 
 and evaluate_logical_op env frame mode location op a b =
@@ -712,7 +741,7 @@ and evaluate_arity env frame mode location e =
     | _, Tuple elements -> (location, IntLiteral (List.length elements))
     | _ -> (location, IntLiteral 1)
 
-and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement =
+and evaluate_lambda_part1 _ frame mode location return_type params modifiers body_location num_variables statement =
   match mode with
   | Evaluate_type ->
     representative_value_of_type (type_of_expression (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), None)))
@@ -720,6 +749,13 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
     let modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
     if frame.const && not modifiers.const then
       raise error_expected_const_lambda;
+    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (Closure (frame, distinct_closure_identity ()))))
+
+and evaluate_lambda_part2 env mode part1 =
+  match mode, part1 with
+  | Evaluate_type, _ ->
+    part1
+  | _, (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (Closure (frame, closure_identity)))) ->
     let lambda_frame = {
       depth = frame.depth + 1;
       enclosing_frame = Some frame;
@@ -737,7 +773,12 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
     let statement = evaluate_statement env lambda_frame Search_for_declaration_types statement in
     (* A subsequent pass will verify that the lambda meets the requirements for pure or const. *)
-    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (Closure (frame, distinct_closure_identity ()))))
+    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (Closure (frame, closure_identity))))
+  | _ -> assert false
+
+and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement =
+  let part1 = evaluate_lambda_part1 env frame mode location return_type params modifiers body_location num_variables statement in
+  evaluate_lambda_part2 env mode part1
 
 and evaluate_typeof env frame _ _ e =
   type_of_expression (evaluate_expression env frame Evaluate_type e)
@@ -770,9 +811,11 @@ and evaluate_declaration env frame mode _ declaration slot =
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
 
-  | { type_expr=None; init_expr=Some init_expr; _} ->
-    let init_expr = evaluate_expression env frame mode init_expr in
-    (* This form of declaration is only used for lambda expressions. *)
+  (* This form of declaration is only used for lambda expressions. *)
+  | { type_expr=None; init_expr=Some (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), _)) ; _} ->
+    let init_expr = evaluate_lambda_part1 env frame mode location return_type params modifiers body_location num_variables statement in
+    initialize_assignable (type_of_expression init_expr) init_expr;
+    let init_expr = evaluate_lambda_part2 env mode init_expr in
     let type_expr = check_is_const_type (type_of_expression init_expr) in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
