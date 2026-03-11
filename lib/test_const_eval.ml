@@ -899,6 +899,7 @@ let%expect_test _ =
               (Closure))))))
          (0 0))))))
     |}]
+
 let%expect_test _ =
   evaluate_declarations "t foo(t x) const { t y; foo; } type t = bool;";
   [%expect{|
@@ -936,6 +937,39 @@ let%expect_test _ =
                    (@1 (Expression (@1 (BoundIdentifier foo (0 0) (Closure))))))))))
               (Closure))))))
          (0 0))))))
+    |}]
+
+(* When a function declaration is restarted because of a dependency, the associated closure identity is retained from the first attempt. *)
+let%expect_test _ =
+  evaluate_declarations "int f() { return x; } bool p = f == g; let x = 0; let g = f;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier x) (2 0))) (@1 (IntLiteral 0))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier g) (3 0)))
+           (@1 (BoundIdentifier f (0 0) (Closure)))))))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Int)) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int)) () ()
+              (@1
+               (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (IntLiteral 0)))))))))
+              (Closure))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name p)
+          (init_expr ((@1 (BoolLiteral true)))))
+         (1 0))))))
     |}]
 
 (* Const function can evaluate to declaration type *)

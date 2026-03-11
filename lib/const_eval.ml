@@ -813,12 +813,15 @@ and evaluate_declaration env frame mode _ declaration slot =
 
   (* This form of declaration is only used for lambda expressions. *)
   | { type_expr=None; init_expr=Some (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), _)) ; _} ->
-    let init_expr = evaluate_lambda_part1 env frame mode location return_type params modifiers body_location num_variables statement in
-    initialize_assignable (type_of_expression init_expr) init_expr;
+    let init_expr = match get_assignable_value assignable with
+    | Const_of_value part1 -> part1 (* If a previous attempt at part 2 aborted, skip part 1, ensuring that closure identity is preserved. *)
+    | _ ->
+      evaluate_lambda_part1 env frame mode location return_type params modifiers body_location num_variables statement in
+    (initialize_assignable (type_of_expression init_expr) init_expr;
     let init_expr = evaluate_lambda_part2 env mode init_expr in
     let type_expr = check_is_const_type (type_of_expression init_expr) in
     initialize_assignable type_expr init_expr;
-    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
+    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot))
     
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
 
