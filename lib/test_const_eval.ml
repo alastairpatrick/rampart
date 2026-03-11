@@ -227,6 +227,87 @@ let%expect_test _ =
          (@1 (Assignment (@1 (BoundLet (Identifier t) (6 0))) (@1 (Type Int)))))))))
     |}]
 
+(* d has int literal 1 initializer*)
+let%expect_test _ =
+  evaluate_declarations "void f() {} let a = [(f, 0), (f, 1)]; (let b, let c) = a[1]; let d = c;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Void)) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void)) () ()
+              (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier a) (1 0)))
+           (@1
+            (DynamicArrayLiteral
+             ((@1
+               (Tuple
+                ((@1 (BoundIdentifier f (0 0) (Closure))) (@1 (IntLiteral 0)))))
+              (@1
+               (Tuple
+                ((@1 (BoundIdentifier f (0 0) (Closure))) (@1 (IntLiteral 1))))))
+             ((@1 (Tuple ((@1 (Call (@1 (Type Void)) () ())) (@1 (Type Int))))))))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment
+           (@1
+            (Tuple
+             ((@1 (BoundLet (Identifier b) (2 0)))
+              (@1 (BoundLet (Identifier c) (3 0))))))
+           (@1
+            (Tuple
+             ((@1
+               (Lambda (@1 (Type Void)) () ()
+                (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure)))
+              (@1 (IntLiteral 1)))))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier d) (4 0))) (@1 (IntLiteral 1)))))))))
+    |}]
+
+(* d does _not_ have a lambda initializer; lambdas are environment dependent and cannot be relocated in the AST *)
+let%expect_test _ =
+  evaluate_declarations "void f() {} let a = [f, f]; let b = a[1];";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Void)) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void)) () ()
+              (@1 (BoundFrame 0 (@1 (Compound ())))) (Closure))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier a) (1 0)))
+           (@1
+            (DynamicArrayLiteral
+             ((@1 (BoundIdentifier f (0 0) (Closure)))
+              (@1 (BoundIdentifier f (0 0) (Closure))))
+             ((@1 (Call (@1 (Type Void)) () ())))))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier b) (2 0)))
+           (@1
+            (Index (@1 (BoundIdentifier a (1 0) (Closure)))
+             ((@1 (IntLiteral 1))))))))))))
+    |}]
+
 let%expect_test _ =
   evaluate_declarations "void f() {} let a = (f, 1); let b = arity(a);";
   [%expect{|

@@ -336,6 +336,10 @@ DO NOT evaluate sub-expressions unless it is semantically correct to do so; such
 DO NOT return unreduced non-constant expressions; the result must be a constant value or an exception.
 
 *)
+and is_environment_dependent = function
+  | _, Lambda _ -> true
+  | _, BoundIdentifier _ -> false (* TODO: should this actually be true? It seems like identifiers also depend on their environment for evaluation. *)
+  | _ -> false
 
 (* In cases where evaluate_identifier returns a BoundIdentifier to hide a lambda, this
    function can reveal the underlying constant value. It only ever needs to "unwrap" one
@@ -359,7 +363,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
     | Const_of_value const_value ->
       if mut && (not frame.const || depth <> frame.depth) then
         raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
-      if (const_value_exists (function _, Lambda _ -> true | _ -> false) const_value) then
+      if (const_value_exists is_environment_dependent const_value) then
         (* Never return a constant value incorporating a lamda here; it could cause the lambda to be relocated in the AST. *)
         (location, BoundIdentifier (display_name, {index; depth; mut}, Some (Closure (frame, distinct_closure_identity ()))))
       else
@@ -427,12 +431,20 @@ and evaluate_index env frame mode location array index =
         raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i));
       elements.(i) in
         
-    match array, index with
+    match unwrap_const_identifier array, index with
     | (_, DynamicArrayLiteral (elements, Some element_type)), Some (_, IntLiteral i) ->
       begin match mode with
       | Evaluate_type -> representative_value_of_type element_type (* must not perform a bounds check *)
-      | Search_for_declaration_types when not (is_const_value array) -> (location, Index (array, index))
-      | Search_for_declaration_types
+      | Search_for_declaration_types ->
+        if not (is_const_value array) then
+          (location, Index (array, index))
+        else begin
+          let element = array_element elements i in
+          if is_environment_dependent element then
+            (location, Index (array, index))
+          else
+            element
+        end
       | Evaluate_const -> array_element elements i
       end
     | _ ->
