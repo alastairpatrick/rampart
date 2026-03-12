@@ -59,7 +59,7 @@ and expression_inner =
   | Let of pattern
   | In of expression * expression
   | Identifier of string
-  | BoundIdentifier of string * slot * closure option
+  | BoundIdentifier of string * slot
   | BoundLet of pattern * slot
   | BinaryOp of binary_op * expression * expression
   | UnaryOp of unary_op * expression

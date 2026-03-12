@@ -160,7 +160,7 @@ and bind env pass ((location, expr) : expression) : env * expression =
   | Identifier name ->
     if pass == OrderIndependent1 then env, (location, expr) else
     let slot = lookup_slot env name in
-    env, (location, BoundIdentifier (name, slot, None))
+    env, (location, BoundIdentifier (name, slot))
 
   | BinaryOp (op, a, b) ->
     let _, a = bind env pass a in
