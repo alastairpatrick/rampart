@@ -3,10 +3,12 @@ open Sexplib
 open Sexplib.Std
 open Slot
 
-type closure = ..
+type external_closure = ..
+
+type closure = (* identity: *) int * external_closure
 
 let closure_of_sexp _ : closure = assert false
-let sexp_of_closure _ : Sexp.t = Sexp.Atom "Closure"
+let sexp_of_closure (identity, _) : Sexp.t = Sexp.Atom (string_of_int identity)
 let pp_closure _ _ = ()
 
 type binary_op =

@@ -39,14 +39,20 @@ type frame = {
   const: bool;
 }
 
-type closure +=
-  | Closure of frame * (* identity: *) int * (* ast_alias: *) expression option
+type external_closure +=
+  | Closure of frame * (* ast_alias: *) expression option
 
 let next_closure_identity = ref 0
+
 let distinct_closure_identity () =
   let identity = !next_closure_identity in
   next_closure_identity := identity + 1;
   identity
+
+
+(* The danger is calling this could cause distinct lambdas to appear equal. It is useful in tests, where we don't want the identity of a lambda to be affected by previously run tests. *)
+let dangerously_reset_distinct_closure_identity () =
+  next_closure_identity := 0
 
 type eval_mode =
   | Search_for_declaration_types  (* Transforms from one AST to another, using Evaluate_const to evaluate the constant type of all declaration types, while performing constant folding. *)
@@ -134,7 +140,7 @@ let rec const_values_equal (a : expression) (b : expression) : bool =
     (try
       Array.for_all2 const_values_equal a_elements b_elements && const_types_equal a_type b_type
     with Invalid_argument _ -> false)
-  | (_, Lambda (_, _, _, _, Some (Closure (_, a_identity, _)))), (_, Lambda (_, _, _, _, Some (Closure (_, b_identity, _)))) ->
+  | (_, Lambda (_, _, _, _, Some (a_identity, _))), (_, Lambda (_, _, _, _, Some (b_identity, _))) ->
     a_identity == b_identity
   | _ when is_const_type a && is_const_type b -> const_types_equal a b
   | _ -> false
@@ -162,7 +168,7 @@ let const_value_exists (predicate : expression -> bool) expression : bool =
 (* Always use this function instead of directly constructing Const_of_value. *)
 let check_is_const_value (expression : expression) : value =
   if (is_const_value expression) then begin
-    if (const_value_exists (fun e -> match e with (_, Lambda (_, _, _, _, Some (Closure (_, _, None)))) -> true | _ -> false) expression) then
+    if (const_value_exists (fun e -> match e with (_, Lambda (_, _, _, _, Some (_, Closure (_, None)))) -> true | _ -> false) expression) then
       raise (error_internal "unexpected const value containing a lambda with a closure that has no ast alias");
     Const_of_value expression
   end else
@@ -295,7 +301,7 @@ and evaluate_expression_opt env frame mode (expr_opt : expression option) : expr
 
 and substitute_lambda_aliases expression : expression =
   let helper = function
-  | (_, Lambda (_, _, _, _, Some (Closure (_, _, Some ast_alias)))) -> ast_alias
+  | (_, Lambda (_, _, _, _, Some (_, Closure (_, Some ast_alias)))) -> ast_alias
   | expression -> expression in
   map_expression Fun.id helper expression
 
@@ -624,7 +630,7 @@ and evaluate_call env frame mode location callee args type_modifiers =
   let args = List.map (evaluate_expression env frame mode) args in
   let type_modifiers = { type_modifiers with pure = type_modifiers.pure || type_modifiers.const } in
   match callee with
-  | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some Closure (closure_frame, _, _)) ->
+  | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _))) ->
     begin match mode with
     | Search_for_declaration_types ->
       if lambda_modifiers.const && is_const_value callee && List.for_all is_const_value args then
@@ -721,13 +727,13 @@ and evaluate_lambda_part1 _ frame mode location return_type params modifiers bod
     let modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
     if frame.const && not modifiers.const then
       raise error_expected_const_lambda;
-    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (Closure (frame, distinct_closure_identity (), None))))
+    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (distinct_closure_identity (), Closure (frame, None))))
 
 and evaluate_lambda_part2 env mode part1 =
   match mode, part1 with
   | Evaluate_type, _ ->
     part1
-  | _, (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (Closure (frame, closure_identity, _)))) ->
+  | _, (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (closure_identity, Closure (frame, _)))) ->
     let lambda_frame = {
       depth = frame.depth + 1;
       enclosing_frame = Some frame;
@@ -745,7 +751,7 @@ and evaluate_lambda_part2 env mode part1 =
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
     let statement = evaluate_statement env lambda_frame Search_for_declaration_types statement in
     (* A subsequent pass will verify that the lambda meets the requirements for pure or const. *)
-    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (Closure (frame, closure_identity, None))))
+    (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (closure_identity, Closure (frame, None))))
   | _ -> assert false
 
 and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement _ =
@@ -758,8 +764,8 @@ and evaluate_typeof env frame _ _ e =
 and set_lambda_aliases (location, const_value) ast_alias =
   let ith_index i e = set_lambda_aliases e (location, Index (ast_alias, Some (location, (IntLiteral i)))) in
   match const_value with
-  | Lambda (return_type, params, modifiers, statement, Some (Closure (frame, identity, _))) ->
-    (location, Lambda (return_type, params, modifiers, statement, Some (Closure (frame, identity, Some ast_alias))))
+  | Lambda (return_type, params, modifiers, statement, Some (closure_identity, Closure (frame, _))) ->
+    (location, Lambda (return_type, params, modifiers, statement, Some (closure_identity, Closure (frame, Some ast_alias))))
   | Tuple elements -> (location, Tuple (List.mapi ith_index elements))
   | DynamicArray (elements, element_type) -> (location, DynamicArray ((Array.mapi ith_index elements), element_type))
   | _ -> (location, const_value)
