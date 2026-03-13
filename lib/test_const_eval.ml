@@ -2270,3 +2270,105 @@ let%expect_test _ =
           (init_expr ((@1 (IntLiteral 0)))))
          (2 0))))))
     |}]
+
+let%expect_test _ =
+  evaluate_declarations "let a = (1, 2); let b = a[1];";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier a) (0 0)))
+           (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier b) (1 0))) (@1 (IntLiteral 2)))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "let a = (1, 2); let b = a[-1];";
+  [%expect {| Error: @1 invalid operation: tuple index out of bounds: -1 |}]
+
+
+let%expect_test _ =
+  evaluate_declarations "let a = (1, 2); let b = a[2];";
+  [%expect {| Error: @1 invalid operation: tuple index out of bounds: 2 |}]
+
+let%expect_test _ =
+  evaluate_declarations "let a = (1, 2); let b = a[true];";
+  [%expect {| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut int i; let a = (1, 2); let b = a[i];";
+  [%expect {| Error: @1 'i' is not a compile-time constant |}]
+
+let%expect_test _ =
+  evaluate_declarations "let a = (1, 2); let b = a[];";
+  [%expect {| Error: @1 expected an index sub-expression |}]
+
+(* Note how this differs from how typeof handles the type of an index expression on an array. In this case we _do_ check tuple bounds within a typeof. *)
+let%expect_test _ =
+  evaluate_declarations "let a = (1, 2); let t = typeof(a[2]);";
+  [%expect {| Error: @1 invalid operation: tuple index out of bounds: 2 |}]
+
+(* Unlike for an array, the type of a tuple element can depend on the index. *)
+let%expect_test _ =
+  evaluate_declarations "let a = (1, true); type s = typeof(a[0]); type t = typeof(a[1]);";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier a) (0 0)))
+           (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (BoolLiteral true)))))))))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name s)
+          (init_expr ((@1 (Type Int)))))
+         (1 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type Bool)))))
+         (2 0))))))
+    |}]
+
+
+let%expect_test _ =
+  evaluate_declarations "let a = (false, true); let t = typeof(a[1/0]);";
+  [%expect {| Error: @1 invalid operation: division by zero |}]
+
+let%expect_test _ =
+  evaluate_declarations "let a = (); let t = a[0];";
+  [%expect {| Error: @1 invalid operation: tuple index out of bounds: 0 |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut (int, int) a; let t = a[0];";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut)))
+          (type_expr ((@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))) (name a)
+          (init_expr ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (IntLiteral 0))))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier t) (1 0)))
+           (@1 (Index (@1 (BoundIdentifier a (0 0))) ((@1 (IntLiteral 0))))))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut (int, int) a; let t = a[1/0];";
+  [%expect {| Error: @1 invalid operation: division by zero |}]
+
+(* Index expressions can only be applied to tuples with arity > 1*)
+
+let%expect_test _ =
+  evaluate_declarations "let a = (1); let t = a[0];";
+  [%expect {| Error: @1 type mismatch |}]

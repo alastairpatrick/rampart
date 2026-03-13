@@ -249,38 +249,46 @@ and evaluate_logical_op env frame mode location op a b =
     | _, _ -> raise error_type_mismatch
     end
 
-and evaluate_index env frame mode location array index =
-  let array = evaluate_expression env frame mode array in
-  let index = evaluate_expression_opt env frame mode index in
+and evaluate_index env frame mode location indexable index =
+  let indexable = evaluate_expression env frame mode indexable in
 
-  if is_const_type array && Option.is_none index then
-    (location, Index (array, index))
-  else begin
-    let array_element elements i  =
-      if i < 0 || i >= Array.length elements then
-        raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i));
-      elements.(i) in
-        
-    match array, index with
-    | (_, DynamicArray (elements, Some element_type)), Some (_, IntLiteral i) ->
-      begin match mode with
-      | Evaluate_type -> representative_value_of_type element_type (* must not perform a bounds check *)
-      | Search_for_declaration_types ->
-        if not (is_const_value array) then
-          (location, Index (array, index))
-        else begin
-          array_element elements i
-        end
-      | Evaluate_const -> array_element elements i
+  match index with
+  | None when is_const_type indexable -> (location, Index (indexable, None))
+  | None -> raise (Error "expected an index sub-expression")
+  | Some index ->
+    match indexable with
+    | _, DynamicArray (elements, Some element_type) ->
+      let index = evaluate_expression env frame mode index in
+      begin match mode, index with
+      | Evaluate_type, (_, IntLiteral _) -> representative_value_of_type element_type (* must not perform a bounds check *)
+      | Evaluate_const, (_, IntLiteral i)
+      | Search_for_declaration_types, (_, IntLiteral i) ->
+        if i < 0 || i >= Array.length elements then
+          raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i));
+        elements.(i)
+      | Search_for_declaration_types, _ -> (location, Index (indexable, Some index))
+      | _ -> raise error_type_mismatch
       end
-    | (_, Tuple elements), Some (_, IntLiteral i) ->
-      List.nth elements i (* TODO: check i is in range *)
+
+    | _, Tuple elements ->
+      let index = evaluate_expression env frame Evaluate_const index in
+      begin match index with
+      | _, IntLiteral i ->
+        (try
+          List.nth elements i
+        with
+        | Invalid_argument _
+        | Failure _ -> raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i)))
+      | _ -> raise error_type_mismatch
+      end
+
     | _ ->
-      if mode = Search_for_declaration_types then
-        (location, Index (array, index))
-      else
-        raise error_type_mismatch
-  end
+      let indexable_type = evaluate_expression env frame Evaluate_type indexable in
+      begin match indexable_type with
+      | _, Tuple _ -> location, Index (indexable, Some (evaluate_expression env frame Evaluate_const index))
+      | _, DynamicArray _ -> (location, Index (indexable, Some (evaluate_expression env frame mode index)))
+      | _ -> raise error_type_mismatch
+      end
 
 and evaluate_unary_op env frame mode location op e =
   let e = evaluate_expression env frame mode e in
