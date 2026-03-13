@@ -67,7 +67,7 @@ primary_expr
   | LET p=pattern                                           { loc $loc, Let p }
   | ANY                                                     { loc $loc, Let Any }
   | LPAREN es=exprs0 RPAREN                                 { make_tuple_node (loc $loc) es }
-  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, DynamicArrayLiteral (Array.of_list es, None) }
+  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, DynamicArray (Array.of_list es, None) }
   | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, TypeOf e }
   | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
   ;

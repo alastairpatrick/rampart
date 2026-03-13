@@ -76,8 +76,8 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
   | Call (callable, arg_exprs, pure) ->
     ef (location, (Call (map_expression sf ef callable, List.map (map_expression sf ef) arg_exprs, pure)))
 
-  | DynamicArrayLiteral (es, t) ->
-    ef (location, (DynamicArrayLiteral (Array.map (map_expression sf ef) es, Option.map (map_expression sf ef) t)))
+  | DynamicArray (es, t) ->
+    ef (location, (DynamicArray (Array.map (map_expression sf ef) es, Option.map (map_expression sf ef) t)))
 
   | Index (a, b) ->
     ef (location, (Index (map_expression sf ef a, Option.map (map_expression sf ef) b)))

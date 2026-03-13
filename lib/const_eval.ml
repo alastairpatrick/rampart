@@ -130,7 +130,7 @@ let rec const_values_equal (a : expression) (b : expression) : bool =
       List.for_all2 const_values_equal a_elements b_elements
     with Invalid_argument _ -> false)
   (* Invariant on dynamic arrays of constant value: all elements have the type designated by the element type field, which is never None. *)
-  | (_, DynamicArrayLiteral (a_elements, Some a_type)), (_, DynamicArrayLiteral (b_elements, Some b_type)) ->
+  | (_, DynamicArray (a_elements, Some a_type)), (_, DynamicArray (b_elements, Some b_type)) ->
     (try
       Array.for_all2 const_values_equal a_elements b_elements && const_types_equal a_type b_type
     with Invalid_argument _ -> false)
@@ -145,7 +145,7 @@ let rec is_const_value (expression : expression) : bool =
   | _, BoolLiteral _ -> true
   | _, Type _ -> true
   | _, Tuple elements -> List.for_all is_const_value elements
-  | _, DynamicArrayLiteral (elements, Some element_type) -> Array.for_all is_const_value elements && is_const_type element_type
+  | _, DynamicArray (elements, Some element_type) -> Array.for_all is_const_value elements && is_const_type element_type
   | _, Lambda _ -> true
   | _ when is_const_type expression -> true
   | _ -> false
@@ -153,7 +153,7 @@ let rec is_const_value (expression : expression) : bool =
 let rec const_value_for_all (predicate : expression -> bool) expression : bool =
   match expression with
   | _, Tuple elements -> List.for_all (const_value_for_all predicate) elements
-  | _, DynamicArrayLiteral (elements, _) -> Array.for_all (const_value_for_all predicate) elements
+  | _, DynamicArray (elements, _) -> Array.for_all (const_value_for_all predicate) elements
   | _ -> predicate expression 
 
 let const_value_exists (predicate : expression -> bool) expression : bool =
@@ -176,7 +176,7 @@ let rec type_of_expression ((location, expression): expression) : expression =
   | Type _ -> (location, Type Type)
   | Tuple elements -> (location, Tuple (List.map type_of_expression elements))
   | TypeOf _ -> (location, Type Type)
-  | DynamicArrayLiteral (_, Some element_type) -> (location, Index (element_type, None))
+  | DynamicArray (_, Some element_type) -> (location, Index (element_type, None))
   | Lambda (return_type, params, modifiers, _, _) ->
     let param_types = List.map (fun (_, param) -> match param with
       | BoundDeclaration ({type_expr=Some type_expr; _}, _) -> type_expr
@@ -192,7 +192,7 @@ let rec default_value ((location, const_type): expression) : expression =
   | Tuple elements ->
     (location, Tuple (List.map default_value elements))
   | Index (element_type, None) ->
-    (location, DynamicArrayLiteral ([| |], Some element_type))
+    (location, DynamicArray ([| |], Some element_type))
   | _ -> raise error_no_default_value
 
 let rec representative_value_of_type ((location, const_type): expression) : expression =
@@ -207,7 +207,7 @@ let rec representative_value_of_type ((location, const_type): expression) : expr
         List.map (fun param_type -> (location, BoundDeclaration ({type_expr=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
         modifiers, (location, Compound []), None))
     | Index (element_type, None) ->
-      (location, DynamicArrayLiteral ([| |], Some element_type))
+      (location, DynamicArray ([| |], Some element_type))
     | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_expression (location, const_type)))) 
   in
     if (not (is_const_value representative_value)) then
@@ -281,7 +281,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Tuple elements -> evaluate_tuple env frame mode location elements
   | Arity e -> evaluate_arity env frame mode location e
-  | DynamicArrayLiteral (elements, element_type) -> evaluate_dynamic_array_literal env frame mode location elements element_type
+  | DynamicArray (elements, element_type) -> evaluate_dynamic_array_literal env frame mode location elements element_type
   | Index (array, index) -> evaluate_index env frame mode location array index
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), closure) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement closure
@@ -395,7 +395,7 @@ and evaluate_index env frame mode location array index =
       elements.(i) in
         
     match array, index with
-    | (_, DynamicArrayLiteral (elements, Some element_type)), Some (_, IntLiteral i) ->
+    | (_, DynamicArray (elements, Some element_type)), Some (_, IntLiteral i) ->
       begin match mode with
       | Evaluate_type -> representative_value_of_type element_type (* must not perform a bounds check *)
       | Search_for_declaration_types ->
@@ -675,7 +675,7 @@ and evaluate_tuple env frame mode location elements =
 and evaluate_dynamic_array_literal env frame mode location elements element_type : expression =
   if Array.length elements = 0 then begin
     match element_type with
-    | Some _ -> (location, DynamicArrayLiteral (elements, element_type))
+    | Some _ -> (location, DynamicArray (elements, element_type))
     | _ ->
       (* TODO: we plan to allow empty array literals in some special cases where the element type is known, including initializers, the RHS of some assignments and function call arguments *)
       raise (Error "cannot infer type of empty array literal")
@@ -691,9 +691,9 @@ and evaluate_dynamic_array_literal env frame mode location elements element_type
       | _ -> type_of_expression elements.(0) in
       if Array.exists (fun e -> not (const_types_equal (type_of_expression e) element_type)) elements then
         raise error_type_mismatch;
-      (location, DynamicArrayLiteral (elements, Some element_type))
+      (location, DynamicArray (elements, Some element_type))
     end else
-      (location, DynamicArrayLiteral (elements, element_type))
+      (location, DynamicArray (elements, element_type))
   end
 
 and evaluate_arity env frame mode location e =
@@ -761,7 +761,7 @@ and set_lambda_aliases (location, const_value) ast_alias =
   | Lambda (return_type, params, modifiers, statement, Some (Closure (frame, identity, _))) ->
     (location, Lambda (return_type, params, modifiers, statement, Some (Closure (frame, identity, Some ast_alias))))
   | Tuple elements -> (location, Tuple (List.mapi ith_index elements))
-  | DynamicArrayLiteral (elements, element_type) -> (location, DynamicArrayLiteral ((Array.mapi ith_index elements), element_type))
+  | DynamicArray (elements, element_type) -> (location, DynamicArray ((Array.mapi ith_index elements), element_type))
   | _ -> (location, const_value)
 
 and evaluate_declaration env frame mode location declaration slot =

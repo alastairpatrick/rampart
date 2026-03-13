@@ -154,7 +154,7 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (DynamicArrayLiteral
+          (DynamicArray
            ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))) ())))))))
     |}]
 let%expect_test _ =
@@ -162,7 +162,7 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (DynamicArrayLiteral ((@1 (Type Int))) ())))))))
+      ((@1 (Expression (@1 (DynamicArray ((@1 (Type Int))) ())))))))
     |}]
 
 let%expect_test _ =

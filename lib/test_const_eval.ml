@@ -251,7 +251,7 @@ let%expect_test _ =
          (@1
           (Assignment (@1 (BoundLet (Identifier a) (1 0)))
            (@1
-            (DynamicArrayLiteral
+            (DynamicArray
              ((@1 (Tuple ((@1 (BoundIdentifier f (0 0))) (@1 (IntLiteral 0)))))
               (@1 (Tuple ((@1 (BoundIdentifier f (0 0))) (@1 (IntLiteral 1))))))
              ((@1 (Tuple ((@1 (Call (@1 (Type Void)) () ())) (@1 (Type Int))))))))))))
@@ -296,7 +296,7 @@ let%expect_test _ =
          (@1
           (Assignment (@1 (BoundLet (Identifier a) (1 0)))
            (@1
-            (DynamicArrayLiteral
+            (DynamicArray
              ((@1 (BoundIdentifier f (0 0))) (@1 (BoundIdentifier f (0 0))))
              ((@1 (Call (@1 (Type Void)) () ())))))))))
        (@1
@@ -399,7 +399,7 @@ let%expect_test _ =
          (@1
           (Assignment (@1 (BoundLet (Identifier a) (1 0)))
            (@1
-            (DynamicArrayLiteral
+            (DynamicArray
              ((@1 (BoundIdentifier f (0 0))) (@1 (BoundIdentifier f (0 0))))
              ((@1 (Call (@1 (Type Void)) () ())))))))))
        (@1
@@ -2229,7 +2229,7 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Index (@1 (Type Int)) ())))) (name a)
-          (init_expr ((@1 (DynamicArrayLiteral () ((@1 (Type Int))))))))
+          (init_expr ((@1 (DynamicArray () ((@1 (Type Int))))))))
          (0 0)))
        (@1
         (BoundDeclaration

@@ -45,7 +45,7 @@ let%expect_test _ =
          (@1
           (Assignment (@1 (BoundLet (Identifier a) (0 0)))
            (@1
-            (DynamicArrayLiteral
+            (DynamicArray
              ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))) ())))))))))
     |}]
 
@@ -89,8 +89,7 @@ let%expect_test _ =
           (Assignment (@1 (BoundLet (Identifier z) (0 0)))
            (@1
             (Index
-             (@1
-              (DynamicArrayLiteral ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))) ()))
+             (@1 (DynamicArray ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))) ()))
              ((@1 (IntLiteral 1))))))))))))
     |}]
 
