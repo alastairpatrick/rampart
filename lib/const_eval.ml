@@ -171,11 +171,12 @@ and substitute_lambda_aliases expression : expression =
 Search_for_declaration_types:
 - This mode takes an AST for a program as input and produces an AST for a program as output, one suitable
   for conventional static type checking.
-- Walk the AST and reduce constant sub-expressions where possible.
-- In particular, fully reduce singleton-typed CTCEs of type `int`, `bool`, and `type` to constant values.
-  Subsequent passes may assume these values are constant.
+- Walk the AST and reduce constant sub-expressions where possible, even when the surrounding expression
+  cannot be fully reduced.
+- In particular, normalize certain singleton-typed CTCEs (e.g. `int`, `bool`, and `type`) to their canonical
+  constant representations so later passes can treat them as constant values.
 - Resolve declaration *types* to constant values by shunting their type expressions through Evaluate_const.
-- Avoid doing extra type checking or evaluation that isn't required for constant folding.
+- Avoid doing extra type checking or evaluation that isn't required to produce those constant values.
 
 Evaluate_type:
 - This mode reduces an input expression to a representative (and constant) value that has the same
@@ -186,11 +187,11 @@ Evaluate_type:
 - Do not perform side effects or evaluate non-const subexpressions.
 
 Evaluate_const:
-- This mode reduces an input expression to a constant value, or raises an error if the expression is not
-  a compile-time constant expression.
-- Perform full CTCE (compile-time constant evaluation) where semantically safe.
-- Only evaluate subexpressions when it is safe and required (e.g., constant-folding, const-lambda execution).
-- Always return a constant value or raise a diagnostic; never return an unreduced non-constant expression.
+- This mode evaluates an expression as a compile-time constant: it must either produce a constant value or raise a diagnostic.
+- Evaluation follows the language semantics, including control-flow effects such as short-circuiting and conditional execution.
+- Side effects are allowed only when they remain within the compile-time context (e.g. assignment to a local `mut` variable in a const lambda).
+- It must not access non-const captured variables, call non-const lambdas, or otherwise depend on runtime-only state.
+- Always return a constant value or raise an error; never return an unreduced non-constant expression.
 *)
 
 
