@@ -169,22 +169,26 @@ and substitute_lambda_aliases expression : expression =
 (* Expression evaluation guidelines.
 
 Search_for_declaration_types:
-DO reduce constant expressions to constant values.
-DO reduce sub-expressions even if the whole expression can't be reduced.
-DO reduce declaration types to constant values by switching to Evaluate_const mode.
-DO NOT type check beyond that absolutely necessary to reduce constant expressions.
+- This mode takes an AST for a program as input and produces an AST for a program as output, one suitable
+  for convential static type checking.
+- Walk the AST and reduce any constant sub-expression you can, even if the overall expression is not reducible.
+- Resolve declaration *types* to constant values by shunting their type expressions through Evaluate_const.
+- Avoid doing extra type checking or evaluation that isn't required for constant folding.
 
 Evaluate_type:
-DO type check; Evaluate_type mode often erases AST nodes that might contain semantic errors.
-DO treat representative values as constant values because they _are_.
-DO NOT interpret the value of a representative value as meaningful; only its type is meaningful.
-DO NOT return unreduced expressions; the result must be a representative value (and therefore a constant value) or an exception.
+- This mode reduces an input expression to a representative (and constant) value that has the same
+  type as the input expression and can be used in its place for type-checking purposes.
+- Since this mode replaces expressions with representative values, it must be careful to type check
+  expressions before they are erased.
+- The concrete value returned is not meaningful beyond its type; it is only used for type-checking.
+- Do not perform side effects or evaluate non-const subexpressions.
 
 Evaluate_const:
-DO type check
-DO NOT evaluate sub-expressions unless it is semantically correct to do so; such evaluations might have side effects or halt.
-DO NOT return unreduced non-constant expressions; the result must be a constant value or an exception.
-
+- This mode reduces an input expression to a constant value, or raises an error if the expression is not
+  a compile-time constant expression.
+- Perform full CTCE (compile-time constant evaluation) where semantically safe.
+- Only evaluate subexpressions when it is safe and required (e.g., constant-folding, const-lambda execution).
+- Always return a constant value or raise a diagnostic; never return an unreduced non-constant expression.
 *)
 
 
