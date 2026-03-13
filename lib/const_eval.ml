@@ -420,52 +420,29 @@ and evaluate_assignment env frame mode location a b =
     initialize_bound_lets a b;
     (location, Assignment (a, b))
 
-  | Evaluate_type ->
-    let rec type_of_assignment (a : expression) (b : expression) : expression =
-      match a, b with
-      | (_, BoundIdentifier (display_name, slot)), _ ->
-        let assignable = get_assignable frame slot in
-        let value = get_assignable_value assignable in
-        begin match value with
-        | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
-        | Uninitialized_of_type (Some const_type)
-        | Non_const_of_type const_type -> representative_value_of_type const_type
-        | Const_of_value const_value -> const_value
-        end
-
-      | (_, BoundLet (_, slot)), _ ->
-        let assignable = get_assignable frame slot in
-        (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
-           whereas, BoundIdentifiers are always initialized before any reassignment. *)
-        set_assignable_value assignable (check_is_const_value b);
-        b (* The result should be the RHS, implicitly converted to the same type as the LHS, but the type of the LHS is inferred from the RHS in this case *)
-
-      | (_, Tuple froms), (_, Tuple tos) ->
-        (try
-          (location, Tuple (List.map2 type_of_assignment froms tos))
-        with Invalid_argument _ -> raise error_type_mismatch)
-
-      | (_, Tuple _), _ -> raise error_type_mismatch
-
-      | _, _ -> raise (error_internal "assignment target not implemented for type evaluation") in
-    type_of_assignment a b
-
-  (* TODO: consider combining this with the case for Evaluate_type *)
+  | Evaluate_type
   | Evaluate_const ->
     let rec assign (a : expression) (b : expression) : expression =
       match a, b with
       | (_, BoundIdentifier (display_name, slot)), _ ->
         let assignable = get_assignable frame slot in
         let value = get_assignable_value assignable in
-        begin match value with
-        | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name) (* Raising this leaves the local frame unreachable so any side effects so far don't matter *)
-        | Non_const_of_type _ -> raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name)
-        | Const_of_value current ->
+        begin match mode, value with
+        | Evaluate_type, Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
+        | Evaluate_type, Uninitialized_of_type (Some const_type)
+        | Evaluate_type, Non_const_of_type const_type -> representative_value_of_type const_type
+        | Evaluate_type, Const_of_value const_value -> const_value
+
+        | Evaluate_const, Uninitialized_of_type _ -> raise (Saw_uninitialized display_name) (* Raising this leaves the local frame unreachable so any side effects so far don't matter *)
+        | Evaluate_const, Non_const_of_type _ -> raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name)
+        | Evaluate_const, Const_of_value current ->
           if not slot.mut then
             raise (error_immutable_assignment display_name);
           let b = implicit_convert mode b (type_of_expression current) in
           set_assignable_value assignable (check_is_const_value b);
           b (* The result should be the RHS, implicitly converted to the same type as the LHS *)
+
+        | Search_for_declaration_types, _ -> assert false
         end
 
       | (_, BoundLet (_, slot)), _ ->
