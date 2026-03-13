@@ -2279,6 +2279,56 @@ let%expect_test _ =
   evaluate_declarations "int f(int i) const { mut (bool, int) a; a[i] = true; return 0; } let x = f(0);";
   [%expect{| Error: @1 'i' is not a compile-time constant |}]
 
+(* 0+0 index on LHS of assignment is folded to 0 *)
+let%expect_test _ =
+  evaluate_declarations "int f(int i) const { mut int[] a = [0]; a[0+0] = 0; return a[0]; }";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Type Int)) ((@1 (Type Int))) ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int))
+              ((@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name i)
+                  (init_expr ()))
+                 (0 1))))
+              ((pure) (const))
+              (@1
+               (BoundFrame 2
+                (@1
+                 (Compound
+                  ((@1
+                    (BoundDeclaration
+                     ((modifiers ((mut)))
+                      (type_expr ((@1 (Index (@1 (Type Int)) ())))) (name a)
+                      (init_expr
+                       ((@1
+                         (DynamicArray ((@1 (IntLiteral 0))) ((@1 (Type Int))))))))
+                     (1 1)))
+                   (@1
+                    (Expression
+                     (@1
+                      (Assignment
+                       (@1
+                        (Index (@1 (BoundIdentifier a (1 1)))
+                         ((@1 (IntLiteral 0)))))
+                       (@1 (IntLiteral 0))))))
+                   (@1
+                    (Return
+                     (@1
+                      (Index (@1 (BoundIdentifier a (1 1)))
+                       ((@1 (IntLiteral 0))))))))))))
+              (0))))))
+         (0 0))))))
+    |}]
+
 let%expect_test _ =
   evaluate_declarations "int f(int i) const { mut int[] a = [0]; a[i] = 0; return a[i]; } let x = f(0);";
   [%expect{|

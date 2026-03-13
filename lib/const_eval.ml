@@ -394,9 +394,12 @@ and evaluate_assignment env frame mode location a b =
   let b = evaluate_expression env frame mode b in
   match mode with
   | Search_for_declaration_types ->
-    let rec initialize_bound_lets (a : expression) (b : expression) : unit =
+    let rec assign (a : expression) (b : expression) : expression =
       match a, b with
-      | (_, (BoundLet (pattern, slot))), _ ->
+      | (_, BoundIdentifier _), _ ->
+        a
+
+      | (location, (BoundLet (pattern, slot))), _ ->
         let assignable = get_assignable frame slot in
         if is_const_value b then begin
           let b = match pattern with
@@ -404,27 +407,26 @@ and evaluate_assignment env frame mode location a b =
           | _ -> set_lambda_aliases b (location, BoundIdentifier ("_", slot)) in
           set_assignable_value assignable (check_is_const_value b)
         end else
-          set_assignable_value assignable (Non_const_of_type (type_of_expression (evaluate_expression env frame Evaluate_type b)))
+          set_assignable_value assignable (Non_const_of_type (type_of_expression (evaluate_expression env frame Evaluate_type b)));
+        location, BoundLet (pattern, slot)
 
-      | (_, Index (indexable, Some index)), _ ->
-        begin match evaluate_expression env frame Evaluate_type indexable with
-        | _, Tuple _ ->
-          evaluate_expression env frame Evaluate_const index |> ignore;
-        | _ -> ()
-        end;
-        initialize_bound_lets indexable b
+      | (location, Index (indexable, Some index)), _ ->
+        let index = match evaluate_expression env frame Evaluate_type indexable with
+        | _, Tuple _ -> evaluate_expression env frame Evaluate_const index
+        | _, DynamicArray _ -> evaluate_expression env frame mode index
+        | _ -> raise error_type_mismatch in
+        location, Index (assign indexable b, Some index)
 
-      | (_, Tuple froms), (_, Tuple tos) ->
+      | (location, Tuple froms), (_, Tuple tos) ->
         (try
-          List.iter2 initialize_bound_lets froms tos
+          location, Tuple (List.map2 assign froms tos)
         with Invalid_argument _ -> raise error_type_mismatch)
 
       | (_, Tuple _), _ -> raise error_type_mismatch
 
-      | _ -> ()
+      | _ -> raise (error_internal (Printf.sprintf "assignment target not implemented: %s" (Ast.show_expression a)))
     in
-    initialize_bound_lets a b;
-    (location, Assignment (a, b))
+    (location, Assignment ((assign a b), b))
 
   | Evaluate_type
   | Evaluate_const ->
