@@ -170,8 +170,10 @@ and substitute_lambda_aliases expression : expression =
 
 Search_for_declaration_types:
 - This mode takes an AST for a program as input and produces an AST for a program as output, one suitable
-  for convential static type checking.
-- Walk the AST and reduce any constant sub-expression you can, even if the overall expression is not reducible.
+  for conventional static type checking.
+- Walk the AST and reduce constant sub-expressions where possible.
+- In particular, fully reduce singleton-typed CTCEs of type `int`, `bool`, and `type` to constant values.
+  Subsequent passes may assume these values are constant.
 - Resolve declaration *types* to constant values by shunting their type expressions through Evaluate_const.
 - Avoid doing extra type checking or evaluation that isn't required for constant folding.
 
