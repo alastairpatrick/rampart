@@ -98,7 +98,6 @@ and statement_inner =
   | DoWhile of statement * expression
   | Switch of expression * switch_case list
   | Return of expression
-  | AllocLocals of int * int
 
 and statement = location * statement_inner
 

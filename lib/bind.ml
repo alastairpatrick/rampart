@@ -105,9 +105,7 @@ and bind_statement (env : env) (pass : bind_pass) ((location, statement) : state
     | Return expr ->
       let _, expr = bind env pass expr in env, (location, Return expr)
 
-    | BoundFrame _
-
-    | AllocLocals _ -> assert false
+    | BoundFrame _ -> assert false
   with
     Error message -> raise (Located_error (location, message))
   
@@ -123,10 +121,6 @@ and bind_opt env pass (expr : expression option) : env * expression option =
   | Some expr ->
     let env, expr = bind env pass expr in env, Some expr
   | None -> env, None
-
-and alloc_locals env arity statements = 
-  if !(env.num_slots) = 0 then statements else
-  (null_location, AllocLocals (!(env.num_slots), arity)) :: statements
 
 and bind env pass ((location, expr) : expression) : env * expression =
   match expr with

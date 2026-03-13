@@ -31,9 +31,6 @@ let rec map_statement (sf : statement -> statement) (ef : expression -> expressi
   | BoundFrame (num_variables, body) ->
     sf (location, BoundFrame (num_variables, map_statement sf ef body))
 
-  | AllocLocals (a, b) ->
-    sf (location, AllocLocals (a, b))
-
 and map_expression (sf : statement -> statement) (ef : expression -> expression) ((location, expr) : expression) : expression =
   match expr with
   | BoolLiteral _
