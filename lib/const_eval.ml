@@ -380,7 +380,11 @@ and evaluate_conditional env frame mode location condition consequent alternativ
     if not (const_types_equal (type_of_expression consequent) (type_of_expression alternative)) then
       raise error_type_mismatch;
     begin match condition with
-    | _, BoolLiteral false -> alternative
+    (* In Evaluate_type mode we only need a representative value of the correct type.
+       Since we have already confirmed that the branches share the same type, returning the
+       `alternative` branch is sufficient (and avoids needing to inspect the boolean value).
+       The pattern match also ensures the condition is boolean. *)
+    | _, BoolLiteral _ -> alternative (* or consequent; it doesn't matter which one we choose *)
     | _ -> raise error_type_mismatch
     end
     
