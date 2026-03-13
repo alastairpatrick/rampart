@@ -1431,7 +1431,7 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "type f(int c) const { return c ? int : bool; } f(7) x;";
   [%expect{| Error: @1 type mismatch |}]
-(*
+
 let%expect_test _ =
   evaluate_declarations "type int_vector(int n) const { return n == 0 ? () : (int, int_vector(n-1)); } int_vector(3) x;";
   [%expect{|
@@ -1461,18 +1461,16 @@ let%expect_test _ =
                      (@1
                       (Conditional
                        (@1
-                        (BinaryOp Equals (@1 (BoundIdentifier n (0 1) (Closure)))
+                        (BinaryOp Equals (@1 (BoundIdentifier n (0 1)))
                          (@1 (IntLiteral 0))))
                        (@1 (Tuple ()))
                        (@1
                         (Tuple
                          ((@1 (Type Int))
                           (@1
-                           (Call
-                            (@1 (BoundIdentifier int_vector (0 0) (Closure)))
+                           (Call (@1 (BoundIdentifier int_vector (0 0)))
                             ((@1
-                              (BinaryOp Minus
-                               (@1 (BoundIdentifier n (0 1) (Closure)))
+                              (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
                                (@1 (IntLiteral 1)))))
                             ()))))))))))))))
               (Closure))))))
@@ -1498,7 +1496,7 @@ let%expect_test _ =
                   (@1 (Tuple ((@1 (IntLiteral 0)) (@1 (Tuple ()))))))))))))))
          (1 0))))))
     |}]
-*)
+
 let%expect_test _ =
   evaluate_declarations "int f() const { return 0; } f() x;";
   [%expect{| Error: @1 expected a type |}]
@@ -1676,7 +1674,7 @@ let%expect_test _ =
 (* Const function cannot call non-const function *)
 let%expect_test _ =
   evaluate_declarations "type a() { return int; } type b() const { return a(); } b() x;";
-  [%expect{| Error: @1 expected a const lambda |}]
+  [%expect{| Error: @1 invalid operation: cannot call non-const lambda in a constant expression |}]
 
 (* Nested const function captures caller's frame. The return value of 'foo' has function type and foo's closure escapes, when it returns 'bar', which refers to a nested lambda that captures 't'.*)
 let%expect_test _ =

@@ -258,11 +258,11 @@ and evaluate_order_independent env frame mode statements =
 and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location, statement): statement) : statement =
   try
     match statement with
-    | Expression expression -> (location, Expression (evaluate_expression env frame mode expression))
+    | Expression expression -> (location, Expression (substitute_lambda_aliases (evaluate_expression env frame mode expression)))
     | Compound statements -> (location, Compound (evaluate_statements env frame mode statements))
     | OrderIndependent statements -> (location, OrderIndependent (evaluate_order_independent env frame mode statements))
     | BoundDeclaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
-    | Return e -> (location, Return (evaluate_return env frame mode location e))
+    | Return e -> (location, Return (substitute_lambda_aliases (evaluate_return env frame mode location e)))
     | _ -> print_endline (Printf.sprintf "statement not implemented: %s" (Ast.show_statement (location, statement))); assert false;
   with Error message -> raise (Located_error (location, message))
 
@@ -283,8 +283,8 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Arity e -> evaluate_arity env frame mode location e
   | DynamicArrayLiteral (elements, element_type) -> evaluate_dynamic_array_literal env frame mode location elements element_type
   | Index (array, index) -> evaluate_index env frame mode location array index
-  | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), _) ->
-    evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement
+  | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), closure) ->
+    evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement closure
   | TypeOf e -> evaluate_typeof env frame mode location e
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
@@ -292,6 +292,12 @@ and evaluate_expression_opt env frame mode (expr_opt : expression option) : expr
   match expr_opt with
   | Some expr -> Some (evaluate_expression env frame mode expr)
   | None -> None
+
+and substitute_lambda_aliases expression : expression =
+  let helper = function
+  | (_, Lambda (_, _, _, _, Some (Closure (_, _, Some ast_alias)))) -> ast_alias
+  | expression -> expression in
+  map_expression Fun.id helper expression
 
 (* Expression evaluation guidelines.
 
@@ -742,7 +748,7 @@ and evaluate_lambda_part2 env mode part1 =
     (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (Closure (frame, closure_identity, None))))
   | _ -> assert false
 
-and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement =
+and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement _ =
   let part1 = evaluate_lambda_part1 env frame mode location return_type params modifiers body_location num_variables statement in
   evaluate_lambda_part2 env mode part1
 
@@ -780,13 +786,13 @@ and evaluate_declaration env frame mode location declaration slot =
     set_assignable_value assignable (Uninitialized_of_type (Some type_expr));
     let init_expr = implicit_convert mode (evaluate_expression env frame mode init_expr) type_expr in
     initialize_assignable type_expr init_expr;
-    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
+    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
 
   | { type_expr=Some type_expr; init_expr=None; _} ->
     let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
     let init_expr = default_value type_expr in
     initialize_assignable type_expr init_expr;
-    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot)
+    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
 
   (* This form of declaration is only used for lambda expressions. *)
   | { type_expr=None; init_expr=Some (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), _)) ; _} ->
@@ -798,7 +804,7 @@ and evaluate_declaration env frame mode location declaration slot =
     let init_expr = evaluate_lambda_part2 env mode init_expr in
     let type_expr = check_is_const_type (type_of_expression init_expr) in
     initialize_assignable type_expr init_expr;
-    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some init_expr }, slot))
+    BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot))
     
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
 
@@ -822,10 +828,5 @@ and implicit_convert mode from_expression to_type =
     | _ when const_types_equal from_type to_type -> from_expression
     | _ -> raise error_type_mismatch
 
-
 let const_evaluate_program (env : env) (frame : frame) (statement : statement) : statement =
-  let statement = evaluate_statement env frame Search_for_declaration_types statement in
-  let wrap = function
-  | (_, Lambda (_, _, _, _, Some (Closure (_, _, Some ast_alias)))) -> ast_alias
-  | expression -> expression in
-  map_statement Fun.id wrap statement
+  evaluate_statement env frame Search_for_declaration_types statement
