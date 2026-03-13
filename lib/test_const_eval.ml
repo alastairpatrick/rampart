@@ -1,4 +1,5 @@
 open Bind
+open Const
 open Const_eval
 open Diagnostic
 open Error
