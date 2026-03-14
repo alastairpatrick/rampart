@@ -14,9 +14,9 @@ let dangerously_reset_distinct_closure_identity () =
   next_closure_identity := 0
 
 (* Constant expression aka compile-time constant expression aka CTCE: an expression that can be evaluated to a const value at compile time
-   Constant value: a literal, a const lambda expression or a tuple of constant values. Subset of the constant expressions.
-   Constant type: a constant value corresponding to a type. Subset of the constant values.
-   Representative value: a constant value of a particular type that represents that type. Only the type of a representative value is meaningful.
+   Constant value: a literal, a lambda expression, or a composite value (tuple, dynamic array, etc.) whose elements are all constant values.
+   Constant type: a constant value that represents a type. Subset of the constant values.
+   Representative value: a constant value of a particular type that stands in for that type; only its type is meaningful.
 
    Constant expression > constant value > constant type
                          constant_value > representative value
