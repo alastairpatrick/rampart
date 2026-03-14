@@ -674,6 +674,22 @@ let%expect_test _ =
             (@1 () () (@1 (Compound ((@1 (Expression (@1 (IntLiteral 4))))))))))))))))
     |}]
 
+let%expect_test _ =
+  parse "switch v {
+    case (_, let x) -> x
+  }
+  ";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Switch (@1 (Identifier v))
+           ((@1 ((@1 (Tuple ((@1 (Let Any)) (@1 (Let (Identifier x))))))) ()
+             (@1 (Expression (@1 (Identifier x)))))))))))))
+    |}]
+
 
 (* End of line skipping *)
 
