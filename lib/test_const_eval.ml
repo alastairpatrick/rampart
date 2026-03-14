@@ -2275,6 +2275,30 @@ let%expect_test _ =
            (@1 (Tuple ((@1 (BoolLiteral true)) (@1 (IntLiteral 7))))))))))))
     |}]
 
+(* Type of x is the same as f() but f() cannot be evaluated at compile time *)
+let%expect_test _ =
+  evaluate_declarations "int f() { return 0; } let x = f();";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Call (@1 (Type Int)) () ()))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int)) () ()
+              (@1
+               (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (IntLiteral 0)))))))))
+              (0))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier x) (1 0)))
+           (@1 (Call (@1 (BoundIdentifier f (0 0))) () ())))))))))
+    |}]
+
 let%expect_test _ =
   evaluate_declarations "int f(int i) const { mut (bool, int) a; a[i] = true; return 0; } let x = f(0);";
   [%expect{| Error: @1 'i' is not a compile-time constant |}]

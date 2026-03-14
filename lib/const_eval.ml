@@ -604,7 +604,11 @@ and evaluate_call env frame mode location callee args type_modifiers =
 
     end
 
-  | _, Lambda _ -> raise (error_internal "all lambda should have closures added before calling them" )
+  (* Lambda representative values don't have closures. *)
+  | _, Lambda (return_type, _, _, _, _) when mode = Evaluate_type ->
+    representative_value_of_type return_type
+
+  | _, Lambda _ -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression callee)))
 
   | _ -> (location, Call (callee, args, type_modifiers))
 
