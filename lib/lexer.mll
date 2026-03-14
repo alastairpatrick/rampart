@@ -10,6 +10,10 @@ rule token = parse
     [' ' '\t'     ]                     { token lexbuf }     (* skip blanks *)
     | '\n'                              { EOL }
     | "arity"                           { ARITY }
+    | "band"                            { BITWISE_AND }
+    | "bnot"                            { BITWISE_NOT }
+    | "bor"                             { BITWISE_OR }
+    | "bxor"                            { BITWISE_XOR }
     | "bool"                            { BOOL }
     | "case"                            { CASE }
     | "const"                           { CONST }

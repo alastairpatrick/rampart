@@ -10,7 +10,7 @@
 
 (* Please keep these in alphabetic order *)
 %token AMPERSAND ANY ARITY ASSIGN
-%token BACKSLASH BANG BOOL
+%token BACKSLASH BANG BITWISE_OR BITWISE_AND BITWISE_NOT BITWISE_XOR BOOL
 %token CARET CASE COLON COMMA CONST
 %token DIV DO
 %token ELSE EOF EOL EQUALS
@@ -83,7 +83,7 @@ unary_expr
   : e=postfix_expr                                          { e }
   | MINUS e=postfix_expr                                    { loc $loc, UnaryOp (Negate, e) }
   | BANG e=postfix_expr                                     { loc $loc, UnaryOp (LogicalNot, e) }
-  | TILDE e=postfix_expr                                    { loc $loc, UnaryOp (BitwiseInvert, e) }
+  | BITWISE_NOT e=postfix_expr                              { loc $loc, UnaryOp (BitwiseInvert, e) }
   ;
 
 multiplicative_expr
@@ -121,17 +121,17 @@ equality_expr
 
 bitwise_and_expr
   : e=equality_expr                                         { e }
-  | a=bitwise_and_expr AMPERSAND b=equality_expr            { loc $loc, BinaryOp (BitwiseAnd, a, b) }
+  | a=bitwise_and_expr BITWISE_AND b=equality_expr            { loc $loc, BinaryOp (BitwiseAnd, a, b) }
   ;
 
 bitwise_xor_expr
   : e=bitwise_and_expr                                      { e }
-  | a=bitwise_xor_expr CARET b=bitwise_and_expr             { loc $loc, BinaryOp (BitwiseXor, a, b) }
+  | a=bitwise_xor_expr BITWISE_XOR b=bitwise_and_expr       { loc $loc, BinaryOp (BitwiseXor, a, b) }
   ;
 
 bitwise_or_expr
   : e=bitwise_xor_expr                                      { e }
-  | a=bitwise_or_expr PIPE b=bitwise_xor_expr               { loc $loc, BinaryOp (BitwiseOr, a, b) }
+  | a=bitwise_or_expr BITWISE_OR b=bitwise_xor_expr         { loc $loc, BinaryOp (BitwiseOr, a, b) }
   ;
 
 logical_and_expr

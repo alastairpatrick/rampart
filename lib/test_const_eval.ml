@@ -67,15 +67,15 @@ let%expect_test _ =
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral true))))))) |}]
 
 let%expect_test _ =
-  evaluate_declarations "5 & 3;";
+  evaluate_declarations "5 band 3;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 1))))))) |}]
 
 let%expect_test _ =
-  evaluate_declarations "5 | 2;";
+  evaluate_declarations "5 bor 2;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 7))))))) |}]
 
 let%expect_test _ =
-  evaluate_declarations "5 ^ 1;";
+  evaluate_declarations "5 bxor 1;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 4))))))) |}]
 
 let%expect_test _ =
@@ -91,19 +91,19 @@ let%expect_test _ =
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral -4))))))) |}]
 
 let%expect_test _ =
-  evaluate_declarations "true & false;";
+  evaluate_declarations "true band false;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral false))))))) |}]
 
 let%expect_test _ =
-  evaluate_declarations "true | false;";
+  evaluate_declarations "true bor false;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral true))))))) |}]
 
 let%expect_test _ =
-  evaluate_declarations "true ^ true;";
+  evaluate_declarations "true bxor true;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral false))))))) |}]
 
 let%expect_test _ =
-  evaluate_declarations "~0;";
+  evaluate_declarations "bnot 0;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral -1))))))) |}]
 
 let%expect_test _ =
