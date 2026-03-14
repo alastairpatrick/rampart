@@ -2659,3 +2659,76 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "let a = (1); let t = a[0];";
   [%expect {| Error: @1 type mismatch |}]
+
+(* 1+1 folds to 2. x is initialized with literal 2 *)
+let%expect_test _ =
+  evaluate_declarations "int f(bool p) const { if (p) { return 1+1; } else { return 0; } } let x = f(true);";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Type Int)) ((@1 (Type Bool))) ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int))
+              ((@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name p)
+                  (init_expr ()))
+                 (0 1))))
+              ((pure) (const))
+              (@1
+               (BoundFrame 1
+                (@1
+                 (Compound
+                  ((@1
+                    (If (@1 (BoundIdentifier p (0 1)))
+                     (@1 (Compound ((@1 (Return (@1 (IntLiteral 2)))))))
+                     (@1 (Compound ((@1 (Return (@1 (IntLiteral 0))))))))))))))
+              (0))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier x) (1 0))) (@1 (IntLiteral 2)))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f(bool p) const { if (p) { return 1; } else { return 0; } } let x = f(false);";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr
+           ((@1 (Call (@1 (Type Int)) ((@1 (Type Bool))) ((pure) (const))))))
+          (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int))
+              ((@1
+                (BoundDeclaration
+                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name p)
+                  (init_expr ()))
+                 (0 1))))
+              ((pure) (const))
+              (@1
+               (BoundFrame 1
+                (@1
+                 (Compound
+                  ((@1
+                    (If (@1 (BoundIdentifier p (0 1)))
+                     (@1 (Compound ((@1 (Return (@1 (IntLiteral 1)))))))
+                     (@1 (Compound ((@1 (Return (@1 (IntLiteral 0))))))))))))))
+              (0))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier x) (1 0))) (@1 (IntLiteral 0)))))))))
+    |}]

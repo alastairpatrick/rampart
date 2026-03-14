@@ -129,6 +129,7 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
     | Compound statements -> (location, Compound (evaluate_statements env frame mode statements))
     | OrderIndependent statements -> (location, OrderIndependent (evaluate_order_independent env frame mode statements))
     | BoundDeclaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
+    | If (condition, consequent, alternative) -> evaluate_if env frame mode location condition consequent alternative
     | Return e -> (location, Return (substitute_lambda_aliases (evaluate_return env frame mode location e)))
     | _ -> print_endline (Printf.sprintf "statement not implemented: %s" (Ast.show_statement (location, statement))); assert false;
   with Error message -> raise (Located_error (location, message))
@@ -742,6 +743,23 @@ and evaluate_declaration env frame mode location declaration slot =
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot))
     
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
+
+and evaluate_if env frame mode location condition consequent alternative =
+  let condition = evaluate_expression env frame mode condition in
+  match mode with
+  | Fold_consts ->
+    let consequent = evaluate_statement env frame mode consequent in
+    let alternative = evaluate_statement env frame mode alternative in
+    (location, If (condition, consequent, alternative))
+
+  | Evaluate_const ->
+    begin match condition with
+    | _, BoolLiteral true -> evaluate_statement env frame mode consequent
+    | _, BoolLiteral false -> evaluate_statement env frame mode alternative
+    | _ -> raise error_type_mismatch
+    end
+
+  | Evaluate_type -> assert false
 
 and evaluate_return env frame mode _ e =
   let e = implicit_convert mode (evaluate_expression env frame mode e) frame.return_type in
