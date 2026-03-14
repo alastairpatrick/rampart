@@ -50,8 +50,7 @@ type eval_mode =
 
 (* Conservative count of loop iterations. Currently counts all calls as potential iterations. *)
 let loop_count = ref 0
-
-let reset_loop_count () = loop_count := 0
+let evaluate_const_count = ref 0
 
 let increment_loop_count () =
   loop_count := !loop_count + 1;
@@ -144,6 +143,16 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
     | _ -> print_endline (Printf.sprintf "statement not implemented: %s" (Ast.show_statement (location, statement))); assert false;
   with Error message -> raise (Located_error (location, message))
 
+(* Always enter Evaluate_const mode using this function. *)
+and evaluate_const_value env frame expression : expression =
+  evaluate_const_count := !evaluate_const_count + 1;
+  Fun.protect
+    ~finally: (fun () ->
+      evaluate_const_count := !evaluate_const_count - 1;
+      if !evaluate_const_count = 0 then loop_count := 0
+      )
+    (fun () -> evaluate_expression env frame Evaluate_const expression)
+    
 and evaluate_expression env frame mode ((location, expression): expression) : expression =
   match expression with
   | IntLiteral _
@@ -287,7 +296,7 @@ and evaluate_index env frame mode location indexable index =
       end
 
     | _, Tuple elements ->
-      let index = evaluate_expression env frame Evaluate_const index in
+      let index = evaluate_const_value env frame index in
       begin match index with
       | _, IntLiteral i ->
         (try
@@ -301,7 +310,7 @@ and evaluate_index env frame mode location indexable index =
     | _ ->
       let indexable_type = evaluate_expression env frame Evaluate_type indexable in
       begin match indexable_type with
-      | _, Tuple _ -> location, Index (indexable, Some (evaluate_expression env frame Evaluate_const index))
+      | _, Tuple _ -> location, Index (indexable, Some (evaluate_const_value env frame index))
       | _, DynamicArray _ -> (location, Index (indexable, Some (evaluate_expression env frame mode index)))
       | _ -> raise error_type_mismatch
       end
@@ -434,7 +443,7 @@ and evaluate_assignment env frame mode location a b =
 
       | (location, Index (indexable, Some index)), _ ->
         let index = match evaluate_expression env frame Evaluate_type indexable with
-        | _, Tuple _ -> evaluate_expression env frame Evaluate_const index
+        | _, Tuple _ -> evaluate_const_value env frame index
         | _, DynamicArray _ -> evaluate_expression env frame mode index
         | _ -> raise error_type_mismatch in
         location, Index (assign indexable b, Some index)
@@ -542,7 +551,7 @@ and evaluate_assignment env frame mode location a b =
 
       | (_, Index (indexable, Some index)), _ ->
         let index = match evaluate_expression env frame Evaluate_type indexable with
-          | _, Tuple _ -> evaluate_expression env frame Evaluate_const index
+          | _, Tuple _ -> evaluate_const_value env frame index
           | _, DynamicArray _ -> evaluate_expression env frame mode index
           | _ -> raise error_type_mismatch in
         let index = match index with
@@ -579,8 +588,8 @@ and evaluate_call env frame mode location callee args call_modifiers =
     if call_modifiers.const then begin
       if not lambda_modifiers.const then
         raise (Error "cannot call non-const lambda at compile time");
-      let args = List.map (evaluate_expression env frame Evaluate_const) args in
-      evaluate_expression env frame Evaluate_const (location, Call (callee, args, call_modifiers))
+      let args = List.map (evaluate_const_value env frame) args in
+      evaluate_const_value env frame (location, Call (callee, args, call_modifiers))
     end else
       (location, Call (callee, args, call_modifiers))
 
@@ -686,10 +695,10 @@ and evaluate_lambda_part2 env mode part1 =
       pure = modifiers.pure;
       const = modifiers.const
     } in
-    let return_type = check_is_const_type (evaluate_expression env frame Evaluate_const return_type) in
+    let return_type = check_is_const_type (evaluate_const_value env frame return_type) in
     let params = List.map (fun (location, param) -> match param with
       | BoundDeclaration ({init_expr=init_expr; type_expr=Some type_expr; name=name; modifiers=modifiers}, slot) ->
-        let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
+        let type_expr = check_is_const_type (evaluate_const_value env frame type_expr) in
         set_assignable_value (get_assignable lambda_frame slot) (Non_const_of_type type_expr);
         (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
@@ -732,14 +741,14 @@ and evaluate_declaration env frame mode location declaration slot =
       
   match declaration with
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
-    let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
+    let type_expr = check_is_const_type (evaluate_const_value env frame type_expr) in
     set_assignable_value assignable (Uninitialized_of_type (Some type_expr));
     let init_expr = implicit_convert mode (evaluate_expression env frame mode init_expr) type_expr in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
 
   | { type_expr=Some type_expr; init_expr=None; _} ->
-    let type_expr = check_is_const_type (evaluate_expression env frame Evaluate_const type_expr) in
+    let type_expr = check_is_const_type (evaluate_const_value env frame type_expr) in
     let init_expr = default_value type_expr in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)

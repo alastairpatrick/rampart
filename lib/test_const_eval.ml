@@ -9,7 +9,6 @@ open Recovery
 
 
 let evaluate_declarations text =
-  reset_loop_count();
   dangerously_reset_distinct_closure_identity();
   try
     let lexbuf = Lexing.from_string text in
