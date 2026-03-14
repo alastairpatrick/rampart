@@ -562,53 +562,45 @@ and evaluate_call env frame mode location callee args type_modifiers =
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (evaluate_expression env frame mode) args in
   let type_modifiers = { type_modifiers with pure = type_modifiers.pure || type_modifiers.const } in
-  match callee with
-  | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _))) ->
-    begin match mode with
-    | Fold_consts ->
-      if lambda_modifiers.const && is_const_value callee && List.for_all is_const_value args then
-        evaluate_expression env frame Evaluate_const (location, Call (callee, args, type_modifiers))
-      else
-        (location, Call (callee, args, type_modifiers))
+  match mode, callee with
+  | Fold_consts, (_, Lambda (_, _, lambda_modifiers, _,_)) ->
+    if lambda_modifiers.const && is_const_value callee && List.for_all is_const_value args then
+      evaluate_expression env frame Evaluate_const (location, Call (callee, args, type_modifiers))
+    else
+      (location, Call (callee, args, type_modifiers))
 
-    | Evaluate_type ->
-      representative_value_of_type return_type
-
-    | Evaluate_const ->
-      if not lambda_modifiers.const then
-        raise (error_invalid_operation "cannot call non-const lambda in a constant expression");
-      let callee_frame = {
-        depth = closure_frame.depth+1;
-        enclosing_frame = Some closure_frame;
-        variables = Array.make num_variables empty_variable;
-        return_type = return_type;
-        pure = true;
-        const = true;
-      } in
-      List.iteri (fun i (location, param) -> match param with
-        | BoundDeclaration ({type_expr=Some type_expr; _}, slot) ->
-          let arg = List.nth args i in
-          let arg = implicit_convert mode arg type_expr in
-          set_assignable_value (get_assignable callee_frame slot) (check_is_const_value arg)
-        | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
-      try
-        evaluate_statement env callee_frame mode statement |> ignore;
-        match return_type with
-        | _, Tuple [] -> (location, Tuple [])
-        | _ -> raise (Error "missing return statement")
-      with
-      | Return_exn return_value ->
-        if not (is_const_value return_value) then
-          raise (error_internal "non-constant return value should be impossible");
-        return_value
-
-    end
-
-  (* Lambda representative values don't have closures. *)
-  | _, Lambda (return_type, _, _, _, _) when mode = Evaluate_type ->
+  | Evaluate_type, (_, Lambda (return_type, _, _, _, _)) ->
     representative_value_of_type return_type
 
-  | _, Lambda _ -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression callee)))
+  | Evaluate_const, (_, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _)))) ->
+    if not lambda_modifiers.const then
+      raise (error_invalid_operation "cannot call non-const lambda in a constant expression");
+    let callee_frame = {
+      depth = closure_frame.depth+1;
+      enclosing_frame = Some closure_frame;
+      variables = Array.make num_variables empty_variable;
+      return_type = return_type;
+      pure = true;
+      const = true;
+    } in
+    List.iteri (fun i (location, param) -> match param with
+      | BoundDeclaration ({type_expr=Some type_expr; _}, slot) ->
+        let arg = List.nth args i in
+        let arg = implicit_convert mode arg type_expr in
+        set_assignable_value (get_assignable callee_frame slot) (check_is_const_value arg)
+      | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
+    (try
+      evaluate_statement env callee_frame mode statement |> ignore;
+      match return_type with
+      | _, Tuple [] -> (location, Tuple [])
+      | _ -> raise (Error "missing return statement")
+    with
+    | Return_exn return_value ->
+      if not (is_const_value return_value) then
+        raise (error_internal "non-constant return value should be impossible");
+      return_value)
+
+  | _, (_, Lambda _) -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression callee)))
 
   | _ -> (location, Call (callee, args, type_modifiers))
 

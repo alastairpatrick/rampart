@@ -565,7 +565,75 @@ let%expect_test _ =
       ((@1
         (If (@1 (Identifier condition)) (@1 (Compound ())) (@1 (Compound ())))))))
     |}]
+
+let%expect_test _ =
+  parse "while condition {}";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (If (@1 (Identifier condition))
+         (@1 (DoWhile (@1 (Compound ())) (@1 (Identifier condition))))
+         (@0 (Compound ())))))))
+    |}]
    
+let%expect_test _ =
+  parse "do {} while condition;";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1 (DoWhile (@1 (Compound ())) (@1 (Identifier condition)))))))
+    |}]
+
+let%expect_test _ =
+  parse "for int i=0; i<10; i=i+1 {}";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Compound
+         ((@1
+           (Declaration
+            ((modifiers ()) (type_expr ((@1 (Type Int)))) (name i)
+             (init_expr ((@1 (IntLiteral 0)))))))
+          (@1
+           (If (@1 (BinaryOp Less (@1 (Identifier i)) (@1 (IntLiteral 10))))
+            (@1
+             (DoWhile
+              (@1
+               (Compound
+                ((@1 (Compound ()))
+                 (@1
+                  (Expression
+                   (@1
+                    (Assignment (@1 (Identifier i))
+                     (@1 (BinaryOp Plus (@1 (Identifier i)) (@1 (IntLiteral 1)))))))))))
+              (@1 (BinaryOp Less (@1 (Identifier i)) (@1 (IntLiteral 10))))))
+            (@0 (Compound ()))))))))))
+    |}]
+
+let%expect_test _ =
+  parse "switch v
+    case (A, B) { 1; }
+    case (_, D) if p { 2; }
+    else if q { 3; }
+    else { 4; }
+  ";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Switch (@1 (Identifier v))
+         ((@1 ((@1 (Tuple ((@1 (Identifier A)) (@1 (Identifier B)))))) ()
+           (@1 (Compound ((@1 (Expression (@1 (IntLiteral 1))))))))
+          (@1 ((@1 (Tuple ((@1 (Let Any)) (@1 (Identifier D))))))
+           ((@1 (Identifier p)))
+           (@1 (Compound ((@1 (Expression (@1 (IntLiteral 2))))))))
+          (@1 () ((@1 (Identifier q)))
+           (@1 (Compound ((@1 (Expression (@1 (IntLiteral 3))))))))
+          (@1 () () (@1 (Compound ((@1 (Expression (@1 (IntLiteral 4))))))))))))))
+    |}]
+
 
 (* End of line skipping *)
 
