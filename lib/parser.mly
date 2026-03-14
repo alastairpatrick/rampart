@@ -191,7 +191,7 @@ expr: e=lambda_expr                                         { e }
 
 exprs0 : es=separated_list(COMMA, expr)     { es };
 
-semi
+eol
   : SEMI                                    { () }
   | EOL                                     { () }
   ;
@@ -205,7 +205,7 @@ initialize
   ;
 
 declaration
-  : t=expr n=ID v=initialize? semi
+  : t=expr n=ID v=initialize? eol
                                                                 { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN
     lm=lambda_modifiers b=compound_stat                         { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, lm, b, None)) } }
@@ -213,15 +213,15 @@ declaration
   ;
 
 stat
-  : e=expr semi                                                 { loc $loc, Expression e }
+  : e=expr eol                                                  { loc $loc, Expression e }
   | d=declaration                                               { loc $loc, Declaration d }
   | s=compound_stat                                             { s }
   | IF c=expr a=compound_stat b=else_clause?                    { prelower_if (loc($loc)) c a b }
-  | FOR i=stat c=expr semi n=expr b=compound_stat               { prelower_for (loc($loc)) i c n b }
-  | FOR LPAREN i=stat c=expr semi n=expr RPAREN b=compound_stat { prelower_for (loc($loc)) i c n b }
+  | FOR i=stat c=expr eol n=expr b=compound_stat                { prelower_for (loc($loc)) i c n b }
+  | FOR LPAREN i=stat c=expr eol n=expr RPAREN b=compound_stat  { prelower_for (loc($loc)) i c n b }
   | WHILE c=expr b=compound_stat                                { prelower_while (loc($loc)) c b }
-  | DO b=compound_stat WHILE c=expr semi                        { loc $loc, DoWhile (b, c) }
-  | RETURN e=expr semi                                          { loc $loc, Return e }
+  | DO b=compound_stat WHILE c=expr eol                         { loc $loc, DoWhile (b, c) }
+  | RETURN e=expr eol                                           { loc $loc, Return e }
   ;
 
 stats0
