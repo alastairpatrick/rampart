@@ -156,15 +156,15 @@ switch_case_if
   ;
 
 switch_case
-  : CASE p=expr e=switch_case_if? b=compound_stat semi           { loc $loc, Some p, e, b }
-  | CASE p=expr e=switch_case_if? RARROW b=conditional_expr semi { loc $loc, Some p, e, (loc $loc, Expression b (* TODO *)) }
-  | ELSE e=switch_case_if? b=compound_stat semi                 { loc $loc, None, e, b }
-  | ELSE e=switch_case_if? RARROW b=conditional_expr semi        { loc $loc, None, e, (loc $loc, Expression b (* TODO *)) }
+  : CASE p=expr e=switch_case_if? b=compound_stat           { loc $loc, Some p, e, b }
+  | CASE p=expr e=switch_case_if? RARROW b=conditional_expr { loc $loc, Some p, e, (loc $loc, Expression b (* TODO *)) }
+  | ELSE e=switch_case_if? b=compound_stat                  { loc $loc, None, e, b }
+  | ELSE e=switch_case_if? RARROW b=conditional_expr        { loc $loc, None, e, (loc $loc, Expression b (* TODO *)) }
   ;
 
 switch_expr
   : e=conditional_expr                                      { e }
-  | SWITCH e=conditional_expr cs=switch_case+           { loc $loc, Switch (e, cs) }
+  | SWITCH e=conditional_expr LCURLY cs=switch_case+ RCURLY { loc $loc, Switch (e, cs) }
 
 assign_expr
   : e=switch_expr                                           { e }
@@ -222,7 +222,6 @@ stat
   | WHILE c=expr b=compound_stat                                { prelower_while (loc($loc)) c b }
   | DO b=compound_stat WHILE c=expr semi                        { loc $loc, DoWhile (b, c) }
   | RETURN e=expr semi                                          { loc $loc, Return e }
-  | RETURN semi                                                 { loc $loc, Return (loc $loc, Tuple []) }
   ;
 
 stats0

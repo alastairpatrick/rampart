@@ -537,9 +537,21 @@ let%expect_test _ =
         (Expression (@1 (Call (@1 (Identifier foo)) ((@1 (IntLiteral 7))) ())))))))
     |}]
 
+(* We don't support this syntax because we want to avoid this ambiguity:
+     return
+     2
+  After EOL recovery, it be could interpreted as:
+    return;
+    2;
+  or:
+    return 2;
+  *)
 let%expect_test _ =
   parse "return;";
-  [% expect{| (@1 (OrderIndependent ((@1 (Return (@1 (Tuple ()))))))) |}]
+  [% expect{|
+    Error line 1, character 7: unexpected ';' symbol
+    (@1 (OrderIndependent ()))
+    |}]
 
 let%expect_test _ =
   parse "return 7;";
@@ -613,11 +625,12 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "switch (v)
+  parse "switch v {
     case (A, B) -> 1
     case (_, D) if p -> 2
     else if q -> 3
-    else -> 4;
+    else -> 4
+    }
   ";
   [% expect{|
     (@1
@@ -635,11 +648,14 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "switch v
+  parse "switch v {
     case (A, B) { 1; }
-    case (_, D) if p { 2; }
+    case (_, D) if p {
+      2;
+    }
     else if q { 3; }
-    else { 4; };
+    else { 4; }
+    }
   ";
   [% expect{|
     (@1
