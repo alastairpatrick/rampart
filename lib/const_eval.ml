@@ -48,6 +48,15 @@ type eval_mode =
   | Evaluate_type                 (* Evaluate the type of an expression without causing side-effects. Returns a type representative rather than the type itself. Not used on statements. *)
   | Evaluate_const                (* Compile-time evaluation of constant expressions *)
 
+(* Conservative count of loop iterations. Currently counts all calls as potential iterations. *)
+let loop_count = ref 0
+
+let reset_loop_count () = loop_count := 0
+
+let increment_loop_count () =
+  loop_count := !loop_count + 1;
+  if !loop_count > 1000 then raise (Error "exceeded maximum number of loop iterations")
+
 let make_global_frame (num_globals : int) : frame = {
   depth = 0;
   enclosing_frame = None;
@@ -559,17 +568,21 @@ and evaluate_in env frame mode location a b =
   | Evaluate_type
   | Evaluate_const -> b
 
-and evaluate_call env frame mode location callee args type_modifiers =
+and evaluate_call env frame mode location callee args call_modifiers =
+  if mode = Evaluate_const then increment_loop_count ();
   (* Consistent with other imperative languages, semantically, the callee is evaluated before any arguments. *)
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (evaluate_expression env frame mode) args in
-  let type_modifiers = { type_modifiers with pure = type_modifiers.pure || type_modifiers.const } in
+  let call_modifiers = { call_modifiers with pure = call_modifiers.pure || call_modifiers.const } in
   match mode, callee with
   | Fold_consts, (_, Lambda (_, _, lambda_modifiers, _,_)) ->
-    if lambda_modifiers.const && is_const_value callee && List.for_all is_const_value args then
-      evaluate_expression env frame Evaluate_const (location, Call (callee, args, type_modifiers))
-    else
-      (location, Call (callee, args, type_modifiers))
+    if call_modifiers.const then begin
+      if not lambda_modifiers.const then
+        raise (Error "cannot call non-const lambda at compile time");
+      let args = List.map (evaluate_expression env frame Evaluate_const) args in
+      evaluate_expression env frame Evaluate_const (location, Call (callee, args, call_modifiers))
+    end else
+      (location, Call (callee, args, call_modifiers))
 
   | Evaluate_type, (_, Lambda (return_type, _, _, _, _)) ->
     representative_value_of_type return_type
@@ -604,7 +617,7 @@ and evaluate_call env frame mode location callee args type_modifiers =
 
   | _, (_, Lambda _) -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression callee)))
 
-  | _ -> (location, Call (callee, args, type_modifiers))
+  | _ -> (location, Call (callee, args, call_modifiers))
 
 and evaluate_tuple env frame mode location elements =
   (location, Tuple (List.map (evaluate_expression env frame mode) elements))
@@ -771,6 +784,7 @@ and evaluate_do_while env frame mode location body condition =
 
   | Evaluate_const ->
     let rec loop () =
+      increment_loop_count ();
       evaluate_statement env frame mode body |> ignore;
       match evaluate_expression env frame mode condition with
       | _, BoolLiteral true -> loop ()
@@ -780,7 +794,7 @@ and evaluate_do_while env frame mode location body condition =
     (location, DoWhile (body, condition))
 
   | Evaluate_type -> assert false
-  
+
 and evaluate_return env frame mode _ e =
   let e = implicit_convert mode (evaluate_expression env frame mode e) frame.return_type in
   match mode with

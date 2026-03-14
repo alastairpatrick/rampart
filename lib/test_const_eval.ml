@@ -9,6 +9,7 @@ open Recovery
 
 
 let evaluate_declarations text =
+  reset_loop_count();
   dangerously_reset_distinct_closure_identity();
   try
     let lexbuf = Lexing.from_string text in
@@ -338,7 +339,7 @@ let%expect_test _ =
 
 (* a evaluates to literal 3 *)
 let%expect_test _ =
-  evaluate_declarations "int f(int a, int b) const { return a+b; } let a = f(1, 2);";
+  evaluate_declarations "int f(int a, int b) const { return a+b; } let a = f(1, 2) const;";
   [%expect{|
     (@1
      (OrderIndependent
@@ -1524,7 +1525,7 @@ let%expect_test _ =
 
 let%expect_test _ =
   evaluate_declarations "type f() const { mut int x; type g() const { x; return int; } return g(); } f() y;";
-  [%expect{| Error: @1 'x' is not a compile-time constant |}]
+  [%expect{| Error: @1 cannot access mutable captured variable 'x' from pure context |}]
 
 (* Const function can capture const variables. *)
 let%expect_test _ =
@@ -1663,7 +1664,11 @@ let%expect_test _ =
           (init_expr
            ((@1
              (Lambda (@1 (Type Type)) () ((pure) (const))
-              (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
+              (@1
+               (BoundFrame 0
+                (@1
+                 (Compound
+                  ((@1 (Return (@1 (Call (@1 (BoundIdentifier a (0 0))) () ())))))))))
               (1))))))
          (1 0)))
        (@1
@@ -1977,7 +1982,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int() const make() const { int x = 1; return \\int() const { return x; }; } int g = make();";
+  evaluate_declarations "int() const make() const { int x = 1; return \\int() const { return x; }; } int g = make() const;";
   [%expect{|
     (@1
      (OrderIndependent
@@ -2150,7 +2155,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int[] f() const { mut int[][] a; a = [[0, 0], [0, 0]]; a[0][1] = 1; return a[0]; } let x = f();";
+  evaluate_declarations "int[] f() const { mut int[][] a; a = [[0, 0], [0, 0]]; a[0][1] = 1; return a[0]; } let x = f() const;";
   [%expect{|
     (@1
      (OrderIndependent
@@ -2219,7 +2224,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "(bool, int) f() const { mut (bool, int) a; a[0] = true; a[1] = 7; return a; } let x = f();";
+  evaluate_declarations "(bool, int) f() const { mut (bool, int) a; a[0] = true; a[1] = 7; return a; } let x = f() const;";
   [%expect{|
     (@1
      (OrderIndependent
@@ -2354,7 +2359,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f(int i) const { mut int[] a = [0]; a[i] = 0; return a[i]; } let x = f(0);";
+  evaluate_declarations "int f(int i) const { mut int[] a = [0]; a[i] = 0; return a[i]; } let x = f(0) const;";
   [%expect{|
     (@1
      (OrderIndependent
@@ -2407,15 +2412,15 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f() const { let a = (1, 2); a[0] = 3; return a[0]; } let x = f();";
+  evaluate_declarations "int f() const { let a = (1, 2); a[0] = 3; return a[0]; } let x = f() const;";
   [%expect{| Error: @1 cannot assign to immutable variable 'a' |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f() const { let a = (1, 2); a[true] = 3; return a[0]; } let x = f();";
+  evaluate_declarations "int f() const { let a = (1, 2); a[true] = 3; return a[0]; } let x = f() const;";
   [%expect{| Error: @1 type mismatch |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f() const { 1[0] = 3; return 0; } let x = f();";
+  evaluate_declarations "int f() const { 1[0] = 3; return 0; } let x = f() const;";
   [%expect{| Error: @1 type mismatch |}]
 
 let%expect_test _ =
@@ -2662,7 +2667,7 @@ let%expect_test _ =
 
 (* 1+1 folds to 2. x is initialized with literal 2 *)
 let%expect_test _ =
-  evaluate_declarations "int f(bool p) const { if (p) { return 1+1; } else { return 0; } } let x = f(true);";
+  evaluate_declarations "int f(bool p) const { if (p) { return 1+1; } else { return 0; } } let x = f(true) const;";
   [%expect {|
     (@1
      (OrderIndependent
@@ -2698,7 +2703,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f(bool p) const { if (p) { return 1; } else { return 0; } } let x = f(false);";
+  evaluate_declarations "int f(bool p) const { if (p) { return 1; } else { return 0; } } let x = f(false) const;";
   [%expect {|
     (@1
      (OrderIndependent
@@ -2735,7 +2740,7 @@ let%expect_test _ =
 
 (* 1-1 folds to 0. x is initialized with literal 2 *)
 let%expect_test _ =
-  evaluate_declarations "int f(int n) const { mut int i=1-1; do { i=i+1; } while i<n; return i; } let x = f(2);";
+  evaluate_declarations "int f(int n) const { mut int i=1-1; do { i=i+1; } while i<n; return i; } let x = f(2) const;";
   [%expect {|
     (@1
      (OrderIndependent
@@ -2788,7 +2793,7 @@ let%expect_test _ =
 
 (* body of do-while loop iterates at least once, and x is initialized to literal 1. *)
 let%expect_test _ =
-  evaluate_declarations "int f(int n) const { mut int i=1-1; do { i=i+1; } while i<n; return i; } let x = f(0);";
+  evaluate_declarations "int f(int n) const { mut int i=1-1; do { i=i+1; } while i<n; return i; } let x = f(0) const;";
   [%expect {|
     (@1
      (OrderIndependent
@@ -2838,3 +2843,45 @@ let%expect_test _ =
          (@1
           (Assignment (@1 (BoundLet (Identifier x) (1 0))) (@1 (IntLiteral 1)))))))))
     |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() const { do { } while true; return 0; } let x = f() const;";
+  [%expect {| Error: @1 exceeded maximum number of loop iterations |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() const { return f(); } let x = f() const;";
+  [%expect {| Error: @1 exceeded maximum number of loop iterations |}]
+
+(* A function making a const call can enter an infinite loop, even if it is never called externally. *)
+let%expect_test _ =
+  evaluate_declarations "int f() const { return f() const; }";
+  [%expect {| Error: @1 exceeded maximum number of loop iterations |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() const { return f(); }";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const)))))) (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int)) () ((pure) (const))
+              (@1
+               (BoundFrame 0
+                (@1
+                 (Compound
+                  ((@1 (Return (@1 (Call (@1 (BoundIdentifier f (0 0))) () ())))))))))
+              (0))))))
+         (0 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f() pure { return 0; } let x = f() const;";
+  [%expect {| Error: @1 cannot call non-const lambda at compile time |}]
+
+let%expect_test _ =
+  evaluate_declarations "int f(int n) const { return n; } mut int i; let x = f(i) const;";
+  [%expect {| Error: @1 'i' is not a compile-time constant |}]
