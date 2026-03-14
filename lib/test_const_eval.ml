@@ -1910,6 +1910,34 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
+  evaluate_declarations "int f() const { let _ = 1; return 0; } let _ = f() const;";
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Call (@1 (Type Int)) () ((pure) (const)))))) (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Int)) () ((pure) (const))
+              (@1
+               (BoundFrame 1
+                (@1
+                 (Compound
+                  ((@1
+                    (Expression
+                     (@1
+                      (Assignment (@1 (BoundLet Any (0 1))) (@1 (IntLiteral 1))))))
+                   (@1 (Return (@1 (IntLiteral 0)))))))))
+              (0))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1 (Assignment (@1 (BoundLet Any (1 0))) (@1 (IntLiteral 0)))))))))
+    |}]
+
+let%expect_test _ =
   evaluate_declarations "type t = typeof(let x = 1 in x+1);";
   [%expect{|
     (@1
