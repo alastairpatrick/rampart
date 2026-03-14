@@ -33,7 +33,7 @@ help later passes finish work safely.
   `Closure frame`) which the const-eval pass will populate for `const`
   functions.
 - Const-eval pass runs in three related modes:
-  - `Search_for_declaration_types` — the default traversal used when the
+  - `Fold_consts` — the default traversal used when the
     front end first visits a program. It walks the AST looking for
     declarations whose *types* need to be resolved and, when a declaration is
     encountered, immediately evaluates its type by recursively invoking
@@ -64,10 +64,10 @@ help later passes finish work safely.
     modifiers.const flag must be true, and it must carry a closure frame when
     it is executed), arguments are required to be previously identified as
     CTCEs or otherwise accepted, return values are checked for const-ness via
-    `is_const_value`, etc.).  As noted above, `Search_for_declaration_types`
+    `is_const_value`, etc.).  As noted above, `Fold_consts`
     dispatches to `Evaluate_const` when evaluating a declaration's type.  By
     contrast, declaration *initializers* are evaluated only in whichever mode
-    the pass was invoked with (usually `Search_for_declaration_types`), and
+    the pass was invoked with (usually `Fold_consts`), and
     the pass itself does not write initializer expressions back into the
     program; only evaluated declaration *types* are committed.  Lambda
     expressions and their optional closure field are likewise not leaked out of
@@ -84,7 +84,7 @@ which are implemented in `evaluate_expression` and its helpers:
   matches the language's runtime semantics and ensures that, when in
   `Evaluate_const` mode, any side-effectful or non-terminating sub-expression
   is only executed if it is actually needed for the result.
-* `Search_for_declaration_types` reduces *every* constant sub-expression it
+* `Fold_consts` reduces *every* constant sub-expression it
   encounters, even if the enclosing operation cannot be evaluated.  This lets
   declaration types be normalised eagerly without accidentally executing
   unrelated code.
@@ -175,7 +175,7 @@ which are implemented in `evaluate_expression` and its helpers:
 - Tests should cover:
   - Literal and tuple folding.
   - Type defaulting for declarations without initializers.
-  - `Search_for_declaration_types` traversal and the fact that declaration
+  - `Fold_consts` traversal and the fact that declaration
     *types* are eagerly evaluated (including const-calls) while other
     expressions remain inert.
   - `Evaluate_const` call execution for `const` lambdas and validation of

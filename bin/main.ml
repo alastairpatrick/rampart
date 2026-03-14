@@ -15,7 +15,7 @@ let _ =
     let statement = parse_recovering (make_diagnostic_sink ()) tokens in
     let num_variables, statement = bind_program env (statement) in
     let global_frame = make_global_frame num_variables in
-    let program = evaluate_statement env global_frame Search_for_declaration_types statement in
+    let program = evaluate_statement env global_frame Fold_consts statement in
     Sexplib.Sexp.output_hum stdout (sexp_of_statement program)
 
   with

@@ -44,7 +44,7 @@ type external_closure +=
   | Closure of frame * (* ast_alias: *) expression option
 
 type eval_mode =
-  | Search_for_declaration_types  (* Transforms from one AST to another, using Evaluate_const to evaluate the constant type of all declaration types, while performing constant folding. *)
+  | Fold_consts                   (* Transforms from one AST to another, using Evaluate_const to evaluate the constant type of all declaration types, while performing constant folding. *)
   | Evaluate_type                 (* Evaluate the type of an expression without causing side-effects. Returns a type representative rather than the type itself. Not used on statements. *)
   | Evaluate_const                (* Compile-time evaluation of constant expressions *)
 
@@ -168,7 +168,7 @@ and substitute_lambda_aliases expression : expression =
 
 (* Expression evaluation guidelines.
 
-Search_for_declaration_types:
+Fold_consts:
 - This mode takes an AST for a program as input and produces an AST for a program as output, one suitable
   for conventional static type checking.
 - Walk the AST and reduce constant sub-expressions where possible, even when the surrounding expression
@@ -198,7 +198,7 @@ Evaluate_const:
 and evaluate_identifier _ frame mode location display_name ({index; depth; mut} : slot) =
   let assignable = get_assignable frame {index; depth; mut} in
   match mode with
-  | Search_for_declaration_types ->
+  | Fold_consts ->
     begin match get_assignable_value assignable with
     | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name)
     | Const_of_value const_value ->
@@ -230,7 +230,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
 and evaluate_logical_op env frame mode location op a b =
   let a = evaluate_expression env frame mode a in
   match mode with
-  | Search_for_declaration_types ->
+  | Fold_consts ->
     let b = evaluate_expression env frame mode b in
     begin match op, a, b with
     | LogicalAnd, (_, BoolLiteral a_value), (_, BoolLiteral b_value) -> (location, BoolLiteral (a_value && b_value))
@@ -267,11 +267,11 @@ and evaluate_index env frame mode location indexable index =
       begin match mode, index with
       | Evaluate_type, (_, IntLiteral _) -> representative_value_of_type element_type (* must not perform a bounds check *)
       | Evaluate_const, (_, IntLiteral i)
-      | Search_for_declaration_types, (_, IntLiteral i) ->
+      | Fold_consts, (_, IntLiteral i) ->
         if i < 0 || i >= Array.length elements then
           raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i));
         elements.(i)
-      | Search_for_declaration_types, _ -> (location, Index (indexable, Some index))
+      | Fold_consts, _ -> (location, Index (indexable, Some index))
       | _ -> raise error_type_mismatch
       end
 
@@ -304,7 +304,7 @@ and evaluate_unary_op env frame mode location op e =
   | BitwiseInvert, (_, BoolLiteral b) -> (location, BoolLiteral (not b))
   | _, _ ->
       match mode with
-      | Search_for_declaration_types -> (location, UnaryOp (op, e))
+      | Fold_consts -> (location, UnaryOp (op, e))
       | _ -> raise error_type_mismatch
 
 and evaluate_binary_op env frame mode location op a b =
@@ -325,7 +325,7 @@ and evaluate_binary_op env frame mode location op a b =
   | Modulo, (_, IntLiteral num), (_, IntLiteral denom) ->
     if denom = 0 then begin
       match mode with
-      | Search_for_declaration_types -> (location, BinaryOp (op, a, b)) (* TODO: new rule for CTCEs - division and modulo expressions are not CTCEs if the denominator is zero *)
+      | Fold_consts -> (location, BinaryOp (op, a, b)) (* TODO: new rule for CTCEs - division and modulo expressions are not CTCEs if the denominator is zero *)
       | Evaluate_type -> representative_value_of_type (location, Type Int)
       | Evaluate_const -> raise (error_invalid_operation "division by zero")
     end else
@@ -348,7 +348,7 @@ and evaluate_binary_op env frame mode location op a b =
       (location, BoolLiteral (if op = Equals then are_equal else not are_equal))
     else begin
       match mode with
-      | Search_for_declaration_types -> (location, BinaryOp (op, a, b))
+      | Fold_consts -> (location, BinaryOp (op, a, b))
       | _ -> raise error_type_mismatch
     end
 
@@ -362,7 +362,7 @@ and evaluate_binary_op env frame mode location op a b =
   | Greater, _, _
   | GreaterEquals, _, _ ->
     begin match mode with
-    | Search_for_declaration_types -> (location, BinaryOp (op, a, b))
+    | Fold_consts -> (location, BinaryOp (op, a, b))
     | _ -> raise error_type_mismatch
     end
 
@@ -372,7 +372,7 @@ and evaluate_binary_op env frame mode location op a b =
 and evaluate_conditional env frame mode location condition consequent alternative =
   let condition = evaluate_expression env frame mode condition in
   match mode with
-  | Search_for_declaration_types ->
+  | Fold_consts ->
     let consequent = evaluate_expression env frame mode consequent in
     let alternative = evaluate_expression env frame mode alternative in
     begin match condition with
@@ -404,7 +404,7 @@ and evaluate_conditional env frame mode location condition consequent alternativ
 and evaluate_assignment env frame mode location a b =
   let b = evaluate_expression env frame mode b in
   match mode with
-  | Search_for_declaration_types ->
+  | Fold_consts ->
     let rec assign (a : expression) (b : expression) : expression =
       match a, b with
       | (_, BoundIdentifier _), _ ->
@@ -519,7 +519,7 @@ and evaluate_assignment env frame mode location a b =
           set_assignable_value assignable (check_is_const_value updated);
           b (* The result should be the RHS, implicitly converted to the same type as the LHS *)
 
-        | Search_for_declaration_types, _ -> assert false
+        | Fold_consts, _ -> assert false
         end
 
       | (_, BoundLet (_, slot)), _ ->
@@ -553,7 +553,7 @@ and evaluate_in env frame mode location a b =
   let a = evaluate_expression env frame mode a in
   let b = evaluate_expression env frame mode b in
   match mode with
-  | Search_for_declaration_types -> (location, In (a, b))
+  | Fold_consts -> (location, In (a, b))
   | Evaluate_type
   | Evaluate_const -> b
 
@@ -565,7 +565,7 @@ and evaluate_call env frame mode location callee args type_modifiers =
   match callee with
   | _, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _))) ->
     begin match mode with
-    | Search_for_declaration_types ->
+    | Fold_consts ->
       if lambda_modifiers.const && is_const_value callee && List.for_all is_const_value args then
         evaluate_expression env frame Evaluate_const (location, Call (callee, args, type_modifiers))
       else
@@ -621,10 +621,10 @@ and evaluate_dynamic_array_literal env frame mode location elements element_type
   end else begin
     let elements = Array.map (evaluate_expression env frame mode) elements in
 
-    (* Search_for_declaration_types is responsible for checking all the elements are the same type iff
+    (* Fold_consts is responsible for checking all the elements are the same type iff
       it is necessary to do so the for constant folding, i.e. if the resulting array literal will be
       considered a constant value. *)
-    if mode <> Search_for_declaration_types || Array.for_all is_const_value elements then begin
+    if mode <> Fold_consts || Array.for_all is_const_value elements then begin
       let element_type = match element_type with
       | Some element_type -> element_type
       | _ -> type_of_expression elements.(0) in
@@ -637,7 +637,7 @@ and evaluate_dynamic_array_literal env frame mode location elements element_type
 
 and evaluate_arity env frame mode location e =
   match mode with
-  | Search_for_declaration_types ->
+  | Fold_consts ->
     let e = evaluate_expression env frame mode e in
     begin match evaluate_expression env frame mode e with
     | _, Tuple elements -> (location, IntLiteral (List.length elements))
@@ -682,7 +682,7 @@ and evaluate_lambda_part2 env mode part1 =
         set_assignable_value (get_assignable lambda_frame slot) (Non_const_of_type type_expr);
         (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
-    let statement = evaluate_statement env lambda_frame Search_for_declaration_types statement in
+    let statement = evaluate_statement env lambda_frame Fold_consts statement in
     (* A subsequent pass will verify that the lambda meets the requirements for pure or const. *)
     (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (closure_identity, Closure (frame, None))))
   | _ -> assert false
@@ -750,14 +750,14 @@ and evaluate_declaration env frame mode location declaration slot =
 and evaluate_return env frame mode _ e =
   let e = implicit_convert mode (evaluate_expression env frame mode e) frame.return_type in
   match mode with
-    | Search_for_declaration_types -> e
+    | Fold_consts -> e
     | Evaluate_type -> assert false
     | Evaluate_const -> raise (Return_exn e)
 
 
 and implicit_convert mode from_expression to_type =
   match mode with
-  | Search_for_declaration_types -> from_expression (* just leave the node in place for a subsequent pass to actually do the implicit conversion *)
+  | Fold_consts -> from_expression (* just leave the node in place for a subsequent pass to actually do the implicit conversion *)
   | Evaluate_type -> assert false; (* never actually called in this mode *)
     (*representative_value_of_type (to_type_location, to_type)*) (* leave it to a subsequent pass to determine whether the conversion is valid *)
   | Evaluate_const ->
@@ -768,4 +768,4 @@ and implicit_convert mode from_expression to_type =
     | _ -> raise error_type_mismatch
 
 let const_evaluate_program (env : env) (frame : frame) (statement : statement) : statement =
-  evaluate_statement env frame Search_for_declaration_types statement
+  evaluate_statement env frame Fold_consts statement
