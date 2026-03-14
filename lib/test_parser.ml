@@ -613,25 +613,49 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "switch v
-    case (A, B) { 1; }
-    case (_, D) if p { 2; }
-    else if q { 3; }
-    else { 4; }
+  parse "switch (v)
+    case (A, B) -> 1
+    case (_, D) if p -> 2
+    else if q -> 3
+    else -> 4;
   ";
   [% expect{|
     (@1
      (OrderIndependent
       ((@1
-        (Switch (@1 (Identifier v))
-         ((@1 ((@1 (Tuple ((@1 (Identifier A)) (@1 (Identifier B)))))) ()
-           (@1 (Compound ((@1 (Expression (@1 (IntLiteral 1))))))))
-          (@1 ((@1 (Tuple ((@1 (Let Any)) (@1 (Identifier D))))))
-           ((@1 (Identifier p)))
-           (@1 (Compound ((@1 (Expression (@1 (IntLiteral 2))))))))
-          (@1 () ((@1 (Identifier q)))
-           (@1 (Compound ((@1 (Expression (@1 (IntLiteral 3))))))))
-          (@1 () () (@1 (Compound ((@1 (Expression (@1 (IntLiteral 4))))))))))))))
+        (Expression
+         (@1
+          (Switch (@1 (Identifier v))
+           ((@1 ((@1 (Tuple ((@1 (Identifier A)) (@1 (Identifier B)))))) ()
+             (@1 (Expression (@1 (IntLiteral 1)))))
+            (@1 ((@1 (Tuple ((@1 (Let Any)) (@1 (Identifier D))))))
+             ((@1 (Identifier p))) (@1 (Expression (@1 (IntLiteral 2)))))
+            (@1 () ((@1 (Identifier q))) (@1 (Expression (@1 (IntLiteral 3)))))
+            (@1 () () (@1 (Expression (@1 (IntLiteral 4)))))))))))))
+    |}]
+
+let%expect_test _ =
+  parse "switch v
+    case (A, B) { 1; }
+    case (_, D) if p { 2; }
+    else if q { 3; }
+    else { 4; };
+  ";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Switch (@1 (Identifier v))
+           ((@1 ((@1 (Tuple ((@1 (Identifier A)) (@1 (Identifier B)))))) ()
+             (@1 (Compound ((@1 (Expression (@1 (IntLiteral 1))))))))
+            (@1 ((@1 (Tuple ((@1 (Let Any)) (@1 (Identifier D))))))
+             ((@1 (Identifier p)))
+             (@1 (Compound ((@1 (Expression (@1 (IntLiteral 2))))))))
+            (@1 () ((@1 (Identifier q)))
+             (@1 (Compound ((@1 (Expression (@1 (IntLiteral 3))))))))
+            (@1 () () (@1 (Compound ((@1 (Expression (@1 (IntLiteral 4))))))))))))))))
     |}]
 
 

@@ -151,8 +151,23 @@ conditional_expr
   | c=binary_expr QUESTION a=expr COLON b=conditional_expr  { loc $loc, Conditional (c, a, b) }
   ;
 
+switch_case_if
+  : IF e=expr                                               { e }
+  ;
+
+switch_case
+  : CASE p=expr e=switch_case_if? b=compound_stat semi           { loc $loc, Some p, e, b }
+  | CASE p=expr e=switch_case_if? RARROW b=conditional_expr semi { loc $loc, Some p, e, (loc $loc, Expression b (* TODO *)) }
+  | ELSE e=switch_case_if? b=compound_stat semi                 { loc $loc, None, e, b }
+  | ELSE e=switch_case_if? RARROW b=conditional_expr semi        { loc $loc, None, e, (loc $loc, Expression b (* TODO *)) }
+  ;
+
+switch_expr
+  : e=conditional_expr                                      { e }
+  | SWITCH e=conditional_expr cs=switch_case+           { loc $loc, Switch (e, cs) }
+
 assign_expr
-  : e = conditional_expr                                    { e }
+  : e=switch_expr                                           { e }
   | a=postfix_expr ASSIGN b=assign_expr                     { loc $loc, Assignment (a, b) }
   ;
 
@@ -189,15 +204,6 @@ initialize
   : ASSIGN v=expr                           { v }
   ;
 
-switch_case_if
-  : IF e=expr                               { e }
-  ;
-
-switch_case
-  : CASE p=expr e=switch_case_if? b=compound_stat { loc $loc, Some p, e, b }
-  | ELSE e=switch_case_if? b=compound_stat        { loc $loc, None, e, b }
-  ;
-
 declaration
   : t=expr n=ID v=initialize? semi
                                                                 { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
@@ -208,7 +214,6 @@ declaration
 
 stat
   : e=expr semi                                                 { loc $loc, Expression e }
-  | SWITCH e=expr cs=switch_case+                               { loc $loc, Switch (e, cs) }
   | d=declaration                                               { loc $loc, Declaration d }
   | s=compound_stat                                             { s }
   | IF c=expr a=compound_stat b=else_clause?                    { prelower_if (loc($loc)) c a b }

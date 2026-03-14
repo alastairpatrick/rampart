@@ -97,11 +97,6 @@ and bind_statement (env : env) (pass : bind_pass) ((location, statement) : state
       let _, cond = bind env pass cond in
       env, (location, DoWhile (body, cond))
 
-    | Switch (expr, cases) ->
-      let _, expr = bind env pass expr in
-      let cases = bind_switch_cases env pass cases in
-      env, (location, Switch (expr, cases))
-
     | Return expr ->
       let _, expr = bind env pass expr in env, (location, Return expr)
 
@@ -170,6 +165,11 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let _, a = bind env pass a in
     let _, b = bind env pass b in
     env, (location, Conditional (c, a, b))
+
+  | Switch (expr, cases) ->
+    let _, expr = bind env pass expr in
+    let cases = bind_switch_cases env pass cases in
+    env, (location, Switch (expr, cases))
 
   | Tuple es ->
     (* All BoundLets in the tuple must be added to the surrounding environment *)

@@ -22,9 +22,7 @@ let rec map_statement (sf : statement -> statement) (ef : expression -> expressi
 
   | DoWhile (body, cond) ->
     sf (location, DoWhile (map_statement sf ef body, map_expression sf ef cond))
-  | Switch (expr, cases) ->
-    let cases = List.map (fun (loc, cond, guard, body) -> (loc, Option.map (map_expression sf ef) cond, Option.map (map_expression sf ef) guard, map_statement sf ef body)) cases in
-    sf (location, Switch (map_expression sf ef expr, cases))
+
   | Return expr ->
     sf (location, Return (map_expression sf ef expr))
 
@@ -57,6 +55,10 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
 
   | Conditional (c, a, b) ->
     ef (location, (Conditional (map_expression sf ef c, map_expression sf ef a, map_expression sf ef b)))
+
+  | Switch (expr, cases) ->
+    let cases = List.map (fun (loc, cond, guard, body) -> (loc, Option.map (map_expression sf ef) cond, Option.map (map_expression sf ef) guard, map_statement sf ef body)) cases in
+    ef (location, Switch (map_expression sf ef expr, cases))
 
   | Tuple es ->
     ef (location, (Tuple (List.map (map_expression sf ef) es)))

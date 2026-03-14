@@ -71,6 +71,7 @@ and expression_inner =
   | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement * closure option
   | DynamicArray of expression array * (* element_type: *) expression option
   | Index of expression * (* subscript: *) expression option
+  | Switch of expression * switch_case list
   
 and expression = location * expression_inner
 
@@ -96,7 +97,6 @@ and statement_inner =
   | OrderIndependent of statement list
   | If of expression * (* then: *) statement * (* else: *) statement
   | DoWhile of statement * expression
-  | Switch of expression * switch_case list
   | Return of expression
 
 and statement = location * statement_inner
