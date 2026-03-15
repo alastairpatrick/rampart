@@ -5,9 +5,11 @@ exception UnexpectedChar of char
 
 let id_first = ['A'-'Z' 'a'-'z']
 let id_subs = ['A'-'Z' 'a'-'z' '0'-'9' '_']
+let space = [' ' '\t']*
+let skip_eols = [' ' '\t' '\n' '\r']*
 
 rule token = parse
-    [' ' '\t'     ]                     { token lexbuf }     (* skip blanks *)
+    space                               { token lexbuf }     (* skip blanks *)
     | '\n'                              { EOL }
     | "arity"                           { ARITY }
     | "band"                            { BITWISE_AND }
@@ -18,7 +20,7 @@ rule token = parse
     | "case"                            { CASE }
     | "const"                           { CONST }
     | "do"                              { DO }
-    | "else"                            { ELSE }
+    | skip_eols "else" skip_eols        { ELSE }
     | "false"                           { FALSE }
     | "for"                             { FOR }
     | "if"                              { IF }
@@ -36,39 +38,39 @@ rule token = parse
     | "while"                           { WHILE }
     | (id_first id_subs*) as lxm        { ID(lxm) }
     | ['0'-'9']+ as lxm                 { INT_LIT(int_of_string lxm) }
-    | "=="                              { EQUALS }
-    | "!="                              { NOT_EQUALS }
-    | "<="                              { LESS_EQUALS }
-    | "<<"                              { SHIFT_LEFT }
-    | ">>"                              { SHIFT_RIGHT }
-    | ">="                              { GREATER_EQUALS }
-    | "->"                              { RARROW }
-    | "&&"                              { LOGICAL_AND }
-    | "||"                              { LOGICAL_OR }
-    | "&"                               { AMPERSAND }
-    | "|"                               { PIPE }
-    | "^"                               { CARET }
-    | "!"                               { BANG }
-    | "~"                               { TILDE }
-    | '='                               { ASSIGN }
-    | '+'                               { PLUS }
-    | '-'                               { MINUS }
-    | '*'                               { TIMES }
-    | "%"                               { MODULO }
-    | '/'                               { DIV }
-    | '\\'                              { BACKSLASH }
-    | '?'                               { QUESTION }
-    | ':'                               { COLON }
-    | '('                               { LPAREN }
-    | ')'                               { RPAREN }
-    | '{'                               { LCURLY }
+    | "==" skip_eols                    { EQUALS }
+    | "!=" skip_eols                    { NOT_EQUALS }
+    | "<=" skip_eols                    { LESS_EQUALS }
+    | "<<" skip_eols                    { SHIFT_LEFT }
+    | ">>" skip_eols                    { SHIFT_RIGHT }
+    | ">=" skip_eols                    { GREATER_EQUALS }
+    | "->" skip_eols                    { RARROW }
+    | "&&" skip_eols                    { LOGICAL_AND }
+    | "||" skip_eols                    { LOGICAL_OR }
+    | '(' skip_eols                     { LPAREN }
+    | skip_eols ')'                     { RPAREN }
+    | '[' skip_eols                     { LBRACKET }
+    | skip_eols ']'                     { RBRACKET }
+    | '{' skip_eols                     { LCURLY }
     | '}'                               { RCURLY }
-    | '['                               { LBRACKET }
-    | ']'                               { RBRACKET }
-    | '<'                               { LESS }
-    | '>'                               { GREATER }
+    | skip_eols ',' skip_eols           { COMMA }
+    | "&" skip_eols                     { AMPERSAND }
+    | "|" skip_eols                     { PIPE }
+    | "^" skip_eols                     { CARET }
+    | "!" skip_eols                     { BANG }
+    | "~" skip_eols                     { TILDE }
+    | '=' skip_eols                     { ASSIGN }
+    | '+' skip_eols                     { PLUS }
+    | '-' skip_eols                     { MINUS }
+    | '*' skip_eols                     { TIMES }
+    | "%" skip_eols                     { MODULO }
+    | '/' skip_eols                     { DIV }
+    | '\\' skip_eols                    { BACKSLASH }
+    | '?' skip_eols                     { QUESTION }
+    | ':' skip_eols                     { COLON }
+    | '<' skip_eols                     { LESS }
+    | '>' skip_eols                     { GREATER }
     | ';'                               { SEMI }
-    | ','                               { COMMA }
     | '_'                               { ANY }
     | _ as lxm                          { raise (UnexpectedChar lxm)  }
     | eof                               { EOF }

@@ -38,6 +38,15 @@
 
 %%
 
+s_delimiter
+  : SEMI                                    { () }
+  | EOL                                     { () }
+  ;
+
+skip_eols
+  : EOL*                                    { () }
+  ;
+
 param
   : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=None} }
   ;
@@ -76,7 +85,7 @@ postfix_expr
   : e=primary_expr                                          { e }
   | f=postfix_expr LPAREN es=exprs0 RPAREN
     lm=lambda_modifiers                                     { loc $loc, Call (f, es, lm) }
-  | a=postfix_expr LBRACKET e=expr? RBRACKET                 { loc $loc, Index (a, e) }
+  | a=postfix_expr LBRACKET e=expr? RBRACKET                { loc $loc, Index (a, e) }
   ;
 
 unary_expr
@@ -160,6 +169,7 @@ switch_case
   | CASE p=expr e=switch_case_if? RARROW b=conditional_expr { loc $loc, Some p, e, (loc $loc, Expression b (* TODO *)) }
   | ELSE e=switch_case_if? b=compound_stat                  { loc $loc, None, e, b }
   | ELSE e=switch_case_if? RARROW b=conditional_expr        { loc $loc, None, e, (loc $loc, Expression b (* TODO *)) }
+  | sc=switch_case EOL                                      { sc }
   ;
 
 switch_expr
@@ -189,39 +199,36 @@ lambda_expr
 
 expr: e=lambda_expr                                         { e }
 
-exprs0 : es=separated_list(COMMA, expr)     { es };
+exprs0 : es=separated_list(COMMA, expr)                     { es };
 
-eol
-  : SEMI                                    { () }
-  | EOL                                     { () }
-  ;
 
 else_clause
-  : ELSE b=compound_stat                    { b }
+  : ELSE b=compound_stat                                    { b }
   ;
 
 initialize
-  : ASSIGN v=expr                           { v }
+  : ASSIGN v=expr                                           { v }
   ;
 
 declaration
-  : t=expr n=ID v=initialize? eol
-                                                                { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
+  : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN
     lm=lambda_modifiers b=compound_stat                         { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, lm, b, None)) } }
   | MUT d=declaration                                           { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;
 
 stat
-  : e=expr eol                                                  { loc $loc, Expression e }
+  : e=expr s_delimiter                                          { loc $loc, Expression e }
   | d=declaration                                               { loc $loc, Declaration d }
   | s=compound_stat                                             { s }
-  | IF c=expr a=compound_stat b=else_clause?                    { prelower_if (loc($loc)) c a b }
-  | FOR i=stat c=expr eol n=expr b=compound_stat                { prelower_for (loc($loc)) i c n b }
-  | FOR LPAREN i=stat c=expr eol n=expr RPAREN b=compound_stat  { prelower_for (loc($loc)) i c n b }
+  | IF c=expr skip_eols a=compound_stat b=else_clause?          { prelower_if (loc($loc)) c a b }
+  | FOR i=stat c=expr s_delimiter n=expr b=compound_stat        { prelower_for (loc($loc)) i c n b }
+  | FOR LPAREN i=stat c=expr s_delimiter n=expr RPAREN
+    b=compound_stat                                             { prelower_for (loc($loc)) i c n b }
   | WHILE c=expr b=compound_stat                                { prelower_while (loc($loc)) c b }
-  | DO b=compound_stat WHILE c=expr eol                         { loc $loc, DoWhile (b, c) }
-  | RETURN e=expr eol                                           { loc $loc, Return e }
+  | DO b=compound_stat WHILE c=expr s_delimiter                 { loc $loc, DoWhile (b, c) }
+  | RETURN e=expr s_delimiter                                   { loc $loc, Return e }
+  | s=stat EOL                                                  { s }
   ;
 
 stats0
@@ -241,5 +248,5 @@ compound_stat
   ;
 
 main
-  : ss=stats0 EOF                           { (loc $loc, OrderIndependent ss) }
+  : skip_eols ss=stats0 EOF                 { (loc $loc, OrderIndependent ss) }
   ;

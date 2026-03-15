@@ -347,7 +347,7 @@ let%expect_test _ =
 let%expect_test _ =
   parse "int \\ (a, b) {};";
   [% expect{|
-    Error line 1, character 5: unexpected '\' symbol
+    Error line 1, characters 5-6: unexpected '\' symbol
     Error line 1, character 15: unexpected '}' symbol
     (@1 (OrderIndependent ()))
     |}]
@@ -410,7 +410,7 @@ let%expect_test _ =
 let%expect_test _ =
   parse "int\\ (int a, int b) {};";
   [% expect{|
-    Error line 1, character 4: unexpected '\' symbol
+    Error line 1, characters 4-5: unexpected '\' symbol
     Error line 1, character 22: unexpected '}' symbol
     (@1 (OrderIndependent ()))
     |}]
@@ -769,6 +769,186 @@ let%expect_test _ =
      (OrderIndependent
       ((@1 (If (@1 (Identifier c)) (@1 (Compound ())) (@1 (Compound ()))))
        (@1 (Expression (@1 (IntLiteral 1)))))))
+    |}]
+
+let%expect_test _ =
+  parse {|
+    {
+      1
+      2
+      3
+    }
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Compound
+         ((@1 (Expression (@1 (IntLiteral 1))))
+          (@1 (Expression (@1 (IntLiteral 2))))
+          (@1 (Expression (@1 (IntLiteral 3))))))))))
+    |}]
+
+let%expect_test _ =
+  parse {|
+    {
+      1
+      
+      let x = 2
+    }
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Compound
+         ((@1 (Expression (@1 (IntLiteral 1))))
+          (@1
+           (Expression
+            (@1 (Assignment (@1 (Let (Identifier x))) (@1 (IntLiteral 2))))))))))))
+    |}]
+
+let%expect_test _ =
+  parse {|
+  void f(int x,
+         int y) {
+  }
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Declaration
+         ((modifiers ()) (type_expr ()) (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void))
+              ((@1
+                (Declaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+                  (init_expr ()))))
+               (@1
+                (Declaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name y)
+                  (init_expr ())))))
+              () (@1 (Compound ())) ()))))))))))
+    |}]
+
+let%expect_test _ =
+  parse {|
+  void f(
+    int x,
+    int y
+    ) {
+  }
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Declaration
+         ((modifiers ()) (type_expr ()) (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Void))
+              ((@1
+                (Declaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+                  (init_expr ()))))
+               (@1
+                (Declaration
+                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name y)
+                  (init_expr ())))))
+              () (@1 (Compound ())) ()))))))))))
+    |}]
+
+let%expect_test _ =
+  parse {|
+    (
+      1,
+      2
+      , 3
+    );
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))))))))))
+    |}]
+
+let%expect_test _ =
+  parse {|
+    [
+      1,
+      2
+      , 3
+    ];
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (DynamicArray
+           ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))) ())))))))
+    |}]
+
+let%expect_test _ =
+  parse {|
+    \int(
+      int a
+    ) {};
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Lambda (@1 (Type Int))
+           ((@1
+             (Declaration
+              ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
+               (init_expr ())))))
+           () (@1 (Compound ())) ())))))))
+    |}]
+
+  let%expect_test _ =
+  parse {|
+  let x = f(x,
+            y);
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (Let (Identifier x)))
+           (@1
+            (Call (@1 (Identifier f)) ((@1 (Identifier x)) (@1 (Identifier y)))
+             ())))))))))
+    |}]
+
+let%expect_test _ =
+  parse {|
+  let x = f(x
+          , y);
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (Let (Identifier x)))
+           (@1
+            (Call (@1 (Identifier f)) ((@1 (Identifier x)) (@1 (Identifier y)))
+             ())))))))))
     |}]
 
 (* ERRORS *)

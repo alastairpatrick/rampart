@@ -7,24 +7,8 @@ open Parser.MenhirInterpreter
 open LexPass
 open Token
 
-(* Error recovery does two things.
+(* When the parser becomes unrecoverable it skips tokens until it finds one that can re-enter a valid parse state. *)
 
-   1) Conventional recovery: when the parser becomes unrecoverable it skips tokens until it finds one that can re-enter a valid parse state.
-
-   2) A small grammar-specific cleanup for statement separators. The grammar accepts statements separated by either
-      - a semicolon (`;`), or
-      - a newline (`EOL`).
-
-      In practice, the lexer can produce sequences like:
-        <s1 tokens> SEMI EOL EOL <s2 tokens> EOL EOL
-      which do not match the grammar (because the grammar does not expect multiple delimiters between statements).
-
-      Recovery treats extra EOL tokens as harmless and skips them.
-      The effect is that the parser behaves as if the input had been:
-        <s1 tokens> SEMI <s2 tokens> EOL
-
-      In other words: redundant blank lines don’t cause a hard parse error.
-*)
 let rec truncate_until (f : ltoken -> bool) (tokens : ltoken list) = match tokens with
   | [] -> []
   | h::t when f h -> h::t
@@ -64,7 +48,6 @@ let parse_recovering (sink: diagnostic_sink) (tokens : ltoken list) : statement 
     | Rejected, _
     | HandlingError _, _ -> 
       (match offered_token with
-        | Some (Parser.EOL, _, _) -> run last_reduction input_needed_cp None tokens input_needed_cp
         | Some offered_token ->
           let recovery_tokens, recovery_cp = on_error last_reduction offered_token tokens input_needed_cp in
           run last_reduction input_needed_cp None recovery_tokens recovery_cp
