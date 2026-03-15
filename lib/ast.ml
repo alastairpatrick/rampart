@@ -61,7 +61,7 @@ and expression_inner =
   | Assignment of expression * expression
   | Let of pattern
   | In of expression * expression
-  | Match of expression * expression * expression * expression
+  | Match of (* pattern: *) expression * expression * (* condition: *) expression * (* body: *) expression
   | Fall_through of expression * expression
   | Identifier of string
   | BoundIdentifier of string * slot
