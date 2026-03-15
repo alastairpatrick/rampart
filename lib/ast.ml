@@ -51,6 +51,7 @@ and lambda_modifiers = {
   const: bool [@sexp.bool];
 }
 
+(* TODO: change all these to Constructor_name style *)
 and expression_inner =
   | Type of ast_type
   | TypeOf of expression
@@ -60,6 +61,8 @@ and expression_inner =
   | Assignment of expression * expression
   | Let of pattern
   | In of expression * expression
+  | Match of expression * expression * expression * expression
+  | Fall_through of expression * expression
   | Identifier of string
   | BoundIdentifier of string * slot
   | BoundLet of pattern * slot
@@ -71,7 +74,6 @@ and expression_inner =
   | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement * closure option
   | DynamicArray of expression array * (* element_type: *) expression option
   | Index of expression * (* subscript: *) expression option
-  | Switch of expression * switch_case list
   
 and expression = location * expression_inner
 

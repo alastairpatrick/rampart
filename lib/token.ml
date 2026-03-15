@@ -2,7 +2,6 @@ open Parser
 
 (* Please keep these in alphabetic order *)
 let string_of_token (token : token) : string = match token with
-  | AMPERSAND -> "'&' symbol"
   | ANY -> "'any' keyword"
   | ARITY -> "'arity' keyword"
   | ASSIGN -> "'=' symbol"
@@ -13,8 +12,6 @@ let string_of_token (token : token) : string = match token with
   | BITWISE_OR -> "'bor' keyword"
   | BITWISE_XOR -> "'bxor' keyword"
   | BOOL -> "'bool' keyword"
-  | CARET -> "'^' symbol"
-  | CASE -> "'case' keyword"
   | COLON -> "':' symbol"
   | COMMA -> "',' symbol"
   | CONST -> "'const' keyword"
@@ -57,11 +54,11 @@ let string_of_token (token : token) : string = match token with
   | SEMI -> "';' symbol"
   | SHIFT_LEFT -> "'<<' symbol"
   | SHIFT_RIGHT -> "'>>' symbol"
-  | SWITCH -> "'switch' keyword"
   | TILDE -> "'~' symbol"
   | TIMES -> "'*' symbol"
   | TRUE -> "'true' keyword"
   | TYPE -> "'type' keyword"
   | TYPEOF -> "'typeof' keyword"
   | VOID -> "'void' keyword"
+  | WHEN -> "'when' keyword"
   | WHILE -> "'while' keyword"

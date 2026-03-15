@@ -17,7 +17,6 @@ rule token = parse
     | "bor"                             { BITWISE_OR }
     | "bxor"                            { BITWISE_XOR }
     | "bool"                            { BOOL }
-    | "case"                            { CASE }
     | "const"                           { CONST }
     | "do"                              { DO }
     | skip_eols "else" skip_eols        { ELSE }
@@ -30,11 +29,11 @@ rule token = parse
     | "mut"                             { MUT }
     | "pure"                            { PURE }
     | "return"                          { RETURN }
-    | "switch"                          { SWITCH }
     | "true"                            { TRUE }
     | "typeof"                          { TYPEOF }
     | "type"                            { TYPE }
     | "void"                            { VOID }
+    | "when"                            { WHEN }
     | "while"                           { WHILE }
     | (id_first id_subs*) as lxm        { ID(lxm) }
     | ['0'-'9']+ as lxm                 { INT_LIT(int_of_string lxm) }
@@ -46,7 +45,7 @@ rule token = parse
     | ">=" skip_eols                    { GREATER_EQUALS }
     | "->" skip_eols                    { RARROW }
     | "&&" skip_eols                    { LOGICAL_AND }
-    | "||" skip_eols                    { LOGICAL_OR }
+    | skip_eols "||" skip_eols          { LOGICAL_OR }
     | '(' skip_eols                     { LPAREN }
     | skip_eols ')'                     { RPAREN }
     | '[' skip_eols                     { LBRACKET }
@@ -54,9 +53,7 @@ rule token = parse
     | '{' skip_eols                     { LCURLY }
     | '}'                               { RCURLY }
     | skip_eols ',' skip_eols           { COMMA }
-    | "&" skip_eols                     { AMPERSAND }
-    | "|" skip_eols                     { PIPE }
-    | "^" skip_eols                     { CARET }
+    | skip_eols "|" skip_eols           { PIPE }
     | "!" skip_eols                     { BANG }
     | "~" skip_eols                     { TILDE }
     | '=' skip_eols                     { ASSIGN }

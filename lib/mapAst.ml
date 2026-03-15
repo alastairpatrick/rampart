@@ -56,10 +56,6 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
   | Conditional (c, a, b) ->
     ef (location, (Conditional (map_expression sf ef c, map_expression sf ef a, map_expression sf ef b)))
 
-  | Switch (expr, cases) ->
-    let cases = List.map (fun (loc, cond, guard, body) -> (loc, Option.map (map_expression sf ef) cond, Option.map (map_expression sf ef) guard, map_statement sf ef body)) cases in
-    ef (location, Switch (map_expression sf ef expr, cases))
-
   | Tuple es ->
     ef (location, (Tuple (List.map (map_expression sf ef) es)))
 
@@ -80,4 +76,9 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
 
   | Index (a, b) ->
     ef (location, (Index (map_expression sf ef a, Option.map (map_expression sf ef) b)))
-  
+
+  | Fall_through (a, b) ->
+    ef (location, (Fall_through (map_expression sf ef a, map_expression sf ef b)))
+
+  | Match (a, b, c, d) ->
+    ef (location, (Match (map_expression sf ef a, map_expression sf ef b, map_expression sf ef c, map_expression sf ef d)))

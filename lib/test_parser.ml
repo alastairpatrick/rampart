@@ -625,71 +625,47 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "switch v {
-    case (A, B) -> 1
-    case (_, D) if p -> 2
-    else if q -> 3
-    else -> 4
-    }
-  ";
+  parse {|
+    (let a, 2) ~ v in a |
+    (let a, _) ~ v when p in a
+  |};
   [% expect{|
     (@1
      (OrderIndependent
       ((@1
         (Expression
          (@1
-          (Switch (@1 (Identifier v))
-           ((@1 ((@1 (Tuple ((@1 (Identifier A)) (@1 (Identifier B)))))) ()
-             (@1 (Expression (@1 (IntLiteral 1)))))
-            (@1 ((@1 (Tuple ((@1 (Let Any)) (@1 (Identifier D))))))
-             ((@1 (Identifier p))) (@1 (Expression (@1 (IntLiteral 2)))))
-            (@1 () ((@1 (Identifier q))) (@1 (Expression (@1 (IntLiteral 3)))))
-            (@1 () () (@1 (Expression (@1 (IntLiteral 4)))))))))))))
+          (Fall_through
+           (@1
+            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (IntLiteral 2)))))
+             (@1 (Identifier v)) (@1 (BoolLiteral true)) (@1 (Identifier a))))
+           (@1
+            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (Let Any)))))
+             (@1 (Identifier v)) (@1 (Identifier p)) (@1 (Identifier a)))))))))))
     |}]
+
 
 let%expect_test _ =
-  parse "switch v {
-    case (A, B) { 1; }
-    case (_, D) if p {
-      2;
-    }
-    else if q { 3; }
-    else { 4; }
-    }
-  ";
+  parse {|
+    (let a, 2) ~ v in
+      a
+  | (let a, _) ~ v when p in
+      a
+  |};
   [% expect{|
     (@1
      (OrderIndependent
       ((@1
         (Expression
          (@1
-          (Switch (@1 (Identifier v))
-           ((@1 ((@1 (Tuple ((@1 (Identifier A)) (@1 (Identifier B)))))) ()
-             (@1 (Compound ((@1 (Expression (@1 (IntLiteral 1))))))))
-            (@1 ((@1 (Tuple ((@1 (Let Any)) (@1 (Identifier D))))))
-             ((@1 (Identifier p)))
-             (@1 (Compound ((@1 (Expression (@1 (IntLiteral 2))))))))
-            (@1 () ((@1 (Identifier q)))
-             (@1 (Compound ((@1 (Expression (@1 (IntLiteral 3))))))))
-            (@1 () () (@1 (Compound ((@1 (Expression (@1 (IntLiteral 4))))))))))))))))
+          (Fall_through
+           (@1
+            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (IntLiteral 2)))))
+             (@1 (Identifier v)) (@1 (BoolLiteral true)) (@1 (Identifier a))))
+           (@1
+            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (Let Any)))))
+             (@1 (Identifier v)) (@1 (Identifier p)) (@1 (Identifier a)))))))))))
     |}]
-
-let%expect_test _ =
-  parse "switch v {
-    case (_, let x) -> x
-  }
-  ";
-  [% expect{|
-    (@1
-     (OrderIndependent
-      ((@1
-        (Expression
-         (@1
-          (Switch (@1 (Identifier v))
-           ((@1 ((@1 (Tuple ((@1 (Let Any)) (@1 (Let (Identifier x))))))) ()
-             (@1 (Expression (@1 (Identifier x)))))))))))))
-    |}]
-
 
 (* End of line skipping *)
 

@@ -142,9 +142,22 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let _, b = bind in_env OrderDependent b in
     env, (location, In (a, b))
 
+  | Match (a, b, c, d) ->
+    if pass == OrderIndependent1 then env, (location, expr) else
+    let in_env, a = bind env OrderDependent a in
+    let _, b = bind env OrderDependent b in
+    let _, c = bind in_env OrderDependent c in
+    let _, d = bind in_env OrderDependent d in
+    env, (location, Match (a, b, c, d))
+
   | Let Any ->
     assert (pass != OrderIndependent2);
     env, (location, BoundLet (Any, new_slot env false))
+
+  | Fall_through (a, b) ->
+    let _, a = bind env pass a in
+    let _, b = bind env pass b in
+    env, (location, Fall_through (a, b))
 
   | Identifier name ->
     if pass == OrderIndependent1 then env, (location, expr) else
@@ -165,11 +178,6 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let _, a = bind env pass a in
     let _, b = bind env pass b in
     env, (location, Conditional (c, a, b))
-
-  | Switch (expr, cases) ->
-    let _, expr = bind env pass expr in
-    let cases = bind_switch_cases env pass cases in
-    env, (location, Switch (expr, cases))
 
   | Tuple es ->
     (* All BoundLets in the tuple must be added to the surrounding environment *)

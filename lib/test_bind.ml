@@ -277,6 +277,42 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
+  parse "let a in a;";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (In (@1 (BoundLet (Identifier a) (0 0)))
+           (@1 (BoundIdentifier a (0 0))))))))))
+    |}]
+
+let%expect_test _ =
+  parse "let a ~ 1 in a;";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Match (@1 (BoundLet (Identifier a) (0 0))) (@1 (IntLiteral 1))
+           (@1 (BoolLiteral true)) (@1 (BoundIdentifier a (0 0))))))))))
+    |}]
+
+let%expect_test _ =
+  parse "let a ~ true when a in a;";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Match (@1 (BoundLet (Identifier a) (0 0))) (@1 (BoolLiteral true))
+           (@1 (BoundIdentifier a (0 0))) (@1 (BoundIdentifier a (0 0))))))))))
+    |}]
+
+let%expect_test _ =
   parse {|
   int fib(int n) {
     if (n == 0) { return 0; }

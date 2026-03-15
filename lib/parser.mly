@@ -9,9 +9,9 @@
 %token <int> INT_LIT
 
 (* Please keep these in alphabetic order *)
-%token AMPERSAND ANY ARITY ASSIGN
+%token ANY ARITY ASSIGN
 %token BACKSLASH BANG BITWISE_OR BITWISE_AND BITWISE_NOT BITWISE_XOR BOOL
-%token CARET CASE COLON COMMA CONST
+%token COLON COMMA CONST
 %token DIV DO
 %token ELSE EOF EOL EQUALS
 %token FALSE FOR
@@ -24,15 +24,14 @@
 %token PIPE PLUS PURE
 %token QUESTION
 %token RARROW RBRACKET RETURN RCURLY RPAREN
-%token SEMI SWITCH
+%token SEMI
 %token TILDE TIMES TRUE TYPE TYPEOF
 %token VOID
-%token WHILE
+%token WHEN WHILE
 
 %start main             /* the entry point */
 
 %type <statement> main
-%type <switch_case> switch_case
 %type <expression> expr
 %type <statement> compound_stat
 
@@ -46,7 +45,7 @@ s_delimiter
 skip_eols
   : EOL*                                    { () }
   ;
-
+ 
 param
   : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=None} }
   ;
@@ -160,30 +159,25 @@ conditional_expr
   | c=binary_expr QUESTION a=expr COLON b=conditional_expr  { loc $loc, Conditional (c, a, b) }
   ;
 
-switch_case_if
-  : IF e=expr                                               { e }
-  ;
-
-switch_case
-  : CASE p=expr e=switch_case_if? b=compound_stat           { loc $loc, Some p, e, b }
-  | CASE p=expr e=switch_case_if? RARROW b=conditional_expr { loc $loc, Some p, e, (loc $loc, Expression b (* TODO *)) }
-  | ELSE e=switch_case_if? b=compound_stat                  { loc $loc, None, e, b }
-  | ELSE e=switch_case_if? RARROW b=conditional_expr        { loc $loc, None, e, (loc $loc, Expression b (* TODO *)) }
-  | sc=switch_case EOL                                      { sc }
-  ;
-
-switch_expr
-  : e=conditional_expr                                      { e }
-  | SWITCH e=conditional_expr LCURLY cs=switch_case+ RCURLY { loc $loc, Switch (e, cs) }
-
 assign_expr
-  : e=switch_expr                                           { e }
+  : e=conditional_expr                                      { e }
   | a=postfix_expr ASSIGN b=assign_expr                     { loc $loc, Assignment (a, b) }
   ;
 
+when_expr
+  : WHEN p=assign_expr                                      { p }
+  ;
+
 in_expr
-  : a=assign_expr IN b=in_expr                              { loc $loc, In (a, b) }
+  : a=assign_expr IN skip_eols b=in_expr                    { loc $loc, In (a, b) }
+  | a=primary_expr TILDE b=assign_expr c=when_expr?
+    IN skip_eols d=in_expr                                  { loc $loc, Match (a, b, Option.value ~default:(loc $loc, BoolLiteral true) c, d) }
   | e=assign_expr                                           { e }
+  ;
+
+fallback_expr
+  : e=in_expr                                               { e }
+  | a=fallback_expr PIPE b=in_expr                          { loc $loc, Fall_through (a, b) }
   ;
 
 lambda_body
@@ -192,7 +186,7 @@ lambda_body
   ;
 
 lambda_expr
-  : e=in_expr                                               { e }
+  : e=fallback_expr                                         { e }
   | BACKSLASH rt=primary_expr LPAREN ps=params0 RPAREN
     lm=lambda_modifiers b=lambda_body                       { loc $loc, Lambda (rt, ps, lm, b, None) }
   ;
