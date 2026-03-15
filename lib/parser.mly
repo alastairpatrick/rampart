@@ -121,7 +121,7 @@ equality_expr
 
 bitwise_and_expr
   : e=equality_expr                                         { e }
-  | a=bitwise_and_expr BITWISE_AND b=equality_expr            { loc $loc, BinaryOp (BitwiseAnd, a, b) }
+  | a=bitwise_and_expr BITWISE_AND b=equality_expr          { loc $loc, BinaryOp (BitwiseAnd, a, b) }
   ;
 
 bitwise_xor_expr

@@ -138,13 +138,13 @@ let show_binary_op = function
   | GreaterEquals -> ">="
   | LogicalAnd -> "&&"
   | LogicalOr -> "||"
-  | BitwiseAnd -> "&"
-  | BitwiseOr -> "|"
-  | BitwiseXor -> "^"
+  | BitwiseAnd -> "band"
+  | BitwiseOr -> "bor"
+  | BitwiseXor -> "bxor"
   | ShiftLeft -> "<<"
   | ShiftRight -> ">>"
 
 let show_unary_op = function
   | Negate -> "-"
   | LogicalNot -> "!"
-  | BitwiseInvert -> "~"
+  | BitwiseInvert -> "bnot"
