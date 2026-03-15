@@ -17,6 +17,7 @@ open Slot
 
 exception Saw_uninitialized of string
 exception Return_exn of expression
+exception No_match_exn
 
 type value =
 | Uninitialized_of_type of (* expression_type: *) expression option
@@ -143,15 +144,18 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
     | _ -> print_endline (Printf.sprintf "statement not implemented: %s" (Ast.show_statement (location, statement))); assert false;
   with Error message -> raise (Located_error (location, message))
 
-(* Always enter Evaluate_const mode using this function. *)
+(* Always enter Evaluate_const mode using this function or evaluate_const_protect. *)
 and evaluate_const_value env frame expression : expression =
+  evaluate_const_protect (fun () -> evaluate_expression env frame Evaluate_const expression)
+
+and evaluate_const_protect f =
   evaluate_const_count := !evaluate_const_count + 1;
   Fun.protect
     ~finally: (fun () ->
       evaluate_const_count := !evaluate_const_count - 1;
       if !evaluate_const_count = 0 then loop_count := 0
       )
-    (fun () -> evaluate_expression env frame Evaluate_const expression)
+    f
     
 and evaluate_expression env frame mode ((location, expression): expression) : expression =
   match expression with
