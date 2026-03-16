@@ -168,10 +168,15 @@ when_expr
   : WHEN p=assign_expr                                      { p }
   ;
 
+expr_or_stat
+  : e=in_expr                                               { e }
+  | compound_stat                                           { loc $loc, IntLiteral 0 (* TODO *) }
+  ;
+
 in_expr
-  : a=assign_expr IN skip_eols b=in_expr                    { loc $loc, In (a, b) }
+  : a=assign_expr IN skip_eols b=expr_or_stat               { loc $loc, In (a, b) }
   | a=primary_expr TILDE b=assign_expr c=when_expr?
-    IN skip_eols d=in_expr                                  { loc $loc, Match (a, b, Option.value ~default:(loc $loc, BoolLiteral true) c, d) }
+    IN skip_eols d=expr_or_stat                             { loc $loc, Match (a, b, Option.value ~default:(loc $loc, BoolLiteral true) c, d) }
   | e=assign_expr                                           { e }
   ;
 
