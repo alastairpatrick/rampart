@@ -2878,11 +2878,8 @@ let%expect_test _ =
              (@1
               (Conditional
                (@1
-                (BinaryOp LogicalAnd
-                 (@1
-                  (BinaryOp Equals (@1 (IntLiteral 1))
-                   (@1 (BoundIdentifier $v (1 0)))))
-                 (@1 (BoolLiteral true))))
+                (BinaryOp Equals (@1 (IntLiteral 1))
+                 (@1 (BoundIdentifier $v (1 0)))))
                (@1 (IntLiteral 1)) (@1 (IntLiteral 3)))))))))))))
     |}]
 
@@ -2916,21 +2913,13 @@ let%expect_test _ =
                (@1
                 (BinaryOp LogicalAnd
                  (@1
-                  (BinaryOp LogicalAnd
+                  (BinaryOp Equals (@1 (IntLiteral 1))
                    (@1
-                    (BinaryOp Equals (@1 (IntLiteral 1))
-                     (@1
-                      (Index (@1 (BoundIdentifier $v (1 0)))
-                       ((@1 (IntLiteral 0)))))))
+                    (Index (@1 (BoundIdentifier $v (1 0))) ((@1 (IntLiteral 0)))))))
+                 (@1
+                  (BinaryOp Equals (@1 (IntLiteral 2))
                    (@1
-                    (BinaryOp LogicalAnd
-                     (@1
-                      (BinaryOp Equals (@1 (IntLiteral 2))
-                       (@1
-                        (Index (@1 (BoundIdentifier $v (1 0)))
-                         ((@1 (IntLiteral 1)))))))
-                     (@1 (BoolLiteral true))))))
-                 (@1 (BoolLiteral true))))
+                    (Index (@1 (BoundIdentifier $v (1 0))) ((@1 (IntLiteral 1)))))))))
                (@1 (IntLiteral 3)) (@1 (IntLiteral 4)))))))))))))
     |}]
 
@@ -2963,10 +2952,7 @@ let%expect_test _ =
                   (@1 (BoundLet (Identifier b) (2 0))))))
                (@1 (BoundIdentifier $v (3 0)))))
              (@1
-              (Conditional
-               (@1
-                (BinaryOp LogicalAnd (@1 (BoolLiteral true))
-                 (@1 (BoundIdentifier b (2 0)))))
+              (Conditional (@1 (BoundIdentifier b (2 0)))
                (@1 (BoundIdentifier a (1 0))) (@1 (IntLiteral 4)))))))))))))
     |}]
 

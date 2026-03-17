@@ -255,29 +255,40 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
       (location, const_expression)
 
 and evaluate_logical_op env frame mode location op a b =
+  let a_type = evaluate_expression env frame Evaluate_type a in
+  let b_type = evaluate_expression env frame Evaluate_type b in
+  begin match a_type, b_type with
+  | (_, BoolLiteral _), (_, BoolLiteral _) -> ()
+  | _ -> raise error_type_mismatch
+  end;
+
   let a = evaluate_expression env frame mode a in
   match mode with
   | Fold_consts ->
     let b = evaluate_expression env frame mode b in
     begin match op, a, b with
-    | LogicalAnd, (_, BoolLiteral a_value), (_, BoolLiteral b_value) -> (location, BoolLiteral (a_value && b_value))
-    | LogicalOr, (_, BoolLiteral a_value), (_, BoolLiteral b_value) -> (location, BoolLiteral (a_value || b_value))
+    | LogicalAnd, (_, BoolLiteral false), _ -> a
+    | LogicalAnd, (_, BoolLiteral true), _ -> b
+    | LogicalAnd, _, (_, BoolLiteral false) -> b 
+    | LogicalAnd, _, (_, BoolLiteral true) -> a
+
+    | LogicalOr, (_, BoolLiteral false), _ -> b
+    | LogicalOr, (_, BoolLiteral true), _ -> a
+    | LogicalOr, _, (_, BoolLiteral false) -> a
+    | LogicalOr, _, (_, BoolLiteral true) -> b
+
     | _ -> (location, BinaryOp (op, a, b))
     end
 
   | Evaluate_type -> 
-    let b = evaluate_expression env frame mode b in
-    begin match a, b with
-    | (_, BoolLiteral _), (_, BoolLiteral _) -> representative_value_of_type (location, Type Bool)
-    | _ -> raise error_type_mismatch
-    end
+    a
 
   | Evaluate_const ->
     begin match op, a with
-    | LogicalAnd, (_, BoolLiteral false) -> (location, BoolLiteral false)
+    | LogicalAnd, (_, BoolLiteral false) -> a
     | LogicalAnd, (_, BoolLiteral true) -> evaluate_expression env frame mode b
     | LogicalOr, (_, BoolLiteral false) -> evaluate_expression env frame mode b
-    | LogicalOr, (_, BoolLiteral true) -> (location, BoolLiteral true)
+    | LogicalOr, (_, BoolLiteral true) -> a
     | _, _ -> raise error_type_mismatch
     end
 
