@@ -2972,11 +2972,11 @@ let%expect_test _ =
 
 let%expect_test _ =
   evaluate_declarations "let a ~ 1 in 2;";
-  [%expect {| Error: @1 match expression with no fall through is not void |}]
+  [%expect {| Error: @1 type mismatch |}]
 
 let%expect_test _ =
   evaluate_declarations "let a ~ 1 in 2 | let a ~ 2 in 3;";
-  [%expect {| Error: @1 match expression with no fall through is not void |}]
+  [%expect {| Error: @1 type mismatch |}]
 
 let%expect_test _ =
   evaluate_declarations "let a ~ 1 in ();";
@@ -2997,4 +2997,7 @@ let%expect_test _ =
                (@1 (IntLiteral 1))))
              (@1 (Tuple ())))))))))))
     |}]
-    
+
+let%expect_test _ =
+  evaluate_declarations "let a ~ 1 in a;";
+  [%expect {| Error: @1 type mismatch |}]

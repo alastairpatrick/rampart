@@ -510,11 +510,7 @@ and evaluate_fall_through env frame mode location a b =
   
 
 and evaluate_match env frame mode location pattern value condition body temp_slot =
-  match evaluate_expression env frame Evaluate_type body with
-  | _, Tuple [] ->
-    evaluate_expression env frame mode (location, Fall_through ((location, Match (pattern, value, condition, body, temp_slot)), (location, Tuple [])))
-  | _ ->
-    raise (Error "match expression with no fall through is not void")
+  evaluate_expression env frame mode (location, Fall_through ((location, Match (pattern, value, condition, body, temp_slot)), (location, Tuple [])))
 
 and evaluate_assignment env frame mode location a b =
   let b = evaluate_expression env frame mode b in
