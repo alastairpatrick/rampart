@@ -255,34 +255,37 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
       (location, const_expression)
 
 and evaluate_logical_op env frame mode location op a b =
-  let a_type = evaluate_expression env frame Evaluate_type a in
-  let b_type = evaluate_expression env frame Evaluate_type b in
-  begin match a_type, b_type with
-  | (_, BoolLiteral _), (_, BoolLiteral _) -> ()
-  | _ -> raise error_type_mismatch
-  end;
-
+  let is_bool expression =
+    let expression = evaluate_expression env frame Evaluate_type expression in
+    match expression with
+    | _, BoolLiteral _ -> true
+    | _ -> false
+  in
   let a = evaluate_expression env frame mode a in
   match mode with
   | Fold_consts ->
     let b = evaluate_expression env frame mode b in
     begin match op, a, b with
-    | LogicalAnd, (_, BoolLiteral false), _ -> a
-    | LogicalAnd, (_, BoolLiteral true), _ -> b
-    | LogicalAnd, _, (_, BoolLiteral false) -> b 
-    | LogicalAnd, _, (_, BoolLiteral true) -> a
+    | LogicalAnd, (_, BoolLiteral false), _ when is_bool b -> a
+    | LogicalAnd, (_, BoolLiteral true), _ when is_bool b -> b
+    | LogicalAnd, _, (_, BoolLiteral false) when is_bool a -> b
+    | LogicalAnd, _, (_, BoolLiteral true) when is_bool a -> a
 
-    | LogicalOr, (_, BoolLiteral false), _ -> b
-    | LogicalOr, (_, BoolLiteral true), _ -> a
-    | LogicalOr, _, (_, BoolLiteral false) -> a
-    | LogicalOr, _, (_, BoolLiteral true) -> b
+    | LogicalOr, (_, BoolLiteral false), _ when is_bool b -> b
+    | LogicalOr, (_, BoolLiteral true), _ when is_bool b -> a
+    | LogicalOr, _, (_, BoolLiteral false) when is_bool a -> a
+    | LogicalOr, _, (_, BoolLiteral true) when is_bool a -> b
 
     | _ -> (location, BinaryOp (op, a, b))
     end
 
   | Evaluate_type -> 
-    a
-
+    let b = evaluate_expression env frame mode b in
+    begin match a, b with
+    | (_, BoolLiteral _), (_, BoolLiteral _) -> a
+    | _ -> raise error_type_mismatch
+    end
+    
   | Evaluate_const ->
     begin match op, a with
     | LogicalAnd, (_, BoolLiteral false) -> a
