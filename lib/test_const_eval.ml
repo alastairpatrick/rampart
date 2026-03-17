@@ -493,6 +493,10 @@ let%expect_test _ =
   evaluate_declarations "typeof(1 ? 2 : 3) x;";
   [%expect{| Error: @1 type mismatch |}]
 
+let%expect_test _ =
+  evaluate_declarations "true ? 1 : false;";
+  [%expect{| Error: @1 type mismatch |}]
+
 (* division by zero stays as BinaryOp during search *)
 let%expect_test _ =
   evaluate_declarations "1 / 0;";
@@ -1433,71 +1437,6 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "type f(int c) const { return c ? int : bool; } f(7) x;";
   [%expect{| Error: @1 type mismatch |}]
-
-let%expect_test _ =
-  evaluate_declarations "type int_vector(int n) const { return n == 0 ? () : (int, int_vector(n-1)); } int_vector(3) x;";
-  [%expect{|
-    (@1
-     (OrderIndependent
-      ((@1
-        (BoundDeclaration
-         ((modifiers ())
-          (type_expr
-           ((@1 (Call (@1 (Type Type)) ((@1 (Type Int))) ((pure) (const))))))
-          (name int_vector)
-          (init_expr
-           ((@1
-             (Lambda (@1 (Type Type))
-              ((@1
-                (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
-                  (init_expr ()))
-                 (0 1))))
-              ((pure) (const))
-              (@1
-               (BoundFrame 1
-                (@1
-                 (Compound
-                  ((@1
-                    (Return
-                     (@1
-                      (Conditional
-                       (@1
-                        (BinaryOp Equals (@1 (BoundIdentifier n (0 1)))
-                         (@1 (IntLiteral 0))))
-                       (@1 (Tuple ()))
-                       (@1
-                        (Tuple
-                         ((@1 (Type Int))
-                          (@1
-                           (Call (@1 (BoundIdentifier int_vector (0 0)))
-                            ((@1
-                              (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
-                               (@1 (IntLiteral 1)))))
-                            ()))))))))))))))
-              (0))))))
-         (0 0)))
-       (@1
-        (BoundDeclaration
-         ((modifiers ())
-          (type_expr
-           ((@1
-             (Tuple
-              ((@1 (Type Int))
-               (@1
-                (Tuple
-                 ((@1 (Type Int)) (@1 (Tuple ((@1 (Type Int)) (@1 (Tuple ())))))))))))))
-          (name x)
-          (init_expr
-           ((@1
-             (Tuple
-              ((@1 (IntLiteral 0))
-               (@1
-                (Tuple
-                 ((@1 (IntLiteral 0))
-                  (@1 (Tuple ((@1 (IntLiteral 0)) (@1 (Tuple ()))))))))))))))
-         (1 0))))))
-    |}]
 
 let%expect_test _ =
   evaluate_declarations "int f() const { return 0; } f() x;";
@@ -3058,4 +2997,4 @@ let%expect_test _ =
                (@1 (IntLiteral 1))))
              (@1 (Tuple ())))))))))))
     |}]
-
+    

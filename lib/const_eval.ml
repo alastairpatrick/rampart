@@ -397,6 +397,11 @@ and evaluate_binary_op env frame mode location op a b =
   | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s" (Ast.show_binary_op op)); assert false
 
 and evaluate_conditional env frame mode location condition consequent alternative =
+  let consequent_type = evaluate_expression env frame Evaluate_type consequent in
+  let alternative_type = evaluate_expression env frame Evaluate_type alternative in
+  if not (const_types_equal (type_of_expression consequent_type) (type_of_expression alternative_type)) then
+    raise error_type_mismatch;
+
   let condition = evaluate_expression env frame mode condition in
   match mode with
   | Fold_consts ->
@@ -409,10 +414,6 @@ and evaluate_conditional env frame mode location condition consequent alternativ
     end
 
   | Evaluate_type ->
-    let consequent = evaluate_expression env frame mode consequent in
-    let alternative = evaluate_expression env frame mode alternative in
-    if not (const_types_equal (type_of_expression consequent) (type_of_expression alternative)) then
-      raise error_type_mismatch;
     begin match condition with
     (* In Evaluate_type mode we only need a representative value of the correct type.
        Since we have already confirmed that the branches share the same type, returning the
