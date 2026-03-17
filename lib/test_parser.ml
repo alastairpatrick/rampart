@@ -638,10 +638,12 @@ let%expect_test _ =
           (Fall_through
            (@1
             (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (IntLiteral 2)))))
-             (@1 (Identifier v)) (@1 (BoolLiteral true)) (@1 (Identifier a))))
+             (@1 (Identifier v)) (@1 (BoolLiteral true)) (@1 (Identifier a))
+             (-1 -1)))
            (@1
             (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (Let Any)))))
-             (@1 (Identifier v)) (@1 (Identifier p)) (@1 (Identifier a)))))))))))
+             (@1 (Identifier v)) (@1 (Identifier p)) (@1 (Identifier a))
+             (-1 -1))))))))))
     |}]
 
 
@@ -661,10 +663,38 @@ let%expect_test _ =
           (Fall_through
            (@1
             (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (IntLiteral 2)))))
-             (@1 (Identifier v)) (@1 (BoolLiteral true)) (@1 (Identifier a))))
+             (@1 (Identifier v)) (@1 (BoolLiteral true)) (@1 (Identifier a))
+             (-1 -1)))
            (@1
             (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (Let Any)))))
-             (@1 (Identifier v)) (@1 (Identifier p)) (@1 (Identifier a)))))))))))
+             (@1 (Identifier v)) (@1 (Identifier p)) (@1 (Identifier a))
+             (-1 -1))))))))))
+    |}]
+
+let%expect_test _ =
+  parse {|
+    (let a, 2) ~ v in { a; }
+  | (let a, _) ~ v when p in { a; }
+  |};
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Fall_through
+           (@1
+            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (IntLiteral 2)))))
+             (@1 (Identifier v)) (@1 (BoolLiteral true))
+             (@1
+              (Statement (@1 (Compound ((@1 (Expression (@1 (Identifier a)))))))))
+             (-1 -1)))
+           (@1
+            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (Let Any)))))
+             (@1 (Identifier v)) (@1 (Identifier p))
+             (@1
+              (Statement (@1 (Compound ((@1 (Expression (@1 (Identifier a)))))))))
+             (-1 -1))))))))))
     |}]
 
 (* End of line skipping *)

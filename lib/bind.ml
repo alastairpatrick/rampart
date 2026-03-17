@@ -142,17 +142,17 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let _, b = bind in_env OrderDependent b in
     env, (location, In (a, b))
 
-  | Match (a, b, c, d) ->
+  | Match (a, b, c, d, _) ->
     if pass == OrderIndependent1 then env, (location, expr) else
     let in_env, a = bind env OrderDependent a in
     let _, b = bind env OrderDependent b in
     let _, c = bind in_env OrderDependent c in
     let _, d = bind in_env OrderDependent d in
-    env, (location, Match (a, b, c, d))
+    env, (location, Match (a, b, c, d, new_slot in_env false))
 
   | Let Any ->
     assert (pass != OrderIndependent2);
-    env, (location, BoundLet (Any, new_slot env false))
+    env, (location, BoundLet (Any, unbindable_slot))
 
   | Fall_through (a, b) ->
     let _, a = bind env pass a in
@@ -214,6 +214,10 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let _, a = bind env pass a in
     let _, b = bind_opt env pass b in
     env, (location, Index (a, b))
+
+  | Statement s ->
+    let _, s = bind_statement env pass s in
+    env, (location, Statement s)
   
 and bind_expressions env pass exprs =
   List.map (fun expr -> let _, expr = bind env pass expr in expr) exprs

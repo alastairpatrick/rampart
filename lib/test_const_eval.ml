@@ -1922,19 +1922,20 @@ let%expect_test _ =
            ((@1
              (Lambda (@1 (Type Int)) () ((pure) (const))
               (@1
-               (BoundFrame 1
+               (BoundFrame 0
                 (@1
                  (Compound
                   ((@1
                     (Expression
                      (@1
-                      (Assignment (@1 (BoundLet Any (0 1))) (@1 (IntLiteral 1))))))
+                      (Assignment (@1 (BoundLet Any (-1 -1)))
+                       (@1 (IntLiteral 1))))))
                    (@1 (Return (@1 (IntLiteral 0)))))))))
               (0))))))
          (0 0)))
        (@1
         (Expression
-         (@1 (Assignment (@1 (BoundLet Any (1 0))) (@1 (IntLiteral 0)))))))))
+         (@1 (Assignment (@1 (BoundLet Any (-1 -1))) (@1 (IntLiteral 0)))))))))
     |}]
 
 let%expect_test _ =
@@ -2912,3 +2913,149 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "int f(int n) const { return n; } mut int i; let x = f(i) const;";
   [%expect {| Error: @1 'i' is not a compile-time constant |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut int x; 1 ~ x in 1 | 3;";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name x)
+          (init_expr ((@1 (IntLiteral 0)))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (In
+           (@1
+            (Assignment (@1 (BoundLet (Identifier $v) (1 0)))
+             (@1 (BoundIdentifier x (0 0)))))
+           (@1
+            (In
+             (@1
+              (Assignment (@1 (BoundLet Any (-1 -1)))
+               (@1 (BoundIdentifier $v (1 0)))))
+             (@1
+              (Conditional
+               (@1
+                (BinaryOp LogicalAnd
+                 (@1
+                  (BinaryOp Equals (@1 (IntLiteral 1))
+                   (@1 (BoundIdentifier $v (1 0)))))
+                 (@1 (BoolLiteral true))))
+               (@1 (IntLiteral 1)) (@1 (IntLiteral 3)))))))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut (int, int) x; (1, 2) ~ x in 3 | 4;";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut)))
+          (type_expr ((@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))) (name x)
+          (init_expr ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (IntLiteral 0))))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (In
+           (@1
+            (Assignment (@1 (BoundLet (Identifier $v) (1 0)))
+             (@1 (BoundIdentifier x (0 0)))))
+           (@1
+            (In
+             (@1
+              (Assignment
+               (@1
+                (Tuple ((@1 (BoundLet Any (-1 -1))) (@1 (BoundLet Any (-1 -1))))))
+               (@1 (BoundIdentifier $v (1 0)))))
+             (@1
+              (Conditional
+               (@1
+                (BinaryOp LogicalAnd
+                 (@1
+                  (BinaryOp LogicalAnd
+                   (@1
+                    (BinaryOp Equals (@1 (IntLiteral 1))
+                     (@1
+                      (Index (@1 (BoundIdentifier $v (1 0)))
+                       ((@1 (IntLiteral 0)))))))
+                   (@1
+                    (BinaryOp LogicalAnd
+                     (@1
+                      (BinaryOp Equals (@1 (IntLiteral 2))
+                       (@1
+                        (Index (@1 (BoundIdentifier $v (1 0)))
+                         ((@1 (IntLiteral 1)))))))
+                     (@1 (BoolLiteral true))))))
+                 (@1 (BoolLiteral true))))
+               (@1 (IntLiteral 3)) (@1 (IntLiteral 4)))))))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "mut (int, bool) x; (let a, let b) ~ x when b in a | 4;";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ((mut)))
+          (type_expr ((@1 (Tuple ((@1 (Type Int)) (@1 (Type Bool))))))) (name x)
+          (init_expr
+           ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (BoolLiteral false))))))))
+         (0 0)))
+       (@1
+        (Expression
+         (@1
+          (In
+           (@1
+            (Assignment (@1 (BoundLet (Identifier $v) (3 0)))
+             (@1 (BoundIdentifier x (0 0)))))
+           (@1
+            (In
+             (@1
+              (Assignment
+               (@1
+                (Tuple
+                 ((@1 (BoundLet (Identifier a) (1 0)))
+                  (@1 (BoundLet (Identifier b) (2 0))))))
+               (@1 (BoundIdentifier $v (3 0)))))
+             (@1
+              (Conditional
+               (@1
+                (BinaryOp LogicalAnd (@1 (BoolLiteral true))
+                 (@1 (BoundIdentifier b (2 0)))))
+               (@1 (BoundIdentifier a (1 0))) (@1 (IntLiteral 4)))))))))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "let a ~ 1 in 2;";
+  [%expect {| Error: @1 match expression with no fall through is not void |}]
+
+let%expect_test _ =
+  evaluate_declarations "let a ~ 1 in 2 | let a ~ 2 in 3;";
+  [%expect {| Error: @1 match expression with no fall through is not void |}]
+
+let%expect_test _ =
+  evaluate_declarations "let a ~ 1 in ();";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (In
+           (@1
+            (Assignment (@1 (BoundLet (Identifier $v) (1 0)))
+             (@1 (IntLiteral 1))))
+           (@1
+            (In
+             (@1
+              (Assignment (@1 (BoundLet (Identifier a) (0 0)))
+               (@1 (IntLiteral 1))))
+             (@1 (Tuple ())))))))))))
+    |}]
+

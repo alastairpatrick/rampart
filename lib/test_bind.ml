@@ -273,7 +273,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (Assignment (@1 (BoundLet Any (0 0))) (@1 (IntLiteral 1)))))))))
+         (@1 (Assignment (@1 (BoundLet Any (-1 -1))) (@1 (IntLiteral 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -297,7 +297,7 @@ let%expect_test _ =
         (Expression
          (@1
           (Match (@1 (BoundLet (Identifier a) (0 0))) (@1 (IntLiteral 1))
-           (@1 (BoolLiteral true)) (@1 (BoundIdentifier a (0 0))))))))))
+           (@1 (BoolLiteral true)) (@1 (BoundIdentifier a (0 0))) (1 0))))))))
     |}]
 
 let%expect_test _ =
@@ -309,7 +309,8 @@ let%expect_test _ =
         (Expression
          (@1
           (Match (@1 (BoundLet (Identifier a) (0 0))) (@1 (BoolLiteral true))
-           (@1 (BoundIdentifier a (0 0))) (@1 (BoundIdentifier a (0 0))))))))))
+           (@1 (BoundIdentifier a (0 0))) (@1 (BoundIdentifier a (0 0)))
+           (1 0))))))))
     |}]
 
 let%expect_test _ =

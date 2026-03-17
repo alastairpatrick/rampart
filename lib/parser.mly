@@ -3,6 +3,7 @@
     open Ast
     open Location
     open ParserLowering
+    open Slot
     let loc ((s: Lexing.position), (e: Lexing.position)) : location = make_location s e
 %}
 %token <string> ID
@@ -170,13 +171,13 @@ when_expr
 
 expr_or_stat
   : e=in_expr                                               { e }
-  | compound_stat                                           { loc $loc, IntLiteral 0 (* TODO *) }
+  | s=compound_stat                                         { loc $loc, Statement s }
   ;
 
 in_expr
   : a=assign_expr IN skip_eols b=expr_or_stat               { loc $loc, In (a, b) }
   | a=primary_expr TILDE b=assign_expr c=when_expr?
-    IN skip_eols d=expr_or_stat                             { loc $loc, Match (a, b, Option.value ~default:(loc $loc, BoolLiteral true) c, d) }
+    IN skip_eols d=expr_or_stat                             { loc $loc, Match (a, b, Option.value ~default:(loc $loc, BoolLiteral true) c, d, unbindable_slot) }
   | e=assign_expr                                           { e }
   ;
 

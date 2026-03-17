@@ -167,6 +167,8 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
+  | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
+  | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | In (a, b) -> evaluate_in env frame mode location a b
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
@@ -177,6 +179,7 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), closure) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement closure
   | TypeOf e -> evaluate_typeof env frame mode location e
+  | Statement s -> evaluate_expression_statement env frame mode location s
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
 
 and evaluate_expression_opt env frame mode (expr_opt : expression option) : expression option =
@@ -425,6 +428,93 @@ and evaluate_conditional env frame mode location condition consequent alternativ
     | _, BoolLiteral false -> evaluate_expression env frame mode alternative
     | _ -> raise error_type_mismatch
 
+and evaluate_fall_through env frame mode location a b =
+    (*
+      Lower a match/fall-through into a purely expression-level conditional.
+
+      The bind pass already created distinct slots for each `BoundLet` in the
+      pattern and ensured that those slots are only ever referenced (via
+      BoundIdentifier) in the body/guard of this match. In other words, by the
+      time const-eval runs, the only way any code can observe a `BoundLet` slot is
+      via the successful path of this match.
+
+      That means we can safely evaluate the assignment unconditionally (even on
+      a failing match) because no outside code can read from those slots unless
+      the match succeeds. This keeps the lowering simple and avoids needing a
+      special “match-failure” mechanism in this pass.
+
+      The result of a match is then:
+
+        if (pattern-matches && condition) then (bind; body) else next
+
+      which is exactly what `Fall_through` / `Match` are intended to express.
+
+      For example, this code:
+
+        (let a, C, D) ~ v when guard in body
+      | next
+
+      becomes
+
+        let t = v in (let a, _, _) = t in ((t[1]==C && t[2]==D && guard) ? body : next)
+
+      where t is a temporary variable. Note that this lowering does not bring 'a'
+      into lexical scope of 'next' because it happens _after_ the bind pass.
+  *)
+  let rec substitute_let_any expression =
+    match expression with
+    | _, BoundLet _ -> expression
+    | location, Tuple elements -> location, Tuple (List.map substitute_let_any elements)
+    | location, _ -> location, BoundLet (Any, unbindable_slot)
+  in
+  let rec lower_pattern_match pattern value =
+    match pattern, value with
+    | (location, BoundLet _), _ -> (location, BoolLiteral true)
+    | (location, Tuple pattern_elements), (_, Tuple value_elements) ->
+      (try
+        List.fold_left2 (fun acc pattern_element value_element ->
+          let element_match = lower_pattern_match pattern_element value_element in
+          (location, BinaryOp (LogicalAnd, acc, element_match))
+        ) (location, BoolLiteral true) pattern_elements value_elements
+      with Invalid_argument _ -> raise error_type_mismatch)
+    | (location, Tuple pattern_elements), _ ->
+      let rec helper idx pattern_elements =
+        match pattern_elements with
+        | [] -> (location, BoolLiteral true)
+        | (_, BoundLet _) :: rest -> helper (idx + 1) rest
+        | head :: rest -> (location, BinaryOp (LogicalAnd, (location, BinaryOp (Equals, head, (location, Index (value, Some (location, IntLiteral idx))))), helper (idx + 1) rest))
+      in
+      helper 0 pattern_elements     
+    | _ -> location, BinaryOp (Equals, pattern, value)
+  in
+  begin match a with
+  | location, Match (pattern, value, condition, body, temp_slot) ->
+    let temp_identifier = (location, BoundIdentifier ("$v", temp_slot)) in
+    let lowered = location, In (
+      (location, Assignment ((location, BoundLet (Identifier "$v", temp_slot)), value)),
+      (location, In (
+        (location, Assignment (substitute_let_any pattern, temp_identifier)),
+        (location, Conditional (
+          (location, BinaryOp (LogicalAnd,
+            lower_pattern_match pattern temp_identifier,
+            condition)),
+          body,
+          b)))))
+    in
+    (*print_endline (Printf.sprintf "lowered fall-through to: %s" (Ast.show_expression lowered));*)
+    evaluate_expression env frame mode lowered
+        
+  | _ -> raise (Error "left hand side of a fall-through is not a pattern match expression")
+  end
+  
+
+and evaluate_match env frame mode location pattern value condition body temp_slot =
+  match evaluate_expression env frame Evaluate_type body with
+  | _, Tuple [] ->
+    evaluate_expression env frame mode (location, Fall_through ((location, Match (pattern, value, condition, body, temp_slot)), (location, Tuple [])))
+  | _ ->
+    raise (Error "match expression with no fall through is not void")
+
 and evaluate_assignment env frame mode location a b =
   let b = evaluate_expression env frame mode b in
   match mode with
@@ -435,14 +525,16 @@ and evaluate_assignment env frame mode location a b =
         a
 
       | (location, (BoundLet (pattern, slot))), _ ->
-        let assignable = get_assignable frame slot in
-        if is_const_value b then begin
+        if is_slot_bindable slot then begin
+          let assignable = get_assignable frame slot in
+          if is_const_value b then begin
           let b = match pattern with
           | Identifier name -> set_lambda_aliases b (location, BoundIdentifier (name, slot))
           | _ -> set_lambda_aliases b (location, BoundIdentifier ("_", slot)) in
           set_assignable_value assignable (check_is_const_value b)
-        end else
+          end else
           set_assignable_value assignable (Non_const_of_type (type_of_expression (evaluate_expression env frame Evaluate_type b)));
+        end;
         location, BoundLet (pattern, slot)
 
       | (location, Index (indexable, Some index)), _ ->
@@ -457,7 +549,8 @@ and evaluate_assignment env frame mode location a b =
           location, Tuple (List.map2 assign froms tos)
         with Invalid_argument _ -> raise error_type_mismatch)
 
-      | (_, Tuple _), _ -> raise error_type_mismatch
+      | (location, Tuple froms), _ ->
+        location, Tuple (List.mapi (fun i from_element -> assign from_element (location, Index (b, Some (location, IntLiteral i)))) froms)
 
       | _ -> raise (error_internal (Printf.sprintf "assignment target not implemented: %s" (Ast.show_expression a)))
     in
@@ -547,10 +640,12 @@ and evaluate_assignment env frame mode location a b =
         end
 
       | (_, BoundLet (_, slot)), _ ->
-        let assignable = get_assignable frame slot in
-        (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
-           whereas, BoundIdentifiers are always initialized before any reassignment. *)
-        set_assignable_value assignable (check_is_const_value b);
+        if is_slot_bindable slot then begin
+          let assignable = get_assignable frame slot in
+          (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
+            whereas, BoundIdentifiers are always initialized before any reassignment. *)
+          set_assignable_value assignable (check_is_const_value b)
+        end;
         b (* The result should be the RHS, implicitly converted to the same type as the LHS, but the type of the LHS is inferred from the RHS in this case *)
 
       | (_, Index (indexable, Some index)), _ ->
@@ -717,6 +812,12 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
 
 and evaluate_typeof env frame _ _ e =
   type_of_expression (evaluate_expression env frame Evaluate_type e)
+
+and evaluate_expression_statement env frame mode location statement =
+  match mode with
+  | Fold_consts -> (location, Statement (evaluate_statement env frame mode statement))
+  | Evaluate_const -> evaluate_statement env frame mode statement |> ignore; (location, Tuple [])
+  | Evaluate_type -> assert false
 
 and set_lambda_aliases (location, const_value) ast_alias =
   let ith_index i e = set_lambda_aliases e (location, Index (ast_alias, Some (location, (IntLiteral i)))) in

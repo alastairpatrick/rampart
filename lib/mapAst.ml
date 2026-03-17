@@ -80,5 +80,8 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
   | Fall_through (a, b) ->
     ef (location, (Fall_through (map_expression sf ef a, map_expression sf ef b)))
 
-  | Match (a, b, c, d) ->
-    ef (location, (Match (map_expression sf ef a, map_expression sf ef b, map_expression sf ef c, map_expression sf ef d)))
+  | Match (a, b, c, d, s) ->
+    ef (location, (Match (map_expression sf ef a, map_expression sf ef b, map_expression sf ef c, map_expression sf ef d, s)))
+
+  | Statement s ->
+    ef (location, Statement (map_statement sf ef s))

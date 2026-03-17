@@ -61,7 +61,7 @@ and expression_inner =
   | Assignment of expression * expression
   | Let of pattern
   | In of expression * expression
-  | Match of (* pattern: *) expression * expression * (* condition: *) expression * (* body: *) expression
+  | Match of (* pattern: *) expression * expression * (* condition: *) expression * (* body: *) expression * (* temp_slot: *) slot
   | Fall_through of expression * expression
   | Identifier of string
   | BoundIdentifier of string * slot
@@ -74,6 +74,7 @@ and expression_inner =
   | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement * closure option
   | DynamicArray of expression array * (* element_type: *) expression option
   | Index of expression * (* subscript: *) expression option
+  | Statement of statement
   
 and expression = location * expression_inner
 
