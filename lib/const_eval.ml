@@ -49,6 +49,22 @@ type eval_mode =
   | Evaluate_type                 (* Evaluate the type of an expression without causing side-effects. Returns a type representative rather than the type itself. Not used on statements. *)
   | Evaluate_const                (* Compile-time evaluation of constant expressions *)
 
+type evaluation_ast =
+  | Const
+  | Non_const of (* ast: *) expression
+
+type evaluation = evaluation_ast * (* const_value: *) expression
+
+let ast_of (evaluation : evaluation) : expression =
+  match evaluation with
+  | Const, const_value -> const_value
+  | Non_const ast, _ -> ast
+
+let representative_value_of (evaluation : evaluation) : expression =
+  match evaluation with
+  | Const, const_value -> const_value
+  | Non_const _, representative_value -> representative_value
+
 (* Conservative count of loop iterations. Currently counts all calls as potential iterations. *)
 let loop_count = ref 0
 let evaluate_const_count = ref 0
@@ -156,13 +172,46 @@ and evaluate_const_protect f =
       if !evaluate_const_count = 0 then loop_count := 0
       )
     f
-    
-and evaluate_expression env frame mode ((location, expression): expression) : expression =
+
+(* TODO: incrementally move expression evaluation to the new design, then rename this to 'evaluate_expression' and
+   remove the old 'evaluate_expression' function. *)
+and evaluate_expression_new env frame mode ((location, expression) : expression) : evaluation =
   match expression with
   | IntLiteral _
   | BoolLiteral _
-  | Type _ -> (location, expression)
+  | Type _ -> Const, (location, expression)
+
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
+
+  | _ -> let result = evaluate_expression env frame mode (location, expression) in
+    (* This logic awkwardly makes an evaluation from returned expression. It will go away once all
+       expression evaluation has been incrementally moved to the new design. *)
+    if is_const_value result then
+      Const, result
+    else begin
+      assert (mode = Fold_consts); (* Both other modes would return a const value *)
+
+      (* Evaluating an expression with evaluate_expression in Fold_consts mode does not retain
+         the type. Evaluate a second time in Evaluate_type mode to get the type.
+         
+         We must be very careful because evaluate_expression_new and evaluate_expression are
+         mutually recursive. The case where an infinite recursion occurs is when there is an
+         AST node type that neither function handles. Reviewers: ensure that this remains true.
+         
+         The long term solution is to finish the refactor, which will eliminate this mutual
+         recursion. *)
+      (Non_const result), evaluate_expression env frame Evaluate_type (location, expression)
+    end
+
+and evaluate_expression env frame mode ((location, expression): expression) : expression =
+  match expression with
+  (* Moved to evaluate_expression_new
+  | IntLiteral _
+  | BoolLiteral _
+  | Type _
+  | BoundIdentifier (display_name, slot)
+  *)
+  
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
@@ -180,7 +229,15 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement closure
   | TypeOf e -> evaluate_typeof env frame mode location e
   | Statement s -> evaluate_expression_statement env frame mode location s
-  | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false
+  | _ ->
+    let result = evaluate_expression_new env frame mode (location, expression) in
+    (* This logic awkwardly makes an expression from an evaluation. It will go away once all
+       expression evaluation has been incrementally moved to the new design. *)
+    match mode, result with
+    | Fold_consts, _ -> ast_of result
+    | Evaluate_type, _ -> representative_value_of result
+    | Evaluate_const, (Const, const_value) -> const_value
+    | _ -> assert false (* Should not reach here in Evaluate_const mode because that mode egerly raises error_not_a_compile_time_constant rather than returning non-const. *)
 
 and evaluate_expression_opt env frame mode (expr_opt : expression option) : expression option =
   match expr_opt with
@@ -222,37 +279,27 @@ Evaluate_const:
 *)
 
 
-and evaluate_identifier _ frame mode location display_name ({index; depth; mut} : slot) =
+and evaluate_identifier _ frame mode location display_name ({index; depth; mut} : slot) : evaluation =
   let assignable = get_assignable frame {index; depth; mut} in
-  match mode with
-  | Fold_consts ->
-    begin match get_assignable_value assignable with
-    | Uninitialized_of_type _ -> raise (Saw_uninitialized display_name)
-    | Const_of_value const_value ->
-      if mut && (not frame.const || depth <> frame.depth) then
-        raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
-      const_value
-    | Non_const_of_type _ -> (location, BoundIdentifier (display_name, {index; depth; mut}))
-    end
-
-  | Evaluate_type ->
-    begin match get_assignable_value assignable with
-    | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
-    | Uninitialized_of_type (Some const_type)
-    | Non_const_of_type const_type -> representative_value_of_type const_type
-    | Const_of_value const_value -> const_value
-    end
-
-  | Evaluate_const ->
-    match get_assignable_value assignable with
-    | Uninitialized_of_type _ ->
+  begin match get_assignable_value assignable with
+  | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
+  | Uninitialized_of_type (Some typ) ->
+    if mode = Evaluate_type then
+      Non_const (location, BoundIdentifier (display_name, {index; depth; mut})),
+                           representative_value_of_type typ
+    else
       raise (Saw_uninitialized display_name)
-    | Non_const_of_type _ ->
-      raise (error_not_a_compile_time_constant display_name);
-    | Const_of_value (_, const_expression) ->
-      if mut && (not frame.const || depth <> frame.depth) then
-        raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
-      (location, const_expression)
+  | Const_of_value const_value ->
+    if mut && (not frame.const || depth <> frame.depth) then
+      raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
+    Const, const_value
+  | Non_const_of_type typ ->
+    if mode = Evaluate_const then
+      raise (error_not_a_compile_time_constant display_name)
+    else 
+      Non_const (location, BoundIdentifier (display_name, {index; depth; mut})),
+                                        representative_value_of_type typ
+  end
 
 and evaluate_logical_op env frame mode location op a b =
   let is_bool expression =
