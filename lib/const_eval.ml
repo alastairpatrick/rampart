@@ -183,6 +183,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
 
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
+  | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
   | Index (array, index) -> evaluate_index env frame mode location array index
   | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
 
@@ -213,7 +214,6 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
 and evaluate_expression env frame mode ((location, expression): expression) : expression =
   match expression with
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
-  | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
@@ -457,37 +457,25 @@ and evaluate_binary_op env frame mode location op a b =
   | _ -> raise error_type_mismatch
 
 and evaluate_conditional env frame mode location condition consequent alternative =
-  let consequent_type = evaluate_expression env frame Evaluate_type consequent in
-  let alternative_type = evaluate_expression env frame Evaluate_type alternative in
-  if not (const_types_equal (type_of_expression consequent_type) (type_of_expression alternative_type)) then
-    raise error_type_mismatch;
-
-  let condition = evaluate_expression env frame mode condition in
-  match mode with
-  | Fold_consts ->
-    let consequent = evaluate_expression env frame mode consequent in
-    let alternative = evaluate_expression env frame mode alternative in
-    begin match condition with
-    | _, BoolLiteral true -> consequent
-    | _, BoolLiteral false -> alternative
-    | _ -> (location, Conditional (condition, consequent, alternative))
+  let condition = evaluate_expression_new env frame mode condition in
+  match condition with
+  | ast, (_, BoolLiteral c) ->
+    let taken_mode, untaken_mode = match mode with
+      | Fold_consts -> Fold_consts, Fold_consts
+      | Evaluate_type -> Evaluate_type, Evaluate_type
+      | Evaluate_const -> Evaluate_const, Evaluate_type in
+    let consequent = evaluate_expression_new env frame (if c then taken_mode else untaken_mode) consequent in
+    let alternative = evaluate_expression_new env frame (if c then untaken_mode else taken_mode) alternative in
+    if not (const_types_equal (type_of_expression (representative_value_of consequent)) (type_of_expression (representative_value_of alternative))) then
+      raise error_type_mismatch;
+    if ast = Const then begin
+      if c then consequent else alternative
+    end else begin
+      Non_const (location, Conditional (ast_of condition, ast_of consequent, ast_of alternative)),
+                representative_value_of consequent
     end
 
-  | Evaluate_type ->
-    begin match condition with
-    (* In Evaluate_type mode we only need a representative value of the correct type.
-       Since we have already confirmed that the branches share the same type, returning the
-       `alternative` branch is sufficient (and avoids needing to inspect the boolean value).
-       The pattern match also ensures the condition is boolean. *)
-    | _, BoolLiteral _ -> alternative (* or consequent; it doesn't matter which one we choose *)
-    | _ -> raise error_type_mismatch
-    end
-    
-  | Evaluate_const ->
-    match condition with
-    | _, BoolLiteral true -> evaluate_expression env frame mode consequent
-    | _, BoolLiteral false -> evaluate_expression env frame mode alternative
-    | _ -> raise error_type_mismatch
+  | _ -> raise error_type_mismatch
 
 and evaluate_fall_through env frame mode location a b =
     (*

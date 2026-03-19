@@ -565,18 +565,9 @@ let%expect_test _ =
   evaluate_declarations "false ? 1 : 2;";
   [%expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (IntLiteral 2))))))) |}]
 
-(* Static type checking will catch this error later. *)
 let%expect_test _ =
   evaluate_declarations "1 ? 1 : 2;";
-  [%expect{|
-    (@1
-     (OrderIndependent
-      ((@1
-        (Expression
-         (@1
-          (Conditional (@1 (IntLiteral 1)) (@1 (IntLiteral 1))
-           (@1 (IntLiteral 2)))))))))
-    |}]
+  [%expect{| Error: @1 type mismatch |}]
 
 let%expect_test _ =
   evaluate_declarations "mut bool c; c ? 1 : 2;";
