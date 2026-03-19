@@ -181,6 +181,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
   | BoolLiteral _
   | Type _ -> Const, (location, expression)
 
+  | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
 
@@ -211,7 +212,6 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
 and evaluate_expression env frame mode ((location, expression): expression) : expression =
   match expression with
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
-  | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
@@ -297,47 +297,6 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
     | Evaluate_const -> raise (error_not_a_compile_time_constant display_name)
   end
 
-and evaluate_logical_op env frame mode location op a b =
-  let is_bool expression =
-    let expression = evaluate_expression env frame Evaluate_type expression in
-    match expression with
-    | _, BoolLiteral _ -> true
-    | _ -> false
-  in
-  let a = evaluate_expression env frame mode a in
-  match mode with
-  | Fold_consts ->
-    let b = evaluate_expression env frame mode b in
-    begin match op, a, b with
-    | LogicalAnd, (_, BoolLiteral false), _ when is_bool b -> a
-    | LogicalAnd, (_, BoolLiteral true), _ when is_bool b -> b
-    | LogicalAnd, _, (_, BoolLiteral false) when is_bool a -> b
-    | LogicalAnd, _, (_, BoolLiteral true) when is_bool a -> a
-
-    | LogicalOr, (_, BoolLiteral false), _ when is_bool b -> b
-    | LogicalOr, (_, BoolLiteral true), _ when is_bool b -> a
-    | LogicalOr, _, (_, BoolLiteral false) when is_bool a -> a
-    | LogicalOr, _, (_, BoolLiteral true) when is_bool a -> b
-
-    | _ -> (location, BinaryOp (op, a, b))
-    end
-
-  | Evaluate_type -> 
-    let b = evaluate_expression env frame mode b in
-    begin match a, b with
-    | (_, BoolLiteral _), (_, BoolLiteral _) -> a
-    | _ -> raise error_type_mismatch
-    end
-    
-  | Evaluate_const ->
-    begin match op, a with
-    | LogicalAnd, (_, BoolLiteral false) -> a
-    | LogicalAnd, (_, BoolLiteral true) -> evaluate_expression env frame mode b
-    | LogicalOr, (_, BoolLiteral false) -> evaluate_expression env frame mode b
-    | LogicalOr, (_, BoolLiteral true) -> a
-    | _, _ -> raise error_type_mismatch
-    end
-
 and evaluate_index env frame mode location indexable index =
   let indexable = evaluate_expression env frame mode indexable in
 
@@ -399,68 +358,90 @@ and evaluate_unary_op env frame mode location op e =
 
   | _ -> raise error_type_mismatch
 
+and evaluate_logical_op env frame mode location op (a : expression) (b : expression) : evaluation =
+  let a = evaluate_expression_new env frame mode a in
+  match mode with
+  | Fold_consts
+  | Evaluate_type ->
+    let b = evaluate_expression_new env frame mode b in
+    begin match op, a, b with
+    | LogicalAnd, (Const, (_, BoolLiteral false)), (_, (_, BoolLiteral _)) -> a
+    | LogicalAnd, (Const, (_, BoolLiteral true)), (_, (_, BoolLiteral _)) -> b
+    | LogicalAnd, (_, (_, BoolLiteral _)), (Const, (_, BoolLiteral false)) -> b
+    | LogicalAnd, (_, (_, BoolLiteral _)), (Const, (_, BoolLiteral true)) -> a
+
+    | LogicalOr, (Const, (_, BoolLiteral false)), (_, (_, BoolLiteral _)) -> b
+    | LogicalOr, (Const, (_, BoolLiteral true)), (_, (_, BoolLiteral _)) -> a
+    | LogicalOr, (_, (_, BoolLiteral _)), (Const, (_, BoolLiteral false)) -> a
+    | LogicalOr, (_, (_, BoolLiteral _)), (Const, (_, BoolLiteral true)) -> b
+
+    | _, (_, (_, BoolLiteral _)), (_, (_, BoolLiteral _)) -> Non_const (location, BinaryOp (op, ast_of a, ast_of b)),
+                                                                       representative_value_of_type (location, Type Bool)
+
+    | _ -> raise error_type_mismatch
+    end
+    
+  | Evaluate_const ->
+    begin match op, a with
+    | LogicalAnd, (Const, (_, BoolLiteral false)) -> a
+    | LogicalAnd, (Const, (_, BoolLiteral true)) -> evaluate_expression_new env frame mode b
+    | LogicalOr, (Const, (_, BoolLiteral false)) -> evaluate_expression_new env frame mode b
+    | LogicalOr, (Const, (_, BoolLiteral true)) -> a
+    | _, _ -> raise error_type_mismatch
+    end
 
 and evaluate_binary_op env frame mode location op a b =
   if op = LogicalAnd || op = LogicalOr then evaluate_logical_op env frame mode location op a b else
-  let a = evaluate_expression env frame mode a in
-  let b = evaluate_expression env frame mode b in
+  let a = evaluate_expression_new env frame mode a in
+  let b = evaluate_expression_new env frame mode b in
+  let result_ast =
+    match a, b, mode with
+    | (Const, _), (Const, _), _ -> Const
+    | _ -> Non_const (location, BinaryOp (op, ast_of a, ast_of b)) in
   match op, a, b with
-  | Plus, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a + b))
-  | Minus, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a - b))
-  | Times, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a * b))
+  | Plus, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->  result_ast, (location, IntLiteral (a + b))
+  | Minus, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (a - b))
+  | Times, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (a * b))
 
-  | Less, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a < b))
-  | LessEquals, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a <= b))
-  | Greater, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a > b))
-  | GreaterEquals, (_, IntLiteral a), (_, IntLiteral b) -> (location, BoolLiteral (a >= b))
+  | Less, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->          result_ast, (location, BoolLiteral (a < b))
+  | LessEquals, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->    result_ast, (location, BoolLiteral (a <= b))
+  | Greater, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->       result_ast, (location, BoolLiteral (a > b))
+  | GreaterEquals, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, BoolLiteral (a >= b))
 
-  | Div, (_, IntLiteral num), (_, IntLiteral denom)
-  | Modulo, (_, IntLiteral num), (_, IntLiteral denom) ->
+  | Div, (_, (_, IntLiteral num)), (_, (_, IntLiteral denom))
+  | Modulo, (_, (_, IntLiteral num)), (_, (_, IntLiteral denom)) ->
     if denom = 0 then begin
       match mode with
-      | Fold_consts -> (location, BinaryOp (op, a, b)) (* TODO: new rule for CTCEs - division and modulo expressions are not CTCEs if the denominator is zero *)
-      | Evaluate_type -> representative_value_of_type (location, Type Int)
+      | Fold_consts -> Non_const (location, BinaryOp (op, ast_of a, ast_of b)),
+                                   representative_value_of_type (location, Type Int)
+      | Evaluate_type -> Const, representative_value_of_type (location, Type Int)
       | Evaluate_const -> raise (error_invalid_operation "division by zero")
     end else
-      (location, IntLiteral (if op = Div then num / denom else num mod denom))
+      result_ast, (location, IntLiteral (if op = Div then num / denom else num mod denom))
 
-  | ShiftLeft, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a lsl b))
-  | ShiftRight, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a asr b))
+  | ShiftLeft, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->  result_ast, (location, IntLiteral (a lsl b))
+  | ShiftRight, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (a asr b))
 
-  | BitwiseAnd, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a land b))
-  | BitwiseAnd, (_, BoolLiteral a), (_, BoolLiteral b) -> (location, BoolLiteral (a && b))
-  | BitwiseOr, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a lor b))
-  | BitwiseOr, (_, BoolLiteral a), (_, BoolLiteral b) -> (location, BoolLiteral (a || b))
-  | BitwiseXor, (_, IntLiteral a), (_, IntLiteral b) -> (location, IntLiteral (a lxor b))
-  | BitwiseXor, (_, BoolLiteral a), (_, BoolLiteral b) -> (location, BoolLiteral (a <> b))
+  | BitwiseAnd, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->   result_ast, (location, IntLiteral (a land b))
+  | BitwiseAnd, (_, (_, BoolLiteral a)), (_, (_, BoolLiteral b)) -> result_ast, (location, BoolLiteral (a && b))
+  | BitwiseOr, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->    result_ast, (location, IntLiteral (a lor b))
+  | BitwiseOr, (_, (_, BoolLiteral a)), (_, (_, BoolLiteral b)) ->  result_ast, (location, BoolLiteral (a || b))
+  | BitwiseXor, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->   result_ast, (location, IntLiteral (a lxor b))
+  | BitwiseXor, (_, (_, BoolLiteral a)), (_, (_, BoolLiteral b)) -> result_ast, (location, BoolLiteral (a <> b))
 
-  | Equals, a, b
-  | NotEquals, a, b ->
-    if is_const_value a && is_const_value b && (const_types_equal (type_of_expression a) (type_of_expression b)) then
+  | Equals, (Const, a), (Const, b)
+  | NotEquals, (Const, a), (Const, b) ->
+    if (const_types_equal (type_of_expression a) (type_of_expression b)) then
       let are_equal = const_values_equal a b in
-      (location, BoolLiteral (if op = Equals then are_equal else not are_equal))
+      result_ast, (location, BoolLiteral (if op = Equals then are_equal else not are_equal))
     else begin
-      match mode with
-      | Fold_consts -> (location, BinaryOp (op, a, b))
-      | _ -> raise error_type_mismatch
+      raise error_type_mismatch
     end
 
-  | Plus, _, _
-  | Minus, _, _
-  | Times, _, _
-  | Div, _, _
-  | Modulo, _, _
-  | Less, _, _
-  | LessEquals, _, _
-  | Greater, _, _
-  | GreaterEquals, _, _ ->
-    begin match mode with
-    | Fold_consts -> (location, BinaryOp (op, a, b))
-    | _ -> raise error_type_mismatch
-    end
+  | Equals, _, _
+  | NotEquals, _, _ -> result_ast, (representative_value_of_type (location, Type Bool))
 
-  (* TODO: the rest of them *)
-  | _ -> print_endline (Printf.sprintf "binary operator not implemented: %s" (Ast.show_binary_op op)); assert false
+  | _ -> raise error_type_mismatch
 
 and evaluate_conditional env frame mode location condition consequent alternative =
   let consequent_type = evaluate_expression env frame Evaluate_type consequent in
