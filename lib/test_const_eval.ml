@@ -2405,11 +2405,37 @@ let%expect_test _ =
 
 let%expect_test _ =
   evaluate_declarations "let x = [1, 2][3];";
-  [%expect{| Error: @1 invalid operation: array index out of bounds: 3 |}]
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier x) (0 0)))
+           (@1
+            (Index
+             (@1
+              (DynamicArray ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))
+               ((@1 (Type Int)))))
+             ((@1 (IntLiteral 3))))))))))))
+    |}]
 
 let%expect_test _ =
   evaluate_declarations "let x = [1, 2][-3];";
-  [%expect{| Error: @1 invalid operation: array index out of bounds: -3 |}]
+  [%expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Expression
+         (@1
+          (Assignment (@1 (BoundLet (Identifier x) (0 0)))
+           (@1
+            (Index
+             (@1
+              (DynamicArray ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))
+               ((@1 (Type Int)))))
+             ((@1 (IntLiteral -3))))))))))))
+    |}]
 
 let%expect_test _ =
   evaluate_declarations "let x = 1[3];";

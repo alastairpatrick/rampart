@@ -183,6 +183,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
 
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
+  | Index (array, index) -> evaluate_index env frame mode location array index
   | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
 
   | _ -> let result = evaluate_expression env frame mode (location, expression) in
@@ -221,7 +222,6 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Tuple elements -> evaluate_tuple env frame mode location elements
   | Arity e -> evaluate_arity env frame mode location e
   | DynamicArray (elements, element_type) -> evaluate_dynamic_array_literal env frame mode location elements element_type
-  | Index (array, index) -> evaluate_index env frame mode location array index
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), closure) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement closure
   | TypeOf e -> evaluate_typeof env frame mode location e
@@ -298,45 +298,58 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
   end
 
 and evaluate_index env frame mode location indexable index =
-  let indexable = evaluate_expression env frame mode indexable in
+  let indexable = evaluate_expression_new env frame mode indexable in
 
   match index with
-  | None when is_const_type indexable -> (location, Index (indexable, None))
+  | None when is_const_type (ast_of indexable) -> Const, (location, Index (ast_of indexable, None))
   | None -> raise (Error "expected an index sub-expression")
   | Some index ->
     match indexable with
-    | _, DynamicArray (elements, Some element_type) ->
-      let index = evaluate_expression env frame mode index in
-      begin match mode, index with
-      | Evaluate_type, (_, IntLiteral _) -> representative_value_of_type element_type (* must not perform a bounds check *)
-      | Evaluate_const, (_, IntLiteral i)
-      | Fold_consts, (_, IntLiteral i) ->
-        if i < 0 || i >= Array.length elements then
-          raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i));
-        elements.(i)
-      | Fold_consts, _ -> (location, Index (indexable, Some index))
+    | Const, (_, DynamicArray (elements, Some element_type)) ->
+      let index = evaluate_expression_new env frame mode index in
+      let element_representative () = representative_value_of_type element_type in
+      let non_const () = Non_const (location, Index (ast_of indexable, Some (ast_of index))),
+                                   element_representative () in
+
+      begin match index with
+      | Const, (_, IntLiteral i) ->
+        if i < 0 || i >= Array.length elements then begin
+          match mode with
+          | Fold_consts -> non_const ()
+          | Evaluate_type -> Const, element_representative ()
+          | Evaluate_const ->
+            raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i))
+        end else
+          Const, elements.(i)
+
+      | Non_const _, (_, IntLiteral _) -> non_const ()
+    
       | _ -> raise error_type_mismatch
       end
 
-    | _, Tuple elements ->
+    | Non_const _, (_, DynamicArray (_, Some element_type)) ->
+      let index = evaluate_expression_new env frame mode index in
+      Non_const (location, Index (ast_of indexable, Some (ast_of index))),
+                representative_value_of_type element_type
+
+    | _, (_, Tuple elements) ->
       let index = evaluate_const_value env frame index in
       begin match index with
       | _, IntLiteral i ->
-        (try
+        let element = try
           List.nth elements i
         with
         | Invalid_argument _
-        | Failure _ -> raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i)))
+        | Failure _ -> raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i)) in
+        begin match indexable with
+        | Const, _ -> Const, element
+        | Non_const _, _ -> (Non_const (location, Index (ast_of indexable, Some index))),
+                                       element
+        end
       | _ -> raise error_type_mismatch
       end
 
-    | _ ->
-      let indexable_type = evaluate_expression env frame Evaluate_type indexable in
-      begin match indexable_type with
-      | _, Tuple _ -> location, Index (indexable, Some (evaluate_const_value env frame index))
-      | _, DynamicArray _ -> (location, Index (indexable, Some (evaluate_expression env frame mode index)))
-      | _ -> raise error_type_mismatch
-      end
+    | _ -> raise error_type_mismatch
 
 and evaluate_unary_op env frame mode location op e =
   let e = evaluate_expression_new env frame mode e in
