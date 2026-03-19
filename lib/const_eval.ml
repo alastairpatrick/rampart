@@ -176,12 +176,13 @@ and evaluate_const_protect f =
 (* TODO: incrementally move expression evaluation to the new design, then rename this to 'evaluate_expression' and
    remove the old 'evaluate_expression' function. *)
 and evaluate_expression_new env frame mode ((location, expression) : expression) : evaluation =
-  match expression with
+  let result = match expression with
   | IntLiteral _
   | BoolLiteral _
   | Type _ -> Const, (location, expression)
 
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
+  | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
 
   | _ -> let result = evaluate_expression env frame mode (location, expression) in
     (* This logic awkwardly makes an evaluation from returned expression. It will go away once all
@@ -202,18 +203,14 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
          recursion. *)
       (Non_const result), evaluate_expression env frame Evaluate_type (location, expression)
     end
+  in
+   match result with
+    | (Non_const ast), _ when mode <> Fold_consts -> raise (error_internal (Printf.sprintf "unexpectedly returned a non-const evaluation %s" (Ast.show_expression ast)))
+    | result -> result
 
 and evaluate_expression env frame mode ((location, expression): expression) : expression =
   match expression with
-  (* Moved to evaluate_expression_new
-  | IntLiteral _
-  | BoolLiteral _
-  | Type _
-  | BoundIdentifier (display_name, slot)
-  *)
-  
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
-  | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
@@ -285,8 +282,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
   | Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
   | Uninitialized_of_type (Some typ) ->
     if mode = Evaluate_type then
-      Non_const (location, BoundIdentifier (display_name, {index; depth; mut})),
-                           representative_value_of_type typ
+      Const, representative_value_of_type typ
     else
       raise (Saw_uninitialized display_name)
   | Const_of_value const_value ->
@@ -294,11 +290,11 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
       raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name);
     Const, const_value
   | Non_const_of_type typ ->
-    if mode = Evaluate_const then
-      raise (error_not_a_compile_time_constant display_name)
-    else 
-      Non_const (location, BoundIdentifier (display_name, {index; depth; mut})),
-                                        representative_value_of_type typ
+    match mode with
+    | Fold_consts -> Non_const (location, BoundIdentifier (display_name, {index; depth; mut})),
+                                          representative_value_of_type typ
+    | Evaluate_type -> Const, representative_value_of_type typ (* This might look strange, but all representative values are const values *)
+    | Evaluate_const -> raise (error_not_a_compile_time_constant display_name)
   end
 
 and evaluate_logical_op env frame mode location op a b =
@@ -384,16 +380,25 @@ and evaluate_index env frame mode location indexable index =
       end
 
 and evaluate_unary_op env frame mode location op e =
-  let e = evaluate_expression env frame mode e in
-  match op, e with
-  | Negate, (_, IntLiteral v) -> (location, IntLiteral (-v))
-  | LogicalNot, (_, BoolLiteral b) -> (location, BoolLiteral (not b))
-  | BitwiseInvert, (_, IntLiteral v) -> (location, IntLiteral (lnot v))
-  | BitwiseInvert, (_, BoolLiteral b) -> (location, BoolLiteral (not b))
-  | _, _ ->
-      match mode with
-      | Fold_consts -> (location, UnaryOp (op, e))
-      | _ -> raise error_type_mismatch
+  let e = evaluate_expression_new env frame mode e in
+  match mode, op, e with
+  | _, Negate, (Const, (_, IntLiteral v)) -> Const, (location, IntLiteral (-v))
+  | _, LogicalNot, (Const, (_, BoolLiteral b)) -> Const, (location, BoolLiteral (not b))
+  | _, BitwiseInvert, (Const, (_, IntLiteral v)) -> Const, (location, IntLiteral (lnot v))
+  | _, BitwiseInvert, (Const, (_, BoolLiteral b)) -> Const, (location, BoolLiteral (not b))
+  
+  | Fold_consts, Negate, (_, (_, IntLiteral _))
+  | Fold_consts, BitwiseInvert, (_, (_, IntLiteral _)) ->
+    Non_const (location, UnaryOp (op, ast_of e)),
+              representative_value_of_type (location, Type Int)
+
+  | Fold_consts, LogicalNot, (_, (_, BoolLiteral _))
+  | Fold_consts, BitwiseInvert, (_, (_, BoolLiteral _)) ->
+    Non_const (location, UnaryOp (op, ast_of e)),
+              representative_value_of_type (location, Type Bool)
+
+  | _ -> raise error_type_mismatch
+
 
 and evaluate_binary_op env frame mode location op a b =
   if op = LogicalAnd || op = LogicalOr then evaluate_logical_op env frame mode location op a b else
