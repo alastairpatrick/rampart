@@ -179,7 +179,7 @@ and evaluate_order_independent env frame mode statements =
 and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location, statement): statement) : statement =
   try
     match statement with
-    | Expression expression -> (location, Expression (substitute_lambda_aliases (ast_of (evaluate_expression_new env frame mode expression))))
+    | Expression expression -> (location, Expression (substitute_lambda_aliases (ast_of (evaluate_expression env frame mode expression))))
     | Compound statements -> (location, Compound (evaluate_statements env frame mode statements))
     | OrderIndependent statements -> (location, OrderIndependent (evaluate_order_independent env frame mode statements))
     | BoundDeclaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
@@ -191,7 +191,7 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
 
 (* Always enter Evaluate_const mode using this function or evaluate_const_protect. *)
 and evaluate_const_value env frame expression : expression =
-  evaluate_const_protect (fun () -> ast_of (evaluate_expression_new env frame Evaluate_const expression))
+  evaluate_const_protect (fun () -> ast_of (evaluate_expression env frame Evaluate_const expression))
 
 and evaluate_const_protect f =
   evaluate_const_count := !evaluate_const_count + 1;
@@ -202,9 +202,7 @@ and evaluate_const_protect f =
       )
     f
 
-(* TODO: incrementally move expression evaluation to the new design, then rename this to 'evaluate_expression' and
-   remove the old 'evaluate_expression' function. *)
-and evaluate_expression_new env frame mode ((location, expression) : expression) : evaluation =
+and evaluate_expression env frame mode ((location, expression) : expression) : evaluation =
   let result = match expression with
   | IntLiteral _
   | BoolLiteral _
@@ -236,7 +234,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
 
 and evaluate_expression_opt env frame mode (expr_opt : expression option) : evaluation option =
   match expr_opt with
-  | Some expr -> Some (evaluate_expression_new env frame mode expr)
+  | Some expr -> Some (evaluate_expression env frame mode expr)
   | None -> None
 
 and substitute_lambda_aliases expression : expression =
@@ -296,7 +294,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
   end
 
 and evaluate_index env frame mode location indexable index =
-  let indexable = evaluate_expression_new env frame mode indexable in
+  let indexable = evaluate_expression env frame mode indexable in
 
   match index with
   | None when is_const_type (ast_of indexable) -> Const, (location, Index (ast_of indexable, None))
@@ -304,7 +302,7 @@ and evaluate_index env frame mode location indexable index =
   | Some index ->
     match indexable with
     | Const, (_, DynamicArray (elements, Some element_type)) ->
-      let index = evaluate_expression_new env frame mode index in
+      let index = evaluate_expression env frame mode index in
       let element_representative () = representative_value_of_type element_type in
       let non_const () = Non_const (location, Index (ast_of indexable, Some (ast_of index))),
                                    element_representative () in
@@ -326,7 +324,7 @@ and evaluate_index env frame mode location indexable index =
       end
 
     | Non_const _, (_, DynamicArray (_, Some element_type)) ->
-      let index = evaluate_expression_new env frame mode index in
+      let index = evaluate_expression env frame mode index in
       Non_const (location, Index (ast_of indexable, Some (ast_of index))),
                 representative_value_of_type element_type
 
@@ -350,7 +348,7 @@ and evaluate_index env frame mode location indexable index =
     | _ -> raise error_type_mismatch
 
 and evaluate_unary_op env frame mode location op e =
-  let e = evaluate_expression_new env frame mode e in
+  let e = evaluate_expression env frame mode e in
   match mode, op, e with
   | _, Negate, (Const, (_, IntLiteral v)) -> Const, (location, IntLiteral (-v))
   | _, LogicalNot, (Const, (_, BoolLiteral b)) -> Const, (location, BoolLiteral (not b))
@@ -370,11 +368,11 @@ and evaluate_unary_op env frame mode location op e =
   | _ -> raise error_type_mismatch
 
 and evaluate_logical_op env frame mode location op (a : expression) (b : expression) : evaluation =
-  let a = evaluate_expression_new env frame mode a in
+  let a = evaluate_expression env frame mode a in
   match mode with
   | Fold_consts
   | Evaluate_type ->
-    let b = evaluate_expression_new env frame mode b in
+    let b = evaluate_expression env frame mode b in
     begin match op, a, b with
     | LogicalAnd, (Const, (_, BoolLiteral false)), (_, (_, BoolLiteral _)) -> a
     | LogicalAnd, (Const, (_, BoolLiteral true)), (_, (_, BoolLiteral _)) -> b
@@ -395,16 +393,16 @@ and evaluate_logical_op env frame mode location op (a : expression) (b : express
   | Evaluate_const ->
     begin match op, a with
     | LogicalAnd, (Const, (_, BoolLiteral false)) -> a
-    | LogicalAnd, (Const, (_, BoolLiteral true)) -> evaluate_expression_new env frame mode b
-    | LogicalOr, (Const, (_, BoolLiteral false)) -> evaluate_expression_new env frame mode b
+    | LogicalAnd, (Const, (_, BoolLiteral true)) -> evaluate_expression env frame mode b
+    | LogicalOr, (Const, (_, BoolLiteral false)) -> evaluate_expression env frame mode b
     | LogicalOr, (Const, (_, BoolLiteral true)) -> a
     | _, _ -> raise error_type_mismatch
     end
 
 and evaluate_binary_op env frame mode location op a b =
   if op = LogicalAnd || op = LogicalOr then evaluate_logical_op env frame mode location op a b else
-  let a = evaluate_expression_new env frame mode a in
-  let b = evaluate_expression_new env frame mode b in
+  let a = evaluate_expression env frame mode a in
+  let b = evaluate_expression env frame mode b in
   let result_ast =
     match a, b, mode with
     | (Const, _), (Const, _), _ -> Const
@@ -455,15 +453,15 @@ and evaluate_binary_op env frame mode location op a b =
   | _ -> raise error_type_mismatch
 
 and evaluate_conditional env frame mode location condition consequent alternative =
-  let condition = evaluate_expression_new env frame mode condition in
+  let condition = evaluate_expression env frame mode condition in
   match condition with
   | ast, (_, BoolLiteral c) ->
     let taken_mode, untaken_mode = match mode with
       | Fold_consts -> Fold_consts, Fold_consts
       | Evaluate_type -> Evaluate_type, Evaluate_type
       | Evaluate_const -> Evaluate_const, Evaluate_type in
-    let consequent = evaluate_expression_new env frame (if c then taken_mode else untaken_mode) consequent in
-    let alternative = evaluate_expression_new env frame (if c then untaken_mode else taken_mode) alternative in
+    let consequent = evaluate_expression env frame (if c then taken_mode else untaken_mode) consequent in
+    let alternative = evaluate_expression env frame (if c then untaken_mode else taken_mode) alternative in
     if not (const_types_equal (type_of_expression (representative_value_of consequent)) (type_of_expression (representative_value_of alternative))) then
       raise error_type_mismatch;
     if ast = Const then begin
@@ -549,14 +547,14 @@ and evaluate_fall_through env frame mode location a b =
           b)))))
     in
     (*print_endline (Printf.sprintf "lowered fall-through to: %s" (Ast.show_expression lowered));*)
-    evaluate_expression_new env frame mode lowered
+    evaluate_expression env frame mode lowered
         
   | _ -> raise (Error "left hand side of a fall-through is not a pattern match expression")
   end
   
 
 and evaluate_match env frame mode location pattern value condition body temp_slot =
-  evaluate_expression_new env frame mode (location, Fall_through ((location, Match (pattern, value, condition, body, temp_slot)), (location, Tuple [])))
+  evaluate_expression env frame mode (location, Fall_through ((location, Match (pattern, value, condition, body, temp_slot)), (location, Tuple [])))
 
   
 and evaluate_assignment env frame mode location a b =
@@ -626,7 +624,7 @@ and evaluate_assignment env frame mode location a b =
         | _ -> raise error_type_mismatch
         end
       | _, (_, DynamicArray (array_elements, Some element_type)) ->
-        let index = evaluate_expression_new env frame mode index in
+        let index = evaluate_expression env frame mode index in
         begin match mode, index with
         | Evaluate_const, (Const, (_, IntLiteral i)) ->
           index, (nth_array_element_or_error array_elements i)
@@ -682,10 +680,10 @@ and evaluate_assignment env frame mode location a b =
 
     | _ -> raise error_type_mismatch in
 
-  let b = evaluate_expression_new env frame mode b in
+  let b = evaluate_expression env frame mode b in
   let { evaluation=a; set_value } = assign a b in
   let a_representative = representative_value_of a in
-  let b = implicit_convert_new mode b (type_of_expression a_representative) in
+  let b = implicit_convert mode b (type_of_expression a_representative) in
   if mode = Evaluate_const then set_value b;
   if mode = Fold_consts then
     Non_const (location, Assignment (ast_of a, ast_of b)), a_representative
@@ -693,8 +691,8 @@ and evaluate_assignment env frame mode location a b =
     Const, ast_of b
 
 and evaluate_in env frame mode location a b =
-  let a = evaluate_expression_new env frame mode a in
-  let b = evaluate_expression_new env frame mode b in
+  let a = evaluate_expression env frame mode a in
+  let b = evaluate_expression env frame mode b in
   match mode with
   | Fold_consts -> Non_const (location, In (ast_of a, ast_of b)), representative_value_of b
   | Evaluate_type
@@ -703,18 +701,18 @@ and evaluate_in env frame mode location a b =
 and evaluate_call env frame mode location callee args call_modifiers =
   if mode = Evaluate_const then increment_loop_count ();
   (* Consistent with other imperative languages, semantically, the callee is evaluated before any arguments. *)
-  let callee = evaluate_expression_new env frame mode callee in
-  let args = List.map (fun arg -> ast_of (evaluate_expression_new env frame mode arg)) args in
+  let callee = evaluate_expression env frame mode callee in
+  let args = List.map (fun arg -> evaluate_expression env frame mode arg) args in
   let call_modifiers = { call_modifiers with pure = call_modifiers.pure || call_modifiers.const } in
   match mode, callee with
   | Fold_consts, (_, (_, Lambda (return_type, _, lambda_modifiers, _,_))) ->
     if call_modifiers.const then begin
       if not lambda_modifiers.const then
         raise (Error "cannot call non-const lambda at compile time");
-      let args = List.map (evaluate_const_value env frame) args in
+      let args = List.map (fun arg -> evaluate_const_value env frame (ast_of arg)) args in
       Const, evaluate_const_value env frame (location, Call (ast_of callee, args, call_modifiers))
     end else
-      Non_const (location, Call (ast_of callee, args, call_modifiers)), representative_value_of_type return_type
+      Non_const (location, Call (ast_of callee, List.map ast_of args, call_modifiers)), representative_value_of_type return_type
 
   | Evaluate_type, (_, (_, Lambda (return_type, _, _, _, _))) ->
     Const, representative_value_of_type return_type
@@ -734,7 +732,7 @@ and evaluate_call env frame mode location callee args call_modifiers =
       | BoundDeclaration ({type_expr=Some type_expr; _}, slot) ->
         let arg = List.nth args i in
         let arg = implicit_convert mode arg type_expr in
-        set_assignable_value (get_assignable callee_frame slot) (check_is_const_value arg)
+        set_assignable_value (get_assignable callee_frame slot) (check_is_const_value (ast_of arg))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params;
     (try
       evaluate_statement env callee_frame mode statement |> ignore;
@@ -749,13 +747,13 @@ and evaluate_call env frame mode location callee args call_modifiers =
 
   | _ ->
     (* TODO: Representing function types as Call nodes is confusing. *)
-    if is_const_type (ast_of callee) && List.for_all is_const_type args then
-      Const, (location, Call (ast_of callee, args, call_modifiers))
+    if is_const_type (ast_of callee) && List.for_all (fun arg -> is_const_type (ast_of arg)) args then
+      Const, (location, Call (ast_of callee, List.map ast_of args, call_modifiers))
     else
       raise error_type_mismatch
 
 and evaluate_tuple env frame mode location elements =
-  let elements = List.map (evaluate_expression_new env frame mode) elements in
+  let elements = List.map (evaluate_expression env frame mode) elements in
   if List.for_all (function Const, _ -> true | _ -> false) elements then
     Const, (location, Tuple (List.map (function _, const_value -> const_value) elements))
   else
@@ -769,7 +767,7 @@ and evaluate_dynamic_array env frame mode location elements element_type =
       (* TODO: we plan to allow empty array literals in some special cases where the element type is known, including initializers, the RHS of some assignments and function call arguments *)
       raise (Error "cannot infer type of empty array literal")
   end else begin
-    let elements = Array.map (evaluate_expression_new env frame mode) elements in
+    let elements = Array.map (evaluate_expression env frame mode) elements in
 
     let element_type = match element_type with
       | Some element_type -> element_type
@@ -785,7 +783,7 @@ and evaluate_dynamic_array env frame mode location elements element_type =
   end
 
 and evaluate_arity env frame _ location e =
-  match evaluate_expression_new env frame Evaluate_type e with
+  match evaluate_expression env frame Evaluate_type e with
   | _, (_, Tuple elements) -> Const, (location, IntLiteral (List.length elements))
   | _ -> Const, (location, IntLiteral 1)
   
@@ -827,7 +825,7 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
   evaluate_lambda_part2 env mode part1
 
 and evaluate_typeof env frame _ _ e =
-  Const, type_of_expression (representative_value_of (evaluate_expression_new env frame Evaluate_type e))
+  Const, type_of_expression (representative_value_of (evaluate_expression env frame Evaluate_type e))
 
 and evaluate_expression_statement env frame mode location statement =
   match mode with
@@ -864,7 +862,7 @@ and evaluate_declaration env frame mode location declaration slot =
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
     let type_expr = check_is_const_type (evaluate_const_value env frame type_expr) in
     set_assignable_value assignable (Uninitialized_of_type (Some type_expr));
-    let init_expr = ast_of (implicit_convert_new mode (evaluate_expression_new env frame mode init_expr) type_expr) in
+    let init_expr = ast_of (implicit_convert mode (evaluate_expression env frame mode init_expr) type_expr) in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
 
@@ -889,7 +887,7 @@ and evaluate_declaration env frame mode location declaration slot =
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
 
 and evaluate_if env frame mode location condition consequent alternative =
-  let condition = evaluate_expression_new env frame mode condition in
+  let condition = evaluate_expression env frame mode condition in
   match mode with
   | Fold_consts ->
     let consequent = evaluate_statement env frame mode consequent in
@@ -909,14 +907,14 @@ and evaluate_do_while env frame mode location body condition =
   match mode with
   | Fold_consts ->
     let body = evaluate_statement env frame mode body in
-    let condition = evaluate_expression_new env frame mode condition in
+    let condition = evaluate_expression env frame mode condition in
     (location, DoWhile (body, ast_of condition))
 
   | Evaluate_const ->
     let rec loop () =
       increment_loop_count ();
       evaluate_statement env frame mode body |> ignore;
-      match evaluate_expression_new env frame mode condition with
+      match evaluate_expression env frame mode condition with
       | _, (_, BoolLiteral true) -> loop ()
       | _, (_, BoolLiteral false) -> ()
       | _ -> raise error_type_mismatch in
@@ -926,32 +924,19 @@ and evaluate_do_while env frame mode location body condition =
   | Evaluate_type -> assert false
 
 and evaluate_return env frame mode _ e =
-  let e = implicit_convert_new mode (evaluate_expression_new env frame mode e) frame.return_type in
+  let e = implicit_convert mode (evaluate_expression env frame mode e) frame.return_type in
   match mode with
     | Fold_consts -> ast_of e
     | Evaluate_type -> assert false
     | Evaluate_const -> raise (Return_exn e)
 
 
-and implicit_convert_new mode (from_evaluation : evaluation) to_type : evaluation =
+and implicit_convert mode (from_evaluation : evaluation) to_type : evaluation =
   let from_type = type_of_expression (representative_value_of from_evaluation) in
   match to_type with
   | _, Type Type when is_const_type (ast_of from_evaluation) -> from_evaluation
   | _ when const_types_equal from_type to_type -> from_evaluation
   | _ -> if mode = Fold_consts then from_evaluation else raise error_type_mismatch
-
-(* TODO: remove when all usages refactored to new design *)
-and implicit_convert mode from_expression to_type =
-  match mode with
-  | Fold_consts -> from_expression (* just leave the node in place for a subsequent pass to actually do the implicit conversion *)
-  | Evaluate_type -> assert false; (* never actually called in this mode *)
-    (*representative_value_of_type (to_type_location, to_type)*) (* leave it to a subsequent pass to determine whether the conversion is valid *)
-  | Evaluate_const ->
-    let from_type = type_of_expression from_expression in
-    match to_type with
-    | _, Type Type when is_const_type from_expression -> from_expression
-    | _ when const_types_equal from_type to_type -> from_expression
-    | _ -> raise error_type_mismatch
 
 let const_evaluate_program (env : env) (frame : frame) (statement : statement) : statement =
   evaluate_statement env frame Fold_consts statement
