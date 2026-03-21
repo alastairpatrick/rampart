@@ -701,25 +701,20 @@ and evaluate_in env frame mode location a b =
 and evaluate_call env frame mode location callee args call_modifiers =
   if mode = Evaluate_const then increment_loop_count ();
   (* Consistent with other imperative languages, semantically, the callee is evaluated before any arguments. *)
+  let call_modifiers = { call_modifiers with pure = call_modifiers.pure || call_modifiers.const } in
+  let mode = if call_modifiers.const then Evaluate_const else mode in
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (fun arg -> evaluate_expression env frame mode arg) args in
-  let call_modifiers = { call_modifiers with pure = call_modifiers.pure || call_modifiers.const } in
   match mode, callee with
-  | Fold_consts, (_, (_, Lambda (return_type, _, lambda_modifiers, _,_))) ->
-    if call_modifiers.const then begin
-      if not lambda_modifiers.const then
-        raise (Error "cannot call non-const lambda at compile time");
-      let args = List.map (fun arg -> evaluate_const_value env frame (ast_of arg)) args in
-      Const, evaluate_const_value env frame (location, Call (ast_of callee, args, call_modifiers))
-    end else
-      Non_const (location, Call (ast_of callee, List.map ast_of args, call_modifiers)), representative_value_of_type return_type
+  | Fold_consts, (_, (_, Lambda (return_type, _, _, _,_))) ->
+    Non_const (location, Call (ast_of callee, List.map ast_of args, call_modifiers)), representative_value_of_type return_type
 
   | Evaluate_type, (_, (_, Lambda (return_type, _, _, _, _))) ->
     Const, representative_value_of_type return_type
 
   | Evaluate_const, (_, (_, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _))))) ->
     if not lambda_modifiers.const then
-      raise (error_invalid_operation "cannot call non-const lambda in a constant expression");
+      raise (Error "cannot call non-const lambda in a constant expression");
     let callee_frame = {
       depth = closure_frame.depth+1;
       enclosing_frame = Some closure_frame;

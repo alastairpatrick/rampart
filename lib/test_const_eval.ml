@@ -1264,7 +1264,7 @@ let%expect_test _ =
 
 let%expect_test _ =
   evaluate_declarations "type f() { return int; } f() x;";
-  [%expect {| Error: @1 invalid operation: cannot call non-const lambda in a constant expression |}]
+  [%expect {| Error: @1 cannot call non-const lambda in a constant expression |}]
 
 (* foo cannot recurse from within a declaration type. Test disabled because it currently hangs. *)
 (*let%expect_test _ =
@@ -1439,7 +1439,7 @@ let%expect_test _ =
 (* Const function cannot call non-const function *)
 let%expect_test _ =
   evaluate_declarations "type a() { return int; } type b() const { return a(); } b() x;";
-  [%expect{| Error: @1 invalid operation: cannot call non-const lambda in a constant expression |}]
+  [%expect{| Error: @1 cannot call non-const lambda in a constant expression |}]
 
 (* Nested const function captures caller's frame. The return value of 'foo' has function type and foo's closure escapes, when it returns 'bar', which refers to a nested lambda that captures 't'.*)
 let%expect_test _ =
@@ -1812,7 +1812,7 @@ let%expect_test _ =
              (Lambda (@1 (Type Int)) () ((pure) (const))
               (@1
                (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (IntLiteral 1)))))))))
-              (4))))))
+              (2))))))
          (1 0))))))
     |}]
 
@@ -2693,7 +2693,7 @@ let%expect_test _ =
 
 let%expect_test _ =
   evaluate_declarations "int f() pure { return 0; } let x = f() const;";
-  [%expect {| Error: @1 cannot call non-const lambda at compile time |}]
+  [%expect {| Error: @1 cannot call non-const lambda in a constant expression |}]
 
 let%expect_test _ =
   evaluate_declarations "int f(int n) const { return n; } mut int i; let x = f(i) const;";
