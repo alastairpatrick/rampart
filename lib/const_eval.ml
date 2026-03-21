@@ -179,7 +179,7 @@ and evaluate_order_independent env frame mode statements =
 and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location, statement): statement) : statement =
   try
     match statement with
-    | Expression expression -> (location, Expression (substitute_lambda_aliases (evaluate_expression env frame mode expression)))
+    | Expression expression -> (location, Expression (substitute_lambda_aliases (ast_of (evaluate_expression_new env frame mode expression))))
     | Compound statements -> (location, Compound (evaluate_statements env frame mode statements))
     | OrderIndependent statements -> (location, OrderIndependent (evaluate_order_independent env frame mode statements))
     | BoundDeclaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
@@ -191,7 +191,7 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
 
 (* Always enter Evaluate_const mode using this function or evaluate_const_protect. *)
 and evaluate_const_value env frame expression : expression =
-  evaluate_const_protect (fun () -> evaluate_expression env frame Evaluate_const expression)
+  evaluate_const_protect (fun () -> ast_of (evaluate_expression_new env frame Evaluate_const expression))
 
 and evaluate_const_protect f =
   evaluate_const_count := !evaluate_const_count + 1;
@@ -214,60 +214,29 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
+  | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
   | DynamicArray (elements, element_type) -> evaluate_dynamic_array env frame mode location elements element_type
+  | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | In (a, b) -> evaluate_in env frame mode location a b
   | Index (array, index) -> evaluate_index env frame mode location array index
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), closure) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement closure
+  | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
+  | Statement s -> evaluate_expression_statement env frame mode location s
   | Tuple elements -> evaluate_tuple env frame mode location elements
+  | TypeOf e -> evaluate_typeof env frame mode location e
   | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
-
-  | _ -> let result = evaluate_expression env frame mode (location, expression) in
-    (* This logic awkwardly makes an evaluation from returned expression. It will go away once all
-       expression evaluation has been incrementally moved to the new design. *)
-    if is_const_value result then
-      Const, result
-    else begin
-      assert (mode = Fold_consts); (* Both other modes would return a const value *)
-
-      (* Evaluating an expression with evaluate_expression in Fold_consts mode does not retain
-         the type. Evaluate a second time in Evaluate_type mode to get the type.
-         
-         We must be very careful because evaluate_expression_new and evaluate_expression are
-         mutually recursive. The case where an infinite recursion occurs is when there is an
-         AST node type that neither function handles. Reviewers: ensure that this remains true.
-         
-         The long term solution is to finish the refactor, which will eliminate this mutual
-         recursion. *)
-      (Non_const result), evaluate_expression env frame Evaluate_type (location, expression)
-    end
+  | _ -> raise (error_internal (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))))
   in
    match result with
     | (Non_const ast), _ when mode <> Fold_consts -> raise (error_internal (Printf.sprintf "unexpectedly returned a non-const evaluation %s" (Ast.show_expression ast)))
     | result -> result
 
-and evaluate_expression env frame mode ((location, expression): expression) : expression =
-  match expression with
-  | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
-  | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
-  | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
-  | TypeOf e -> evaluate_typeof env frame mode location e
-  | Statement s -> evaluate_expression_statement env frame mode location s
-  | _ ->
-    let result = evaluate_expression_new env frame mode (location, expression) in
-    (* This logic awkwardly makes an expression from an evaluation. It will go away once all
-       expression evaluation has been incrementally moved to the new design. *)
-    match mode, result with
-    | Fold_consts, _ -> ast_of result
-    | Evaluate_type, _ -> representative_value_of result
-    | Evaluate_const, (Const, const_value) -> const_value
-    | _ -> assert false (* Should not reach here in Evaluate_const mode because that mode egerly raises error_not_a_compile_time_constant rather than returning non-const. *)
-
-and evaluate_expression_opt env frame mode (expr_opt : expression option) : expression option =
+and evaluate_expression_opt env frame mode (expr_opt : expression option) : evaluation option =
   match expr_opt with
-  | Some expr -> Some (evaluate_expression env frame mode expr)
+  | Some expr -> Some (evaluate_expression_new env frame mode expr)
   | None -> None
 
 and substitute_lambda_aliases expression : expression =
@@ -580,14 +549,14 @@ and evaluate_fall_through env frame mode location a b =
           b)))))
     in
     (*print_endline (Printf.sprintf "lowered fall-through to: %s" (Ast.show_expression lowered));*)
-    evaluate_expression env frame mode lowered
+    evaluate_expression_new env frame mode lowered
         
   | _ -> raise (Error "left hand side of a fall-through is not a pattern match expression")
   end
   
 
 and evaluate_match env frame mode location pattern value condition body temp_slot =
-  evaluate_expression env frame mode (location, Fall_through ((location, Match (pattern, value, condition, body, temp_slot)), (location, Tuple [])))
+  evaluate_expression_new env frame mode (location, Fall_through ((location, Match (pattern, value, condition, body, temp_slot)), (location, Tuple [])))
 
   
 and evaluate_assignment env frame mode location a b =
@@ -858,12 +827,12 @@ and evaluate_lambda env frame mode location return_type params modifiers body_lo
   evaluate_lambda_part2 env mode part1
 
 and evaluate_typeof env frame _ _ e =
-  type_of_expression (evaluate_expression env frame Evaluate_type e)
+  Const, type_of_expression (representative_value_of (evaluate_expression_new env frame Evaluate_type e))
 
 and evaluate_expression_statement env frame mode location statement =
   match mode with
-  | Fold_consts -> (location, Statement (evaluate_statement env frame mode statement))
-  | Evaluate_const -> evaluate_statement env frame mode statement |> ignore; (location, Tuple [])
+  | Fold_consts -> Non_const (location, Statement (evaluate_statement env frame mode statement)), (location, Tuple [])
+  | Evaluate_const -> evaluate_statement env frame mode statement |> ignore; Const, (location, Tuple [])
   | Evaluate_type -> assert false
 
 and set_lambda_aliases (location, const_value) ast_alias =
@@ -920,17 +889,17 @@ and evaluate_declaration env frame mode location declaration slot =
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
 
 and evaluate_if env frame mode location condition consequent alternative =
-  let condition = evaluate_expression env frame mode condition in
+  let condition = evaluate_expression_new env frame mode condition in
   match mode with
   | Fold_consts ->
     let consequent = evaluate_statement env frame mode consequent in
     let alternative = evaluate_statement env frame mode alternative in
-    (location, If (condition, consequent, alternative))
+    (location, If (ast_of condition, consequent, alternative))
 
   | Evaluate_const ->
     begin match condition with
-    | _, BoolLiteral true -> evaluate_statement env frame mode consequent
-    | _, BoolLiteral false -> evaluate_statement env frame mode alternative
+    | _, (_, BoolLiteral true) -> evaluate_statement env frame mode consequent
+    | _, (_, BoolLiteral false) -> evaluate_statement env frame mode alternative
     | _ -> raise error_type_mismatch
     end
 
@@ -940,16 +909,16 @@ and evaluate_do_while env frame mode location body condition =
   match mode with
   | Fold_consts ->
     let body = evaluate_statement env frame mode body in
-    let condition = evaluate_expression env frame mode condition in
-    (location, DoWhile (body, condition))
+    let condition = evaluate_expression_new env frame mode condition in
+    (location, DoWhile (body, ast_of condition))
 
   | Evaluate_const ->
     let rec loop () =
       increment_loop_count ();
       evaluate_statement env frame mode body |> ignore;
-      match evaluate_expression env frame mode condition with
-      | _, BoolLiteral true -> loop ()
-      | _, BoolLiteral false -> ()
+      match evaluate_expression_new env frame mode condition with
+      | _, (_, BoolLiteral true) -> loop ()
+      | _, (_, BoolLiteral false) -> ()
       | _ -> raise error_type_mismatch in
     loop ();
     (location, DoWhile (body, condition))
