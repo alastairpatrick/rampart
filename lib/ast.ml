@@ -43,8 +43,9 @@ and pattern =
 and ast_type =
   | Int
   | Bool
-  | Void
+  | Function of (* return_type: *) expression * (* param_types: *) expression list * (* modifiers: *) lambda_modifiers
   | Type
+  | Void
 
 and lambda_modifiers = {
   pure: bool [@sexp.bool];

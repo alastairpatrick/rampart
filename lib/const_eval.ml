@@ -738,9 +738,9 @@ and evaluate_call env frame mode location callee args call_modifiers =
   | _, (_, (_, Lambda _)) -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression (ast_of callee))))
 
   | _ ->
-    (* TODO: Representing function types as Call nodes is confusing. *)
     if is_const_type (ast_of callee) && List.for_all (fun arg -> is_const_type (ast_of arg)) args then
-      Const, (location, Call (ast_of callee, List.map ast_of args, call_modifiers))
+      (* Function types are represented syntactically as call expressions. This is where they are converted into an explicit function type. *)
+      Const, (location, Type (Function (ast_of callee, List.map ast_of args, call_modifiers)))
     else
       raise error_type_mismatch
 
