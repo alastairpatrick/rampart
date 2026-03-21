@@ -217,6 +217,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
   | In (a, b) -> evaluate_in env frame mode location a b
   | Index (array, index) -> evaluate_index env frame mode location array index
+  | Tuple elements -> evaluate_tuple env frame mode location elements
   | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
 
   | _ -> let result = evaluate_expression env frame mode (location, expression) in
@@ -248,7 +249,6 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
-  | Tuple elements -> evaluate_tuple env frame mode location elements
   | Arity e -> evaluate_arity env frame mode location e
   | DynamicArray (elements, element_type) -> evaluate_dynamic_array_literal env frame mode location elements element_type
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), closure) ->
@@ -786,8 +786,12 @@ and evaluate_call env frame mode location callee args call_modifiers =
       raise error_type_mismatch
 
 and evaluate_tuple env frame mode location elements =
-  (location, Tuple (List.map (evaluate_expression env frame mode) elements))
-  
+  let elements = List.map (evaluate_expression_new env frame mode) elements in
+  if List.for_all (function Const, _ -> true | _ -> false) elements then
+    Const, (location, Tuple (List.map (function _, const_value -> const_value) elements))
+  else
+    Non_const (location, Tuple (List.map ast_of elements)), (location, Tuple (List.map representative_value_of elements))
+
 and evaluate_dynamic_array_literal env frame mode location elements element_type : expression =
   if Array.length elements = 0 then begin
     match element_type with
