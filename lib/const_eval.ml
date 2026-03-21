@@ -215,6 +215,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
+  | DynamicArray (elements, element_type) -> evaluate_dynamic_array env frame mode location elements element_type
   | In (a, b) -> evaluate_in env frame mode location a b
   | Index (array, index) -> evaluate_index env frame mode location array index
   | Tuple elements -> evaluate_tuple env frame mode location elements
@@ -250,7 +251,6 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
   | Arity e -> evaluate_arity env frame mode location e
-  | DynamicArray (elements, element_type) -> evaluate_dynamic_array_literal env frame mode location elements element_type
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), closure) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement closure
   | TypeOf e -> evaluate_typeof env frame mode location e
@@ -792,28 +792,27 @@ and evaluate_tuple env frame mode location elements =
   else
     Non_const (location, Tuple (List.map ast_of elements)), (location, Tuple (List.map representative_value_of elements))
 
-and evaluate_dynamic_array_literal env frame mode location elements element_type : expression =
+and evaluate_dynamic_array env frame mode location elements element_type =
   if Array.length elements = 0 then begin
     match element_type with
-    | Some _ -> (location, DynamicArray (elements, element_type))
+    | Some _ -> Const, (location, DynamicArray (elements, element_type))
     | _ ->
       (* TODO: we plan to allow empty array literals in some special cases where the element type is known, including initializers, the RHS of some assignments and function call arguments *)
       raise (Error "cannot infer type of empty array literal")
   end else begin
-    let elements = Array.map (evaluate_expression env frame mode) elements in
+    let elements = Array.map (evaluate_expression_new env frame mode) elements in
 
-    (* Fold_consts is responsible for checking all the elements are the same type iff
-      it is necessary to do so the for constant folding, i.e. if the resulting array literal will be
-      considered a constant value. *)
-    if mode <> Fold_consts || Array.for_all is_const_value elements then begin
-      let element_type = match element_type with
+    let element_type = match element_type with
       | Some element_type -> element_type
-      | _ -> type_of_expression elements.(0) in
-      if Array.exists (fun e -> not (const_types_equal (type_of_expression e) element_type)) elements then
-        raise error_type_mismatch;
-      (location, DynamicArray (elements, Some element_type))
-    end else
-      (location, DynamicArray (elements, element_type))
+      | _ -> type_of_expression (representative_value_of elements.(0)) in
+    if Array.exists (fun e -> not (const_types_equal (type_of_expression (representative_value_of e)) element_type)) elements then
+      raise error_type_mismatch;
+
+    if Array.for_all (function Const, _ -> true | _ -> false) elements then
+      Const, (location, DynamicArray (Array.map ast_of elements, Some element_type))
+    else
+      Non_const (location, DynamicArray (Array.map ast_of elements, Some element_type)),
+                (location, DynamicArray (Array.map representative_value_of elements, Some element_type))
   end
 
 and evaluate_arity env frame mode location e =
