@@ -41,6 +41,7 @@ and pattern =
   | Identifier of string
 
 and ast_type =
+  | DynamicArray of (* elemnt_type: *) expression
   | Int
   | Bool
   | Function of (* return_type: *) expression * (* param_types: *) expression list * (* modifiers: *) lambda_modifiers

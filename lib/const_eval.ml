@@ -296,7 +296,10 @@ and evaluate_index env frame mode location indexable index =
   let indexable = evaluate_expression env frame mode indexable in
 
   match index with
-  | None when is_const_type (ast_of indexable) -> Const, (location, Index (ast_of indexable, None))
+  | None when is_const_type (ast_of indexable) ->
+    (* Syntactically, dynamic array types are represented as index operations. This is where we
+       convert those to an explicit type representation. *)
+    Const, (location, Type (DynamicArray (ast_of indexable)))
   | None -> raise (Error "expected an index sub-expression")
   | Some index ->
     match indexable with

@@ -1995,11 +1995,13 @@ let%expect_test _ =
           (type_expr
            ((@1
              (Type
-              (Function (@1 (Index (@1 (Type Int)) ())) () ((pure) (const)))))))
+              (Function (@1 (Type (DynamicArray (@1 (Type Int))))) ()
+               ((pure) (const)))))))
           (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Index (@1 (Type Int)) ())) () ((pure) (const))
+             (Lambda (@1 (Type (DynamicArray (@1 (Type Int))))) ()
+              ((pure) (const))
               (@1
                (BoundFrame 1
                 (@1
@@ -2008,10 +2010,15 @@ let%expect_test _ =
                     (BoundDeclaration
                      ((modifiers ((mut)))
                       (type_expr
-                       ((@1 (Index (@1 (Index (@1 (Type Int)) ())) ()))))
+                       ((@1
+                         (Type
+                          (DynamicArray
+                           (@1 (Type (DynamicArray (@1 (Type Int))))))))))
                       (name a)
                       (init_expr
-                       ((@1 (DynamicArray () ((@1 (Index (@1 (Type Int)) ()))))))))
+                       ((@1
+                         (DynamicArray ()
+                          ((@1 (Type (DynamicArray (@1 (Type Int)))))))))))
                      (0 1)))
                    (@1
                     (Expression
@@ -2027,7 +2034,7 @@ let%expect_test _ =
                            (DynamicArray
                             ((@1 (IntLiteral 0)) (@1 (IntLiteral 0)))
                             ((@1 (Type Int))))))
-                         ((@1 (Index (@1 (Type Int)) ())))))))))
+                         ((@1 (Type (DynamicArray (@1 (Type Int))))))))))))
                    (@1
                     (Expression
                      (@1
@@ -2170,7 +2177,8 @@ let%expect_test _ =
                   ((@1
                     (BoundDeclaration
                      ((modifiers ((mut)))
-                      (type_expr ((@1 (Index (@1 (Type Int)) ())))) (name a)
+                      (type_expr ((@1 (Type (DynamicArray (@1 (Type Int)))))))
+                      (name a)
                       (init_expr
                        ((@1
                          (DynamicArray ((@1 (IntLiteral 0))) ((@1 (Type Int))))))))
@@ -2220,7 +2228,8 @@ let%expect_test _ =
                   ((@1
                     (BoundDeclaration
                      ((modifiers ((mut)))
-                      (type_expr ((@1 (Index (@1 (Type Int)) ())))) (name a)
+                      (type_expr ((@1 (Type (DynamicArray (@1 (Type Int)))))))
+                      (name a)
                       (init_expr
                        ((@1
                          (DynamicArray ((@1 (IntLiteral 0))) ((@1 (Type Int))))))))
@@ -2265,8 +2274,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Index (@1 (Type Int)) ()))))
-          (name a)
+         ((modifiers ((mut)))
+          (type_expr ((@1 (Type (DynamicArray (@1 (Type Int))))))) (name a)
           (init_expr
            ((@1 (DynamicArray ((@1 (IntLiteral 0))) ((@1 (Type Int))))))))
          (0 0)))
@@ -2328,7 +2337,7 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Index (@1 (Type Int)) ())))))
+          (init_expr ((@1 (Type (DynamicArray (@1 (Type Int))))))))
          (0 0))))))
     |}]
 
@@ -2384,13 +2393,13 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Index (@1 (Type Int)) ())))) (name a)
-          (init_expr ((@1 (DynamicArray () ((@1 (Type Int))))))))
+         ((modifiers ()) (type_expr ((@1 (Type (DynamicArray (@1 (Type Int)))))))
+          (name a) (init_expr ((@1 (DynamicArray () ((@1 (Type Int))))))))
          (0 0)))
        (@1
         (BoundDeclaration
          ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Index (@1 (Type Int)) ())))))
+          (init_expr ((@1 (Type (DynamicArray (@1 (Type Int))))))))
          (1 0))))))
     |}]
 
