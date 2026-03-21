@@ -190,8 +190,8 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
   with Error message -> raise (Located_error (location, message))
 
 (* Always enter Evaluate_const mode using this function or evaluate_const_protect. *)
-and evaluate_const_value env frame expression : expression =
-  evaluate_const_protect (fun () -> ast_of (evaluate_expression env frame Evaluate_const expression))
+and evaluate_const_value env frame expression : evaluation =
+  evaluate_const_protect (fun () -> evaluate_expression env frame Evaluate_const expression)
 
 and evaluate_const_protect f =
   evaluate_const_count := !evaluate_const_count + 1;
@@ -333,7 +333,7 @@ and evaluate_index env frame mode location indexable index =
     | _, (_, Tuple elements) ->
       let index = evaluate_const_value env frame index in
       begin match index with
-      | _, IntLiteral i ->
+      | _, (_, IntLiteral i) ->
         let element = try
           List.nth elements i
         with
@@ -341,7 +341,7 @@ and evaluate_index env frame mode location indexable index =
         | Failure _ -> raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i)) in
         begin match indexable with
         | Const, _ -> Const, element
-        | Non_const _, _ -> (Non_const (location, Index (ast_of indexable, Some index))),
+        | Non_const _, _ -> (Non_const (location, Index (ast_of indexable, Some (ast_of index)))),
                                        element
         end
       | _ -> raise error_type_mismatch
@@ -619,7 +619,7 @@ and evaluate_assignment env frame mode location a b =
       let { evaluation = indexable; set_value } = assign indexable b in
       let index, a_representative = match indexable with
       | _, (_, Tuple indexable_elements) ->
-        let index = (Const, (evaluate_const_value env frame index)) in
+        let index = (evaluate_const_value env frame index) in
         begin match index with
         | _, (_, IntLiteral i) -> index, nth_list_element_or_error indexable_elements i
         | _ -> raise error_type_mismatch
@@ -803,10 +803,10 @@ and evaluate_lambda_part2 env mode part1 =
       pure = modifiers.pure;
       const = modifiers.const
     } in
-    let return_type = check_is_const_type (evaluate_const_value env frame return_type) in
+    let return_type = check_is_const_type (ast_of (evaluate_const_value env frame return_type)) in
     let params = List.map (fun (location, param) -> match param with
       | BoundDeclaration ({init_expr=init_expr; type_expr=Some type_expr; name=name; modifiers=modifiers}, slot) ->
-        let type_expr = check_is_const_type (evaluate_const_value env frame type_expr) in
+        let type_expr = check_is_const_type (ast_of (evaluate_const_value env frame type_expr)) in
         set_assignable_value (get_assignable lambda_frame slot) (Non_const_of_type type_expr);
         (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
@@ -856,14 +856,14 @@ and evaluate_declaration env frame mode location declaration slot =
       
   match declaration with
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
-    let type_expr = check_is_const_type (evaluate_const_value env frame type_expr) in
+    let type_expr = check_is_const_type (ast_of (evaluate_const_value env frame type_expr)) in
     set_assignable_value assignable (Uninitialized_of_type (Some type_expr));
     let init_expr = ast_of (implicit_convert mode (evaluate_expression env frame mode init_expr) type_expr) in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
 
   | { type_expr=Some type_expr; init_expr=None; _} ->
-    let type_expr = check_is_const_type (evaluate_const_value env frame type_expr) in
+    let type_expr = check_is_const_type (ast_of (evaluate_const_value env frame type_expr)) in
     let init_expr = default_value type_expr in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
