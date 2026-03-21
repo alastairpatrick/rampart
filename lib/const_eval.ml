@@ -213,6 +213,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
+  | In (a, b) -> evaluate_in env frame mode location a b
   | Index (array, index) -> evaluate_index env frame mode location array index
   | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
 
@@ -245,7 +246,6 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
-  | In (a, b) -> evaluate_in env frame mode location a b
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Tuple elements -> evaluate_tuple env frame mode location elements
   | Arity e -> evaluate_arity env frame mode location e
@@ -723,10 +723,10 @@ and evaluate_assignment env frame mode location a b =
     Const, ast_of b
 
 and evaluate_in env frame mode location a b =
-  let a = evaluate_expression env frame mode a in
-  let b = evaluate_expression env frame mode b in
+  let a = evaluate_expression_new env frame mode a in
+  let b = evaluate_expression_new env frame mode b in
   match mode with
-  | Fold_consts -> (location, In (a, b))
+  | Fold_consts -> Non_const (location, In (ast_of a, ast_of b)), representative_value_of b
   | Evaluate_type
   | Evaluate_const -> b
 
