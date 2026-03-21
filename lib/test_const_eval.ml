@@ -2107,7 +2107,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  evaluate_declarations "int[] f() const { mut int[][] a; a = [[0, 0], [0, 0]]; a[0][1] = 1; return a[0]; } let x = f() const;";
+  evaluate_declarations "int[] f() const { mut int[][] a; a = [[0, 0], [0, 0]]; a[0][1] = 2; return a[0]; } let x = f() const;";
   [%expect{|
     (@1
      (OrderIndependent
@@ -2158,7 +2158,7 @@ let%expect_test _ =
                           (Index (@1 (BoundIdentifier a (0 1)))
                            ((@1 (IntLiteral 0)))))
                          ((@1 (IntLiteral 1)))))
-                       (@1 (IntLiteral 1))))))
+                       (@1 (IntLiteral 2))))))
                    (@1
                     (Return
                      (@1
@@ -2171,7 +2171,7 @@ let%expect_test _ =
          (@1
           (Assignment (@1 (BoundLet (Identifier x) (1 0)))
            (@1
-            (DynamicArray ((@1 (IntLiteral 0)) (@1 (IntLiteral 1)))
+            (DynamicArray ((@1 (IntLiteral 0)) (@1 (IntLiteral 2)))
              ((@1 (Type Int))))))))))))
     |}]
 
@@ -2368,7 +2368,7 @@ let%expect_test _ =
   [%expect{| Error: @1 cannot assign to immutable variable 'a' |}]
 
 let%expect_test _ =
-  evaluate_declarations "int f() const { let a = (1, 2); a[true] = 3; return a[0]; } let x = f() const;";
+  evaluate_declarations "int f() const { mut (int, int) a = (1, 2); a[true] = 3; return a[0]; } let x = f() const;";
   [%expect{| Error: @1 type mismatch |}]
 
 let%expect_test _ =

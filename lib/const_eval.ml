@@ -65,6 +65,23 @@ let representative_value_of (evaluation : evaluation) : expression =
   | Const, const_value -> const_value
   | Non_const _, representative_value -> representative_value
 
+type assignable_evaluation = {
+  evaluation: evaluation;             (* The evaluated LHS expression *)
+  set_value: evaluation -> unit;      (* Calling this function reassigns the LHS with the given value *)
+}
+
+let null_set_value = fun _ -> ()
+
+let null_assignable_evaluation evaluation = {
+  evaluation = evaluation;
+  set_value = null_set_value;
+}
+
+let make_assignable_evaluation evaluation set_value = {
+  evaluation = evaluation;
+  set_value = set_value;
+}
+
 (* Conservative count of loop iterations. Currently counts all calls as potential iterations. *)
 let loop_count = ref 0
 let evaluate_const_count = ref 0
@@ -106,6 +123,17 @@ let check_is_const_value (expression : expression) : value =
   end else
     raise (error_internal (Printf.sprintf "expected const value, got: %s" (Ast.show_expression expression)))
 
+let nth_list_element_or_error lst n =
+  if n >= 0 && n < List.length lst then
+    List.nth lst n
+  else
+    raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" n))
+
+let nth_array_element_or_error arr n =
+  if n >= 0 && n < Array.length arr then
+    arr.(n)
+  else
+    raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" n))
 
 let rec evaluate_statements env frame mode (statements : statement list) : statement list =
   List.map (evaluate_statement env frame mode) statements
@@ -181,6 +209,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
   | BoolLiteral _
   | Type _ -> Const, (location, expression)
 
+  | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
@@ -216,7 +245,6 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
-  | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | In (a, b) -> evaluate_in env frame mode location a b
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Tuple elements -> evaluate_tuple env frame mode location elements
@@ -560,144 +588,124 @@ and evaluate_fall_through env frame mode location a b =
 and evaluate_match env frame mode location pattern value condition body temp_slot =
   evaluate_expression env frame mode (location, Fall_through ((location, Match (pattern, value, condition, body, temp_slot)), (location, Tuple [])))
 
+  
 and evaluate_assignment env frame mode location a b =
-  let b = evaluate_expression env frame mode b in
+  let rec assign (a : expression) (b : evaluation) : assignable_evaluation =
+    let set_assignable_from_evaluated (assignable : assignable) (new_value : evaluation) =
+      set_assignable_value assignable (check_is_const_value (ast_of new_value)) in
 
-  let rec get_indexed_element (container : expression) (indices : int list) : expression =
-    match indices with
-    | [] -> container
-    | i :: rest ->
-      match container with
-      | _, DynamicArray (elements, Some _) ->
-        if i < 0 || i >= Array.length elements then
-          raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i));
-        get_indexed_element elements.(i) rest
-      | _, Tuple elements ->
-        (try
-          let element = List.nth elements i in
-          get_indexed_element element rest
-        with
-        | Invalid_argument _
-        | Failure _ -> raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i)))
-      | _ -> raise error_type_mismatch
-
-  and set_indexed_element (container : expression) (indices : int list) (new_value : expression) : expression =
-    match indices with
-    | [] -> new_value
-    | i :: rest ->
-      match container with
-      | _, DynamicArray (elements, Some element_type) ->
-        if i < 0 || i >= Array.length elements then
-          raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i));
-        let updated = set_indexed_element elements.(i) rest new_value in
-        let elements = Array.copy elements in
-        elements.(i) <- updated;
-        (location, DynamicArray (elements, Some element_type))
-      | _, Tuple elements ->
-        let len = List.length elements in
-        if i < 0 || i >= len then
-          raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i));
-        let elements =
-          List.mapi (fun j e -> if j = i then set_indexed_element e rest new_value else e) elements in
-        (location, Tuple elements)
-      | _ -> raise error_type_mismatch
-
-  and type_after_indices (const_type : expression) (indices : int list) : expression =
-    match indices with
-    | [] -> const_type
-    | i :: rest ->
-      match const_type with
-      | _, Index (element_type, None) -> type_after_indices element_type rest
-      | _, Tuple elements ->
-        (try
-          let element = List.nth elements i in
-          type_after_indices element rest
-        with
-        | Invalid_argument _
-        | Failure _ -> raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i)))
-      | _ -> raise error_type_mismatch
-
-  and assign (indices : int list) (a : expression) (b : expression) : expression =
     match a, b with
     | (_, BoundIdentifier (display_name, slot)), _ ->
+        
       let assignable = get_assignable frame slot in
-      let value = get_assignable_value assignable in
-      begin match mode, value with
-      | Fold_consts, _ -> a
+      let current_value = get_assignable_value assignable in
 
-      | Evaluate_type, Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
-      | Evaluate_type, Uninitialized_of_type (Some const_type)
-      | Evaluate_type, Non_const_of_type const_type ->
-        representative_value_of_type (type_after_indices const_type indices)
-      | Evaluate_type, Const_of_value const_value ->
-        get_indexed_element const_value indices
-
+      begin match mode, current_value with
       | Evaluate_const, Uninitialized_of_type _ -> raise (Saw_uninitialized display_name) (* Raising this leaves the local frame unreachable so any side effects so far don't matter *)
       | Evaluate_const, Non_const_of_type _ -> raise (error_cannot_access_mutable_captured_variable_from_pure_context display_name)
       | Evaluate_const, Const_of_value current ->
         if not slot.mut then
           raise (error_immutable_assignment display_name);
-        let element_type = type_of_expression (get_indexed_element current indices) in
-        let b = implicit_convert mode b element_type in
-        let updated = set_indexed_element current indices b in
-        set_assignable_value assignable (check_is_const_value updated);
-        b (* The result should be the RHS, implicitly converted to the same type as the LHS *)
+        make_assignable_evaluation (Const, current) (set_assignable_from_evaluated assignable)
+
+      | _, Uninitialized_of_type None -> raise (Saw_uninitialized display_name)
+      | _, Uninitialized_of_type (Some const_type) (* TODO: perhaps this case should raise Saw_uninitialized, so an identifier cannot be assigned before it is later(!) initialized? *)
+      | _, Non_const_of_type const_type ->
+        null_assignable_evaluation ((if mode = Fold_consts then Non_const a else Const), representative_value_of_type const_type)
+      | _, Const_of_value const_value ->
+        null_assignable_evaluation ((if mode = Fold_consts then Non_const a else Const), const_value)
       end
 
     | (_, BoundLet (pattern, slot)), _ ->
+      (* This goes quite differently from BoundIdentifier because assignment of BoundLet is also initialization *)
       if is_slot_bindable slot then begin
         let assignable = get_assignable frame slot in
-        if mode = Fold_consts then begin
-          if is_const_value b then begin
-            let b = match pattern with
-            | Identifier name -> set_lambda_aliases b (location, BoundIdentifier (name, slot))
-            | _ -> set_lambda_aliases b (location, BoundIdentifier ("_", slot)) in
-            set_assignable_value assignable (check_is_const_value b)
-          end else begin
-            set_assignable_value assignable (Non_const_of_type (type_of_expression (evaluate_expression env frame Evaluate_type b)))
-          end
-        end else begin
-          (* This goes quite a bit differently than for BoundIdentifier. The main reason is because the assignment of a BoundLet _is_ it's initialization,
-            whereas, BoundIdentifiers are always initialized before any reassignment. *)
-          set_assignable_value assignable (check_is_const_value b);
-        end
+        match b with
+        | Const, new_value ->
+            let new_value = if mode <> Fold_consts then new_value else match pattern with
+            | Identifier name -> set_lambda_aliases new_value (location, BoundIdentifier (name, slot))
+            | _ -> set_lambda_aliases new_value (location, BoundIdentifier ("_", slot)) in
+            set_assignable_value assignable (check_is_const_value (new_value))
+        | Non_const _, rep ->
+          set_assignable_value assignable (Non_const_of_type (type_of_expression (rep)))
       end;
-      if mode = Fold_consts then
-        location, BoundLet (pattern, slot)
-      else
-        (* The result should be the RHS, implicitly converted to the same type as the LHS, but the type of the LHS is inferred from the RHS in this case *)
-        b
+      null_assignable_evaluation ((if mode = Fold_consts then Non_const a else Const), representative_value_of b)
 
     | (_, Index (indexable, Some index)), _ ->
-      let index = match evaluate_expression env frame Evaluate_type indexable with
-        | _, Tuple _ -> evaluate_const_value env frame index
-        | _, DynamicArray _ -> evaluate_expression env frame mode index
-        | _ -> raise error_type_mismatch in
-      if mode = Fold_consts then
-        location, Index (assign [] indexable b, Some index)
-      else begin
-        let index = match index with
-          | _, IntLiteral i -> i
-          | _ -> raise error_type_mismatch in
-        assign (index::indices) indexable b
-      end
-    | (_, Tuple froms), (_, Tuple tos) ->
-      (try
-        (location, Tuple (List.map2 (assign [])  froms tos))
-      with Invalid_argument _ -> raise error_type_mismatch)
+      let { evaluation = indexable; set_value } = assign indexable b in
+      let index, a_representative = match indexable with
+      | _, (_, Tuple indexable_elements) ->
+        let index = (Const, (evaluate_const_value env frame index)) in
+        begin match index with
+        | _, (_, IntLiteral i) -> index, nth_list_element_or_error indexable_elements i
+        | _ -> raise error_type_mismatch
+        end
+      | _, (_, DynamicArray (array_elements, Some element_type)) ->
+        let index = evaluate_expression_new env frame mode index in
+        begin match mode, index with
+        | Evaluate_const, (Const, (_, IntLiteral i)) ->
+          index, (nth_array_element_or_error array_elements i)
+        | _ -> index, representative_value_of_type element_type
+        end
+      | _ -> raise error_type_mismatch in
 
-    | (_, Tuple froms), _ ->
-      if mode = Fold_consts then
-        location, Tuple (List.mapi (fun i from_element -> assign [] from_element (location, Index (b, Some (location, IntLiteral i)))) froms)
-      else
-        raise error_type_mismatch
+      let set_index_value (new_value : evaluation) : unit =
+        begin match indexable with
+        | Const, (_, Tuple elements) ->
+          begin match index with
+          | _, (_, IntLiteral i) ->
+            if i < 0 || i >= (List.length elements) then
+              raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i));
+            let elements =
+              List.mapi (fun j e -> if j = i then ast_of new_value else e) elements in
+            set_value (Const, (location, Tuple elements))
+          | _ -> raise error_type_mismatch
+          end
 
-    | _ -> raise (error_internal (Printf.sprintf "assignment target not implemented: %s" (Ast.show_expression a))) in
+        | Const, (_, DynamicArray (elements, element_type)) ->
+          begin match index with
+          | _, (_, IntLiteral i) ->
+            if i < 0 || i >= Array.length elements then
+              raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i));
+            let elements = Array.copy elements in
+            elements.(i) <- ast_of new_value;
+            set_value (Const, (location, DynamicArray (elements, element_type)))
+          | _ -> raise error_type_mismatch
+          end
 
+        | _ -> raise error_type_mismatch
+        end
+      in
+
+      let a = location, Index (ast_of indexable, Some (ast_of index)) in
+      make_assignable_evaluation ((if mode = Fold_consts then Non_const a else Const), a_representative) set_index_value
+
+    | (location, Tuple a_elements), (ast, (_, Tuple b_elements)) ->
+      let evaluations = (try
+        List.map2 (fun a_element b_element -> assign a_element (ast, b_element)) a_elements b_elements
+      with Invalid_argument _ -> raise error_type_mismatch) in
+      let set_tuple_value (new_value : evaluation) : unit =
+        match new_value with
+        | _, (_, Tuple new_elements) ->
+          List.iter2 (fun evaluation new_element -> evaluation.set_value (Const, new_element)) evaluations new_elements
+        | _ -> raise error_type_mismatch
+      in
+      let a_representative = location, Tuple (List.map (fun evaluation -> representative_value_of evaluation.evaluation) evaluations) in
+      make_assignable_evaluation ((if mode = Fold_consts then Non_const a else Const), a_representative) set_tuple_value
+
+    | (_, Tuple _), _ -> raise error_type_mismatch
+
+    | _ -> raise error_type_mismatch in
+
+  let b = evaluate_expression_new env frame mode b in
+  let { evaluation=a; set_value } = assign a b in
+  let a_representative = representative_value_of a in
+  let b = implicit_convert_new mode b (type_of_expression a_representative) in
+  if mode = Evaluate_const then set_value b;
   if mode = Fold_consts then
-    (location, Assignment ((assign [] a b), b))
+    Non_const (location, Assignment (ast_of a, ast_of b)), a_representative
   else
-    assign [] a b
+    Const, ast_of b
 
 and evaluate_in env frame mode location a b =
   let a = evaluate_expression env frame mode a in
@@ -948,6 +956,14 @@ and evaluate_return env frame mode _ e =
     | Evaluate_const -> raise (Return_exn e)
 
 
+and implicit_convert_new mode (from_evaluation : evaluation) to_type : evaluation =
+  let from_type = type_of_expression (representative_value_of from_evaluation) in
+  match to_type with
+  | _, Type Type when is_const_type (ast_of from_evaluation) -> from_evaluation
+  | _ when const_types_equal from_type to_type -> from_evaluation
+  | _ -> if mode = Fold_consts then from_evaluation else raise error_type_mismatch
+
+(* TODO: remove when all usages refactored to new design *)
 and implicit_convert mode from_expression to_type =
   match mode with
   | Fold_consts -> from_expression (* just leave the node in place for a subsequent pass to actually do the implicit conversion *)
