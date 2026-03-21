@@ -590,6 +590,21 @@ and evaluate_match env frame mode location pattern value condition body temp_slo
 
   
 and evaluate_assignment env frame mode location a b =
+  (* Parameters:
+     'a': the AST of the left-hand side of the assignment
+     'b': the evaluated RHS of the assignment, an AST in Fold_consts mode or a constant value in other modes
+     
+     In Evaluate_const mode, returns the value of the LHS prior to assignment, as a constant value.
+     In Evaluate_type mode, returns a representative value of the type of the HS.
+     In Fold_consts mode, returns the AST for the LHS of the assignment.
+     
+     Also returns a function, which takes the new value as parameter. In Evaluate_const mode only, it performs
+     the assignment.
+     
+     Take special care with the 'b' parameter. Its only purpose is to provide initializers for BoundLet and to
+     infer the type of BoundLets. It should only be used in that context and on the right hand side of a
+     recursive call to 'assign'.
+     *)
   let rec assign (a : expression) (b : evaluation) : assignable_evaluation =
     let set_assignable_from_evaluated (assignable : assignable) (new_value : evaluation) =
       set_assignable_value assignable (check_is_const_value (ast_of new_value)) in
