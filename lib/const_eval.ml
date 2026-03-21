@@ -287,10 +287,9 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
     Const, const_value
   | Non_const_of_type typ ->
     match mode with
-    | Fold_consts -> Non_const (location, BoundIdentifier (display_name, {index; depth; mut})),
-                                          representative_value_of_type typ
-    | Evaluate_type -> Const, representative_value_of_type typ (* This might look strange, but all representative values are const values *)
     | Evaluate_const -> raise (error_not_a_compile_time_constant display_name)
+    | _ -> (if mode = Evaluate_type then Const else Non_const (location, BoundIdentifier (display_name, {index; depth; mut}))),
+                     representative_value_of_type typ
   end
 
 and evaluate_index env frame mode location indexable index =
@@ -421,10 +420,9 @@ and evaluate_binary_op env frame mode location op a b =
   | Modulo, (_, (_, IntLiteral num)), (_, (_, IntLiteral denom)) ->
     if denom = 0 then begin
       match mode with
-      | Fold_consts -> Non_const (location, BinaryOp (op, ast_of a, ast_of b)),
-                                   representative_value_of_type (location, Type Int)
-      | Evaluate_type -> Const, representative_value_of_type (location, Type Int)
       | Evaluate_const -> raise (error_invalid_operation "division by zero")
+      | _ -> (if mode = Evaluate_type then Const else Non_const (location, BinaryOp (op, ast_of a, ast_of b))),
+                                   representative_value_of_type (location, Type Int)
     end else
       result_ast, (location, IntLiteral (if op = Div then num / denom else num mod denom))
 
@@ -706,12 +704,6 @@ and evaluate_call env frame mode location callee args call_modifiers =
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (fun arg -> evaluate_expression env frame mode arg) args in
   match mode, callee with
-  | Fold_consts, (_, (_, Lambda (return_type, _, _, _,_))) ->
-    Non_const (location, Call (ast_of callee, List.map ast_of args, call_modifiers)), representative_value_of_type return_type
-
-  | Evaluate_type, (_, (_, Lambda (return_type, _, _, _, _))) ->
-    Const, representative_value_of_type return_type
-
   | Evaluate_const, (_, (_, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _))))) ->
     if not lambda_modifiers.const then
       raise (Error "cannot call non-const lambda in a constant expression");
@@ -737,6 +729,11 @@ and evaluate_call env frame mode location callee args call_modifiers =
     with
     | Return_exn (Const, return_value) ->
       Const, return_value)
+
+  | Fold_consts, (_, (_, Lambda (return_type, _, _, _,_)))
+  | Evaluate_type, (_, (_, Lambda (return_type, _, _, _, _))) ->
+    (if mode = Evaluate_type then Const else Non_const (location, Call (ast_of callee, List.map ast_of args, call_modifiers))),
+      representative_value_of_type return_type
 
   | _, (_, (_, Lambda _)) -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression (ast_of callee))))
 
@@ -824,9 +821,10 @@ and evaluate_typeof env frame _ _ e =
 
 and evaluate_expression_statement env frame mode location statement =
   match mode with
-  | Fold_consts -> Non_const (location, Statement (evaluate_statement env frame mode statement)), (location, Tuple [])
   | Evaluate_const -> evaluate_statement env frame mode statement |> ignore; Const, (location, Tuple [])
-  | Evaluate_type -> assert false
+  | Evaluate_type
+  | Fold_consts -> (if mode = Evaluate_type then Const else Non_const (location, Statement (evaluate_statement env frame mode statement))),
+                              (location, Tuple [])
 
 and set_lambda_aliases (location, const_value) ast_alias =
   let ith_index i e = set_lambda_aliases e (location, Index (ast_alias, Some (location, (IntLiteral i)))) in
