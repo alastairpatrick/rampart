@@ -16,7 +16,6 @@ open Slot
 *)
 
 exception Saw_uninitialized of string
-exception Return_exn of expression
 exception No_match_exn
 
 type value =
@@ -64,6 +63,8 @@ let representative_value_of (evaluation : evaluation) : expression =
   match evaluation with
   | Const, const_value -> const_value
   | Non_const _, representative_value -> representative_value
+
+exception Return_exn of evaluation
 
 type assignable_evaluation = {
   evaluation: evaluation;             (* The evaluated LHS expression *)
@@ -212,6 +213,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
+  | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
   | In (a, b) -> evaluate_in env frame mode location a b
   | Index (array, index) -> evaluate_index env frame mode location array index
@@ -246,7 +248,6 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
-  | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Tuple elements -> evaluate_tuple env frame mode location elements
   | Arity e -> evaluate_arity env frame mode location e
   | DynamicArray (elements, element_type) -> evaluate_dynamic_array_literal env frame mode location elements element_type
@@ -733,23 +734,23 @@ and evaluate_in env frame mode location a b =
 and evaluate_call env frame mode location callee args call_modifiers =
   if mode = Evaluate_const then increment_loop_count ();
   (* Consistent with other imperative languages, semantically, the callee is evaluated before any arguments. *)
-  let callee = evaluate_expression env frame mode callee in
-  let args = List.map (evaluate_expression env frame mode) args in
+  let callee = evaluate_expression_new env frame mode callee in
+  let args = List.map (fun arg -> ast_of (evaluate_expression_new env frame mode arg)) args in
   let call_modifiers = { call_modifiers with pure = call_modifiers.pure || call_modifiers.const } in
   match mode, callee with
-  | Fold_consts, (_, Lambda (_, _, lambda_modifiers, _,_)) ->
+  | Fold_consts, (_, (_, Lambda (return_type, _, lambda_modifiers, _,_))) ->
     if call_modifiers.const then begin
       if not lambda_modifiers.const then
         raise (Error "cannot call non-const lambda at compile time");
       let args = List.map (evaluate_const_value env frame) args in
-      evaluate_const_value env frame (location, Call (callee, args, call_modifiers))
+      Const, evaluate_const_value env frame (location, Call (ast_of callee, args, call_modifiers))
     end else
-      (location, Call (callee, args, call_modifiers))
+      Non_const (location, Call (ast_of callee, args, call_modifiers)), representative_value_of_type return_type
 
-  | Evaluate_type, (_, Lambda (return_type, _, _, _, _)) ->
-    representative_value_of_type return_type
+  | Evaluate_type, (_, (_, Lambda (return_type, _, _, _, _))) ->
+    Const, representative_value_of_type return_type
 
-  | Evaluate_const, (_, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _)))) ->
+  | Evaluate_const, (_, (_, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _))))) ->
     if not lambda_modifiers.const then
       raise (error_invalid_operation "cannot call non-const lambda in a constant expression");
     let callee_frame = {
@@ -769,17 +770,20 @@ and evaluate_call env frame mode location callee args call_modifiers =
     (try
       evaluate_statement env callee_frame mode statement |> ignore;
       match return_type with
-      | _, Tuple [] -> (location, Tuple [])
+      | _, Tuple [] -> Const, (location, Tuple [])
       | _ -> raise (Error "missing return statement")
     with
-    | Return_exn return_value ->
-      if not (is_const_value return_value) then
-        raise (error_internal "non-constant return value should be impossible");
-      return_value)
+    | Return_exn (Const, return_value) ->
+      Const, return_value)
 
-  | _, (_, Lambda _) -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression callee)))
+  | _, (_, (_, Lambda _)) -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression (ast_of callee))))
 
-  | _ -> (location, Call (callee, args, call_modifiers))
+  | _ ->
+    (* TODO: Representing function types as Call nodes is confusing. *)
+    if is_const_type (ast_of callee) && List.for_all is_const_type args then
+      Const, (location, Call (ast_of callee, args, call_modifiers))
+    else
+      raise error_type_mismatch
 
 and evaluate_tuple env frame mode location elements =
   (location, Tuple (List.map (evaluate_expression env frame mode) elements))
@@ -964,9 +968,9 @@ and evaluate_do_while env frame mode location body condition =
   | Evaluate_type -> assert false
 
 and evaluate_return env frame mode _ e =
-  let e = implicit_convert mode (evaluate_expression env frame mode e) frame.return_type in
+  let e = implicit_convert_new mode (evaluate_expression_new env frame mode e) frame.return_type in
   match mode with
-    | Fold_consts -> e
+    | Fold_consts -> ast_of e
     | Evaluate_type -> assert false
     | Evaluate_const -> raise (Return_exn e)
 
