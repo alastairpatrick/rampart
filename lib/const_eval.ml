@@ -210,6 +210,7 @@ and evaluate_expression_new env frame mode ((location, expression) : expression)
   | BoolLiteral _
   | Type _ -> Const, (location, expression)
 
+  | Arity e -> evaluate_arity env frame mode location e
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
   | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
   | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
@@ -250,7 +251,6 @@ and evaluate_expression env frame mode ((location, expression): expression) : ex
   | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
-  | Arity e -> evaluate_arity env frame mode location e
   | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), closure) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement closure
   | TypeOf e -> evaluate_typeof env frame mode location e
@@ -815,22 +815,11 @@ and evaluate_dynamic_array env frame mode location elements element_type =
                 (location, DynamicArray (Array.map representative_value_of elements, Some element_type))
   end
 
-and evaluate_arity env frame mode location e =
-  match mode with
-  | Fold_consts ->
-    let e = evaluate_expression env frame mode e in
-    begin match evaluate_expression env frame mode e with
-    | _, Tuple elements -> (location, IntLiteral (List.length elements))
-    | _ when is_const_value e -> (location, IntLiteral 1)
-    | _ -> (location, Arity e)
-    end
-
-  | Evaluate_type -> representative_value_of_type (location, Type Int)
-  | Evaluate_const ->
-    let e = evaluate_expression env frame mode e in
-    match e with
-    | _, Tuple elements -> (location, IntLiteral (List.length elements))
-    | _ -> (location, IntLiteral 1)
+and evaluate_arity env frame _ location e =
+  match evaluate_expression_new env frame Evaluate_type e with
+  | _, (_, Tuple elements) -> Const, (location, IntLiteral (List.length elements))
+  | _ -> Const, (location, IntLiteral 1)
+  
 
 and evaluate_lambda_part1 _ frame mode location return_type params modifiers body_location num_variables statement =
   match mode with
