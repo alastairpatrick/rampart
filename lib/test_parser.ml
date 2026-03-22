@@ -828,7 +828,7 @@ let%expect_test _ =
          ((modifiers ()) (type_expr ()) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Void))
+             (Lambda (@1 (Type (Tuple ())))
               ((@1
                 (Declaration
                  ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
@@ -856,7 +856,7 @@ let%expect_test _ =
          ((modifiers ()) (type_expr ()) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Void))
+             (Lambda (@1 (Type (Tuple ())))
               ((@1
                 (Declaration
                  ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)

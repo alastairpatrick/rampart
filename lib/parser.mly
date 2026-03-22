@@ -65,7 +65,7 @@ lambda_modifiers
   ;
 
 primary_expr
-  : VOID                                                    { loc $loc, Type Void }                     
+  : VOID                                                    { loc $loc, Type (Tuple []) }                     
   | INT                                                     { loc $loc, Type Int }
   | BOOL                                                    { loc $loc, Type Bool }
   | TYPE                                                    { loc $loc, Type Type }

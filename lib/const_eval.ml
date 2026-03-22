@@ -95,7 +95,7 @@ let make_global_frame (num_globals : int) : frame = {
   depth = 0;
   enclosing_frame = None;
   variables = Array.make num_globals empty_variable;
-  return_type = (null_location, Type Void);
+  return_type = (null_location, Type (Tuple []));
   pure = false;
   const = false;
 }
@@ -192,6 +192,9 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
 (* Always enter Evaluate_const mode using this function or evaluate_const_protect. *)
 and evaluate_const_value env frame expression : evaluation =
   evaluate_const_protect (fun () -> evaluate_expression env frame Evaluate_const expression)
+
+and evaluate_const_type env frame expression : expression =
+  check_is_const_type (ast_of (implicit_convert Evaluate_const (evaluate_const_value env frame expression) (expression_location expression, Type Type)))
 
 and evaluate_const_protect f =
   evaluate_const_count := !evaluate_const_count + 1;
@@ -295,13 +298,13 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
 and evaluate_index env frame mode location indexable index =
   let indexable = evaluate_expression env frame mode indexable in
 
-  match index with
-  | None when is_const_type (ast_of indexable) ->
+  match index, indexable with
+  | None, (_, (_, Type element_type)) ->
     (* Syntactically, dynamic array types are represented as index operations. This is where we
        convert those to an explicit type representation. *)
-    Const, (location, Type (DynamicArray (ast_of indexable)))
-  | None -> raise (Error "expected an index sub-expression")
-  | Some index ->
+    Const, (location, Type (DynamicArray element_type))
+  | None, _ -> raise (Error "expected an index sub-expression")
+  | Some index, _ ->
     match indexable with
     | Const, (_, DynamicArray (elements, Some element_type)) ->
       let index = evaluate_expression env frame mode index in
@@ -740,11 +743,15 @@ and evaluate_call env frame mode location callee args call_modifiers =
 
   | _, (_, (_, Lambda _)) -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression (ast_of callee))))
 
+  | _, (_, (_, Type return_type)) ->
+    let param_types = List.map (fun arg ->
+      match arg with
+      | _, (_, Type param_type) -> param_type
+      | _ -> raise error_type_mismatch) args in
+    (* Function types are represented syntactically as call expressions. This is where they are converted into an explicit function type. *)
+    Const, (location, Type (Function (return_type, param_types, call_modifiers)))
+
   | _ ->
-    if is_const_type (ast_of callee) && List.for_all (fun arg -> is_const_type (ast_of arg)) args then
-      (* Function types are represented syntactically as call expressions. This is where they are converted into an explicit function type. *)
-      Const, (location, Type (Function (ast_of callee, List.map ast_of args, call_modifiers)))
-    else
       raise error_type_mismatch
 
 and evaluate_tuple env frame mode location elements =
@@ -783,10 +790,17 @@ and evaluate_arity env frame _ location e =
   | _ -> Const, (location, IntLiteral 1)
   
 
-and evaluate_lambda_part1 _ frame mode location return_type params (modifiers : lambda_modifiers) body_location num_variables statement =
+and evaluate_lambda_part1 env frame mode location return_type params (modifiers : lambda_modifiers) body_location num_variables statement =
   let modifiers : lambda_modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
   if frame.const && not modifiers.const then
     raise error_expected_const_lambda;
+  (* Return and param types must be evaluated in part 1. *)
+  let return_type = evaluate_const_type env frame return_type in
+  let params = List.map (fun (location, param) -> match param with
+    | BoundDeclaration ({type_expr=Some type_expr; _} as declaration, slot) ->
+      let type_expr = evaluate_const_type env frame type_expr in
+      (location, BoundDeclaration ( { declaration with type_expr = Some type_expr }, slot))
+    | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
   Const, (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)),
                             if mode = Evaluate_type then None else Some (distinct_closure_identity (), Closure (frame, None))))
 
@@ -803,10 +817,8 @@ and evaluate_lambda_part2 env mode part1 =
       pure = modifiers.pure;
       const = modifiers.const
     } in
-    let return_type = check_is_const_type (ast_of (evaluate_const_value env frame return_type)) in
     let params = List.map (fun (location, param) -> match param with
       | BoundDeclaration ({init_expr=init_expr; type_expr=Some type_expr; name=name; modifiers=modifiers}, slot) ->
-        let type_expr = check_is_const_type (ast_of (evaluate_const_value env frame type_expr)) in
         set_assignable_value (get_assignable lambda_frame slot) (Non_const_of_type type_expr);
         (location, BoundDeclaration ( { init_expr=init_expr; type_expr = Some type_expr; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
@@ -856,14 +868,14 @@ and evaluate_declaration env frame mode location declaration slot =
       
   match declaration with
   | { type_expr=Some type_expr; init_expr=Some init_expr; _} ->
-    let type_expr = check_is_const_type (ast_of (evaluate_const_value env frame type_expr)) in
+    let type_expr = evaluate_const_type env frame type_expr in
     set_assignable_value assignable (Uninitialized_of_type (Some type_expr));
     let init_expr = ast_of (implicit_convert mode (evaluate_expression env frame mode init_expr) type_expr) in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
 
   | { type_expr=Some type_expr; init_expr=None; _} ->
-    let type_expr = check_is_const_type (ast_of (evaluate_const_value env frame type_expr)) in
+    let type_expr = evaluate_const_type env frame type_expr in
     let init_expr = default_value type_expr in
     initialize_assignable type_expr init_expr;
     BoundDeclaration ({ declaration with type_expr = Some type_expr; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
@@ -927,10 +939,25 @@ and evaluate_return env frame mode _ e =
     | Evaluate_const -> raise (Return_exn e)
 
 
-and implicit_convert mode (from_evaluation : evaluation) to_type : evaluation =
+and implicit_convert mode (from_evaluation : evaluation) (to_type : expression) : evaluation =
+  let rec is_type_shaped expression : bool =
+    match expression with
+    | _, Type _ -> true
+    | _, Tuple elements -> List.for_all is_type_shaped elements
+    | _ -> false
+  in
+
+  let rec convert_type expression : ast_type =
+    match expression with
+    | _, Type t -> t
+    | _, Tuple elements -> Tuple (List.map convert_type elements)
+    | _ -> raise (Invalid_argument (Printf.sprintf "not a type: %s" (Ast.show_expression expression)))
+  in
+
   let from_type = type_of_expression (representative_value_of from_evaluation) in
   match to_type with
-  | _, Type Type when is_const_type (ast_of from_evaluation) -> from_evaluation
+  | _, Type Type when is_type_shaped (ast_of from_evaluation) ->
+    Const, ((expression_location (ast_of from_evaluation)), Type (convert_type (ast_of from_evaluation)))
   | _ when const_types_equal from_type to_type -> from_evaluation
   | _ -> if mode = Fold_consts then from_evaluation else raise error_type_mismatch
 

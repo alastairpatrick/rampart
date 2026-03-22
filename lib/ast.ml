@@ -41,12 +41,12 @@ and pattern =
   | Identifier of string
 
 and ast_type =
-  | DynamicArray of (* elemnt_type: *) expression
-  | Int
   | Bool
-  | Function of (* return_type: *) expression * (* param_types: *) expression list * (* modifiers: *) lambda_modifiers
+  | DynamicArray of (* element_type: *) ast_type
+  | Int
+  | Function of (* return_type: *) ast_type * (* param_types: *) ast_type list * (* modifiers: *) lambda_modifiers
+  | Tuple of ast_type list
   | Type
-  | Void
 
 and lambda_modifiers = {
   pure: bool [@sexp.bool];
