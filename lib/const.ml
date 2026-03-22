@@ -40,7 +40,7 @@ let dangerously_reset_distinct_closure_identity () =
    syntactic form.
 *)
 
-let check_is_const_type expression : const_type =
+let check_is_const_type expression : const_type_expression =
   match expression with
   | _, Type t -> t
   | _ -> raise error_type_expected
@@ -82,7 +82,7 @@ let const_value_exists (predicate : expression -> bool) expression : bool =
   not (const_value_for_all (fun e -> not (predicate e)) expression)
 
 (* This must work on any const value, which by definition includes any lambda (const or not) and any representative value. *)
-let rec type_of_expression ((location, expression): expression) : const_type =
+let rec type_of_expression ((location, expression): expression) : const_type_expression =
   match expression with
   | IntLiteral _ -> Int
   | BoolLiteral _ -> Bool
@@ -107,7 +107,7 @@ let rec default_value const_type : expression =
     (null_location, DynamicArray ([| |], Some element_type))
   | _ -> raise error_no_default_value
   
-let rec representative_value_of_type (const_type: const_type) : expression =
+let rec representative_value_of_type (const_type: const_type_expression) : expression =
   let representative_value = match const_type with
     | Int -> (null_location, IntLiteral 0L)
     | Bool -> (null_location, BoolLiteral false)
@@ -120,7 +120,7 @@ let rec representative_value_of_type (const_type: const_type) : expression =
       (null_location, Tuple (List.map (fun element -> representative_value_of_type element) elements))
     | DynamicArray element_type ->
       (null_location, DynamicArray ([| |], Some element_type))
-    | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_const_type const_type))) 
+    | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_const_type_expression const_type))) 
   in
     if (not (is_const_value representative_value)) then
       raise (error_internal (Printf.sprintf "representative value should be a const value: %s" (Ast.show_expression representative_value)))

@@ -45,19 +45,19 @@ and function_modifiers = {
   const: bool [@sexp.bool];
 }
 
-and const_type =
+and const_type_expression =
   | Bool
-  | DynamicArray of (* element_type: *) const_type
+  | DynamicArray of (* element_type: *) const_type_expression
   | Int
-  | Function of (* return_type: *) const_type * (* param_types: *) const_type list * (* modifiers: *) function_modifiers
+  | Function of (* return_type: *) const_type_expression * (* param_types: *) const_type_expression list * (* modifiers: *) function_modifiers
   | Representative (* Uninstantiable type, used as a representative value for type values. *)
-  | Tuple of const_type list
+  | Tuple of const_type_expression list
   | Unevaluated_type of expression (* Represents types before they are evaluated to actual const_type values. *)
   | Type
 
 (* TODO: change all these to Constructor_name style *)
 and expression_inner =
-  | Type of const_type
+  | Type of const_type_expression
   | TypeOf of expression
   | Arity of expression
   | IntLiteral of int64
@@ -75,8 +75,8 @@ and expression_inner =
   | Conditional of expression * expression * expression
   | Tuple of expression list
   | Call of expression * expression list * function_modifiers
-  | Lambda of (* return_type: *) const_type * (* params: *) statement list * function_modifiers * (* body: *) statement * closure option
-  | DynamicArray of expression array * (* element_type: *) const_type option
+  | Lambda of (* return_type: *) const_type_expression * (* params: *) statement list * function_modifiers * (* body: *) statement * closure option
+  | DynamicArray of expression array * (* element_type: *) const_type_expression option
   | Index of expression * (* subscript: *) expression option
   | Statement of statement
   
@@ -88,7 +88,7 @@ and declaration_modifiers = {
 
 and declaration = {
   modifiers: declaration_modifiers;
-  typ: const_type option;
+  typ: const_type_expression option;
   name: string;
   init_expr: expression option;
 }

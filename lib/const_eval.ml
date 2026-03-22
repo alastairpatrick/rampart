@@ -18,9 +18,9 @@ exception Saw_uninitialized of string
 exception No_match_exn
 
 type value =
-| Uninitialized_of_type of (* expression_type: *) const_type option
+| Uninitialized_of_type of (* expression_type: *) const_type_expression option
 | Const_of_value of expression
-| Non_const_of_type of const_type
+| Non_const_of_type of const_type_expression
 
 type variable = {
   value: value;
@@ -34,7 +34,7 @@ type frame = {
   depth: int;
   enclosing_frame: frame option;
   variables: variable array;
-  return_type: const_type;
+  return_type: const_type_expression;
   pure: bool;
   const: bool;
 }
@@ -194,10 +194,10 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
 and evaluate_const_value env frame expression : evaluation =
   evaluate_const_protect (fun () -> evaluate_expression env frame Evaluate_const expression)
 
-and evaluate_const_type env frame expression : const_type =
+and evaluate_const_type env frame expression : const_type_expression =
   check_is_const_type (ast_of (implicit_convert Evaluate_const (evaluate_const_value env frame expression) Type))
 
-and normalize_const_type env frame const_type : const_type =
+and normalize_const_type env frame const_type : const_type_expression =
   match const_type with
   | Unevaluated_type expression -> evaluate_const_type env frame expression
   | _ -> const_type
@@ -941,7 +941,7 @@ and evaluate_return env frame mode _ e =
     | Evaluate_const -> raise (Return_exn e)
 
 
-and implicit_convert mode (from_evaluation : evaluation) (to_type : const_type) : evaluation =
+and implicit_convert mode (from_evaluation : evaluation) (to_type : const_type_expression) : evaluation =
   let rec is_type_shaped expression : bool =
     match expression with
     | _, Type _ -> true
@@ -949,7 +949,7 @@ and implicit_convert mode (from_evaluation : evaluation) (to_type : const_type) 
     | _ -> false
   in
 
-  let rec convert_type expression : const_type =
+  let rec convert_type expression : const_type_expression =
     match expression with
     | _, Type t -> t
     | _, Tuple elements -> Tuple (List.map convert_type elements)

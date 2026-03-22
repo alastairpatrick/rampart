@@ -90,7 +90,7 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
   | Statement s ->
     ef (location, Statement (map_statement sf ef s))
     
-and map_const_type (sf : statement -> statement) (ef : expression -> expression) (const_type : const_type) : const_type =
+and map_const_type (sf : statement -> statement) (ef : expression -> expression) (const_type : const_type_expression) : const_type_expression =
   match const_type with
   | Unevaluated_type type_expr -> Unevaluated_type (map_expression sf ef type_expr)
   | _ -> const_type
