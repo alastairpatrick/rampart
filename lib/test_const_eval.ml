@@ -2790,3 +2790,73 @@ let%expect_test _ =
 let%expect_test _ =
   evaluate_declarations "let a ~ 1 in a;";
   [%expect {| Error: @1 type mismatch |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { return int; } type t = f()(bool);";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
+              (0))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type (Function Int (Bool) ()))))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { return int; } type t = void(f());";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
+              (0))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type (Function (Tuple ()) (Int) ()))))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() const { return int; } type t = f()[];";
+  [%expect {|
+    (@1
+     (OrderIndependent
+      ((@1
+        (BoundDeclaration
+         ((modifiers ())
+          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+          (init_expr
+           ((@1
+             (Lambda (@1 (Type Type)) () ((pure) (const))
+              (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
+              (0))))))
+         (0 0)))
+       (@1
+        (BoundDeclaration
+         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+          (init_expr ((@1 (Type (DynamicArray Int))))))
+         (1 0))))))
+    |}]
+
+let%expect_test _ =
+  evaluate_declarations "type f() { return int; } type t = f()[];";
+  [%expect {| Error: @1 cannot call non-const lambda in a constant expression |}]

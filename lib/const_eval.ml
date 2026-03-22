@@ -301,10 +301,14 @@ and evaluate_index env frame mode location indexable index =
   let indexable = evaluate_expression env frame mode indexable in
 
   match index, indexable with
-  | None, (_, (_, Type element_type)) ->
-    (* Syntactically, dynamic array types are represented as index operations. This is where we
-       convert those to an explicit type representation. *)
-    Const, (location, Type (DynamicArray element_type))
+  | None, (_, (_, Type _) as element_type) ->
+    begin match evaluate_const_type env frame (ast_of element_type) with
+    | _, Type element_type ->
+      (* Syntactically, dynamic array types are represented as index operations. This is where we
+        convert those to an explicit type representation. *)
+      Const, (location, Type (DynamicArray element_type))
+    | _ -> raise error_type_mismatch
+    end
   | None, _ -> raise (Error "expected an index sub-expression")
   | Some index, _ ->
     match indexable with
@@ -741,13 +745,17 @@ and evaluate_call env frame mode location callee args call_modifiers =
 
   | _, (_, (_, Lambda _)) -> raise (error_internal (Printf.sprintf "all lambdas should have closures added before calling them: %s" (Ast.show_expression (ast_of callee))))
 
-  | _, (_, (_, Type return_type)) ->
-    let param_types = List.map (fun arg ->
-      match arg with
-      | _, (_, Type param_type) -> param_type
-      | _ -> raise error_type_mismatch) args in
-    (* Function types are represented syntactically as call expressions. This is where they are converted into an explicit function type. *)
-    Const, (location, Type (Function (return_type, param_types, call_modifiers)))
+  | _, (_, (_, Type _) as return_type) ->
+    begin match evaluate_const_type env frame (ast_of return_type) with
+    | _, Type return_type ->
+      let param_types = List.map (fun arg ->
+        match evaluate_const_type env frame (ast_of arg) with
+        | _, Type param_type -> param_type
+        | _ -> raise error_type_mismatch) args in
+      (* Function types are represented syntactically as call expressions. This is where they are converted into an explicit function type. *)
+      Const, (location, Type (Function (return_type, param_types, call_modifiers)))
+    | _ -> raise error_type_mismatch
+    end
 
   | _ ->
       raise error_type_mismatch
