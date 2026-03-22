@@ -59,7 +59,7 @@ let rec const_values_equal (a : expression) (b : expression) : bool =
       Array.for_all2 const_values_equal a_elements b_elements && a_type = b_type
     with Invalid_argument _ -> false)
   | (_, Lambda (_, _, _, _, Some (a_identity, _))), (_, Lambda (_, _, _, _, Some (b_identity, _))) ->
-    a_identity == b_identity
+    a_identity = b_identity
   | _ -> a = b
 
 let rec is_const_value (expression : expression) : bool =
