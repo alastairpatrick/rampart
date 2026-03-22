@@ -199,8 +199,19 @@ lambda_expr
 
 expr: e=lambda_expr                                         { e }
 
-exprs0 : es=separated_list(COMMA, expr)                     { es };
+labeled_expr
+  : e=expr ID?                                              { e }
+  ;
 
+exprs1
+  : e=labeled_expr                                          { [e] }
+  | e=labeled_expr COMMA es=exprs1                          { e :: es }
+  ;                             
+
+exprs0
+  : /* empty */                                             { [] }
+  | es=exprs1                                               { es }
+  ;
 
 else_clause
   : ELSE b=compound_stat                                    { b }

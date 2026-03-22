@@ -334,6 +334,20 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
+  parse "int (int x, int y) f;";
+  [% expect{|
+    (@1
+     (OrderIndependent
+      ((@1
+        (Declaration
+         ((modifiers ())
+          (typ
+           ((Unevaluated_type
+             (@1 (Call (@1 (Type Int)) ((@1 (Type Int)) (@1 (Type Int))) ())))))
+          (name f) (init_expr ())))))))
+    |}]
+
+let%expect_test _ =
   parse "let a = 1 in a + 1;";
   [% expect{|
     (@1
