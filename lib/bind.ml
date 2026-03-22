@@ -65,17 +65,17 @@ and bind_statements (env: env) (pass : bind_pass) = function
 and bind_statement (env : env) (pass : bind_pass) ((location, statement) : statement) : env * statement =
   try
     match statement with
-    | Declaration { modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr } ->
+    | Declaration { modifiers=modifiers; name=name; typ; init_expr=init_expr } ->
       assert (pass != OrderIndependent2);
-      let _, type_expr = bind_opt env pass type_expr in
+      let typ = Option.map (bind_const_type env pass) typ in
       let _, init_expr = bind_opt env pass init_expr in
       let env, slot = declare_slot env name modifiers.mut in
-      env, (location, BoundDeclaration ({ modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr }, slot))
+      env, (location, BoundDeclaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
 
-    | BoundDeclaration ({ modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr }, slot) ->
-      let _, type_expr = bind_opt env pass type_expr in
+    | BoundDeclaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
+      let typ = Option.map (bind_const_type env pass) typ in
       let _, init_expr = bind_opt env pass init_expr in
-      env, (location, BoundDeclaration ({ modifiers=modifiers; name=name; type_expr=type_expr; init_expr=init_expr }, slot))
+      env, (location, BoundDeclaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
 
     | Expression expr ->
       let env, expr = bind env pass expr in env, (location, Expression expr)
@@ -193,7 +193,7 @@ and bind env pass ((location, expr) : expression) : env * expression =
     env, (location, Arity e)
     
   | Lambda (return_type, params, modifiers, statement, _) ->
-    let _, return_type = bind env pass return_type in
+    let return_type = bind_const_type env pass return_type in
     if pass == OrderIndependent1 then env, (location, expr) else
     let frame_env = new_frame env in
     let frame_env, params = bind_order_dependent frame_env params in
@@ -207,7 +207,7 @@ and bind env pass ((location, expr) : expression) : env * expression =
 
   | DynamicArray (es, t) ->
     let es = Array.map (fun e -> let _, e = bind env pass e in e) es in
-    let _, t = bind_opt env pass t in
+    let t = Option.map (bind_const_type env pass) t in
     env, (location, DynamicArray (es, t))
 
   | Index (a, b) ->
@@ -218,7 +218,14 @@ and bind env pass ((location, expr) : expression) : env * expression =
   | Statement s ->
     let _, s = bind_statement env pass s in
     env, (location, Statement s)
-  
+
+and bind_const_type env pass const_type =
+  match const_type with
+  | Unevaluated_type type_expr ->
+    let _, type_expr = bind env pass type_expr in
+    Unevaluated_type type_expr
+  | _ -> const_type
+
 and bind_expressions env pass exprs =
   List.map (fun expr -> let _, expr = bind env pass expr in expr) exprs
 

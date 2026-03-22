@@ -46,12 +46,13 @@ and function_modifiers = {
 }
 
 and const_type =
-  | Representative (* Uninstantiable type. (Type Representative) is used as a representative value for type values. *)
   | Bool
   | DynamicArray of (* element_type: *) const_type
   | Int
   | Function of (* return_type: *) const_type * (* param_types: *) const_type list * (* modifiers: *) function_modifiers
+  | Representative (* Uninstantiable type, used as a representative value for type values. *)
   | Tuple of const_type list
+  | Unevaluated_type of expression (* Represents types before they are evaluated to actual const_type values. *)
   | Type
 
 (* TODO: change all these to Constructor_name style *)
@@ -74,8 +75,8 @@ and expression_inner =
   | Conditional of expression * expression * expression
   | Tuple of expression list
   | Call of expression * expression list * function_modifiers
-  | Lambda of (* return_type: *) expression * (* params: *) statement list * function_modifiers * (* body: *) statement * closure option
-  | DynamicArray of expression array * (* element_type: *) expression option
+  | Lambda of (* return_type: *) const_type * (* params: *) statement list * function_modifiers * (* body: *) statement * closure option
+  | DynamicArray of expression array * (* element_type: *) const_type option
   | Index of expression * (* subscript: *) expression option
   | Statement of statement
   
@@ -87,7 +88,7 @@ and declaration_modifiers = {
 
 and declaration = {
   modifiers: declaration_modifiers;
-  type_expr: expression option;
+  typ: const_type option;
   name: string;
   init_expr: expression option;
 }

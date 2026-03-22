@@ -10,6 +10,7 @@
 
 open Ast
 open Error
+open Location
 
 let next_closure_identity = ref 0
 
@@ -39,11 +40,6 @@ let dangerously_reset_distinct_closure_identity () =
    syntactic form.
 *)
 
-let const_types_equal (a : expression) (b : expression) : bool =
-  match a, b with
-  | (_, Type a), (_, Type b) -> a = b
-  | _ -> false
-
 let check_is_const_type expression : const_type =
   match expression with
   | _, Type t -> t
@@ -60,11 +56,11 @@ let rec const_values_equal (a : expression) (b : expression) : bool =
   (* Invariant on dynamic arrays of constant value: all elements have the type designated by the element type field, which is never None. *)
   | (_, DynamicArray (a_elements, Some a_type)), (_, DynamicArray (b_elements, Some b_type)) ->
     (try
-      Array.for_all2 const_values_equal a_elements b_elements && const_types_equal a_type b_type
+      Array.for_all2 const_values_equal a_elements b_elements && a_type = b_type
     with Invalid_argument _ -> false)
   | (_, Lambda (_, _, _, _, Some (a_identity, _))), (_, Lambda (_, _, _, _, Some (b_identity, _))) ->
     a_identity == b_identity
-  | _ -> const_types_equal a b
+  | _ -> a = b
 
 let rec is_const_value (expression : expression) : bool =
   match expression with
@@ -72,7 +68,7 @@ let rec is_const_value (expression : expression) : bool =
   | _, BoolLiteral _ -> true
   | _, Type _ -> true
   | _, Tuple elements -> List.for_all is_const_value elements
-  | _, DynamicArray (elements, Some (_, Type _)) -> Array.for_all is_const_value elements
+  | _, DynamicArray (elements, _) -> Array.for_all is_const_value elements
   | _, Lambda _ -> true
   | _ -> false
 
@@ -86,48 +82,45 @@ let const_value_exists (predicate : expression -> bool) expression : bool =
   not (const_value_for_all (fun e -> not (predicate e)) expression)
 
 (* This must work on any const value, which by definition includes any lambda (const or not) and any representative value. *)
-let rec const_type_of_expression ((location, expression): expression) : const_type =
+let rec type_of_expression ((location, expression): expression) : const_type =
   match expression with
   | IntLiteral _ -> Int
   | BoolLiteral _ -> Bool
   | Type _ -> Type
-  | Tuple elements -> Tuple (List.map const_type_of_expression elements)
+  | Tuple elements -> Tuple (List.map type_of_expression elements)
   | TypeOf _ -> Type
-  | DynamicArray (_, Some (_, Type element_type)) -> DynamicArray element_type
-  | Lambda ((_, Type return_type), params, modifiers, _, _) ->
+  | DynamicArray (_, Some element_type) -> DynamicArray element_type
+  | Lambda (return_type, params, modifiers, _, _) ->
     let param_types = List.map (fun (_, param) -> match param with
-      | BoundDeclaration ({type_expr=Some (_, Type param_type); _}, _) -> param_type
+      | BoundDeclaration ({typ=Some param_type; _}, _) -> param_type
       | _ -> assert false) params in
     Function (return_type, param_types, modifiers)
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false (* TODO: implement for more expressions as needed *)
 
-let type_of_expression (location, expression) =
-  location, Type (const_type_of_expression (location, expression))
-
-let rec default_value ((location, const_type): expression) : expression =
+let rec default_value const_type : expression =
   match const_type with
-  | Type Int -> (location, IntLiteral 0L)
-  | Type Bool -> (location, BoolLiteral false)
-  | Type (Tuple elements) ->
-    (location, Tuple (List.map (fun element -> default_value (location, Type element)) elements))
-  | Type (DynamicArray element_type) ->
-    (location, DynamicArray ([| |], Some (location, Type element_type)))
+  | Int -> (null_location, IntLiteral 0L)
+  | Bool -> (null_location, BoolLiteral false)
+  | (Tuple elements) ->
+    (null_location, Tuple (List.map (fun element -> default_value element) elements))
+  | (DynamicArray element_type) ->
+    (null_location, DynamicArray ([| |], Some element_type))
   | _ -> raise error_no_default_value
   
-let rec representative_value_of_type ((location, const_type): expression) : expression =
+let rec representative_value_of_type (const_type: const_type) : expression =
   let representative_value = match const_type with
-    | Type Int -> (location, IntLiteral 0L)
-    | Type Bool -> (location, BoolLiteral false)
-    | Type Type -> (location, Type Representative)
-    | Type (Function (return_type, param_types, modifiers)) ->
-      (location, Lambda ((location, Type return_type),
-        List.map (fun param_type -> (location, BoundDeclaration ({type_expr=Some (location, Type param_type); init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
-        modifiers, (location, Compound []), None))
-    | Type (Tuple elements) ->
-      (location, Tuple (List.map (fun element -> representative_value_of_type (location, Type element)) elements))
-    | Type (DynamicArray element_type) ->
-      (location, DynamicArray ([| |], Some (location, Type element_type)))
-    | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_expression (location, const_type)))) 
+    | Int -> (null_location, IntLiteral 0L)
+    | Bool -> (null_location, BoolLiteral false)
+    | Type -> (null_location, Type Representative)
+    | Function (return_type, param_types, modifiers) ->
+      (null_location, Lambda (return_type,
+        List.map (fun param_type -> (null_location, BoundDeclaration ({typ=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
+        modifiers, (null_location, Compound []), None))
+    | Tuple elements ->
+      (null_location, Tuple (List.map (fun element -> representative_value_of_type element) elements))
+    | DynamicArray element_type ->
+      (null_location, DynamicArray ([| |], Some element_type))
+    | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_const_type const_type))) 
   in
     if (not (is_const_value representative_value)) then
       raise (error_internal (Printf.sprintf "representative value should be a const value: %s" (Ast.show_expression representative_value)))

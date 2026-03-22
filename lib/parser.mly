@@ -48,7 +48,7 @@ skip_eols
   ;
  
 param
-  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=None} }
+  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; typ=Some (Unevaluated_type t); name=n; init_expr=None} }
   ;
 
 params0 : es=separated_list(COMMA, param)   { es };
@@ -194,7 +194,7 @@ lambda_body
 lambda_expr
   : e=fallback_expr                                         { e }
   | BACKSLASH rt=primary_expr LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (rt, ps, lm, b, None) }
+    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Unevaluated_type rt, ps, lm, b, None) }
   ;
 
 expr: e=lambda_expr                                         { e }
@@ -211,9 +211,9 @@ initialize
   ;
 
 declaration
-  : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
+  : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; typ=Some (Unevaluated_type t); name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, lm, b, None)) } }
+    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; typ=None; name=n; init_expr=Some (loc $loc, Lambda (Unevaluated_type t, ps, lm, b, None)) } }
   | MUT d=declaration                                           { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;
 

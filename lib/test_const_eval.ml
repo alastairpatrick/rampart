@@ -141,8 +141,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Bool)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Bool)))))
          (0 0))))))
     |}]
 
@@ -153,8 +152,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Bool)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Bool)))))
          (0 0))))))
     |}]
 
@@ -169,18 +167,15 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
-          (init_expr ((@1 (IntLiteral 1)))))
+         ((modifiers ()) (typ (Int)) (name a) (init_expr ((@1 (IntLiteral 1)))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
-          (init_expr ((@1 (IntLiteral 1)))))
+         ((modifiers ()) (typ (Int)) (name b) (init_expr ((@1 (IntLiteral 1)))))
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name c)
-          (init_expr ((@1 (IntLiteral 1)))))
+         ((modifiers ()) (typ (Int)) (name c) (init_expr ((@1 (IntLiteral 1)))))
          (2 0))))))
     |}]
 
@@ -192,12 +187,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function (Tuple ()) () ())))))
-          (name f)
+         ((modifiers ()) (typ ((Function (Tuple ()) () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ()))) () ()
-              (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
+             (Lambda (Tuple ()) () () (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
          (0 0)))
        (@1
         (Expression
@@ -241,12 +234,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function (Tuple ()) () ())))))
-          (name f)
+         ((modifiers ()) (typ ((Function (Tuple ()) () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ()))) () ()
-              (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
+             (Lambda (Tuple ()) () () (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
          (0 0)))
        (@1
         (Expression
@@ -256,7 +247,7 @@ let%expect_test _ =
             (DynamicArray
              ((@1 (Tuple ((@1 (BoundIdentifier f (0 0))) (@1 (IntLiteral 0)))))
               (@1 (Tuple ((@1 (BoundIdentifier f (0 0))) (@1 (IntLiteral 1))))))
-             ((@1 (Type (Tuple ((Function (Tuple ()) () ()) Int)))))))))))
+             ((Tuple ((Function (Tuple ()) () ()) Int)))))))))
        (@1
         (Expression
          (@1
@@ -286,12 +277,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function (Tuple ()) () ())))))
-          (name f)
+         ((modifiers ()) (typ ((Function (Tuple ()) () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ()))) () ()
-              (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
+             (Lambda (Tuple ()) () () (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
          (0 0)))
        (@1
         (Expression
@@ -300,7 +289,7 @@ let%expect_test _ =
            (@1
             (DynamicArray
              ((@1 (BoundIdentifier f (0 0))) (@1 (BoundIdentifier f (0 0))))
-             ((@1 (Type (Function (Tuple ()) () ()))))))))))
+             ((Function (Tuple ()) () ()))))))))
        (@1
         (Expression
          (@1
@@ -316,12 +305,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function (Tuple ()) () ())))))
-          (name f)
+         ((modifiers ()) (typ ((Function (Tuple ()) () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ()))) () ()
-              (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
+             (Lambda (Tuple ()) () () (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
          (0 0)))
        (@1
         (Expression
@@ -344,22 +331,17 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int (Int Int) ((pure) (const)))))))
+         ((modifiers ()) (typ ((Function Int (Int Int) ((pure) (const)))))
           (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int))
+             (Lambda Int
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
-                  (init_expr ()))
-                 (0 1)))
+                 ((modifiers ()) (typ (Int)) (name a) (init_expr ())) (0 1)))
                (@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
-                  (init_expr ()))
-                 (1 1))))
+                 ((modifiers ()) (typ (Int)) (name b) (init_expr ())) (1 1))))
               ((pure) (const))
               (@1
                (BoundFrame 2
@@ -386,12 +368,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function (Tuple ()) () ())))))
-          (name f)
+         ((modifiers ()) (typ ((Function (Tuple ()) () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ()))) () ()
-              (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
+             (Lambda (Tuple ()) () () (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
          (0 0)))
        (@1
         (Expression
@@ -400,7 +380,7 @@ let%expect_test _ =
            (@1
             (DynamicArray
              ((@1 (BoundIdentifier f (0 0))) (@1 (BoundIdentifier f (0 0))))
-             ((@1 (Type (Function (Tuple ()) () ()))))))))))
+             ((Function (Tuple ()) () ()))))))))
        (@1
         (Expression
          (@1
@@ -416,12 +396,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function (Tuple ()) () ())))))
-          (name f)
+         ((modifiers ()) (typ ((Function (Tuple ()) () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ()))) () ()
-              (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
+             (Lambda (Tuple ()) () () (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
          (0 0)))
        (@1
         (Expression
@@ -441,8 +419,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (0 0))))))
     |}]
 
@@ -453,8 +431,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (0 0))))))
     |}]
 
@@ -469,8 +446,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (0 0))))))
     |}]
 
@@ -481,8 +457,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (0 0))))))
     |}]
 
@@ -521,8 +497,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (0 0))))))
     |}]
 
@@ -545,8 +520,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (0 0))))))
     |}]
 
@@ -573,8 +547,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name c)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ((mut))) (typ (Bool)) (name c)
+          (init_expr ((@0 (BoolLiteral false)))))
          (0 0)))
        (@1
         (Expression
@@ -591,13 +565,11 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -608,13 +580,12 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Bool)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Bool)))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (1 0))))))
     |}]
 
@@ -630,13 +601,11 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Type)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Type)))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name x)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name x) (init_expr ((@1 (Type Int)))))
          (1 0))))))
     |}]
 
@@ -647,12 +616,12 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+         ((modifiers ()) (typ (Type)) (name t)
           (init_expr ((@1 (Type (Tuple (Int Int)))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Tuple (Int Int)))))) (name x)
+         ((modifiers ()) (typ ((Tuple (Int Int)))) (name x)
           (init_expr ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))
          (1 0))))))
     |}]
@@ -664,7 +633,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+         ((modifiers ()) (typ (Type)) (name t)
           (init_expr ((@1 (Type (Tuple (Int Int)))))))
          (0 0))))))
     |}]
@@ -676,8 +645,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (0 0))))))
     |}]
 
@@ -688,13 +656,12 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name c)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ((mut))) (typ (Bool)) (name c)
+          (init_expr ((@0 (BoolLiteral false)))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -705,15 +672,15 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name called)
+         ((modifiers ((mut))) (typ (Bool)) (name called)
           (init_expr ((@1 (BoolLiteral false)))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function Int () ()))))) (name f)
+         ((modifiers ()) (typ ((Function Int () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ()
+             (Lambda Int () ()
               (@1
                (BoundFrame 0
                 (@1
@@ -728,8 +695,7 @@ let%expect_test _ =
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (2 0))))))
     |}]
 
@@ -740,19 +706,17 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Int () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ((pure) (const))
+             (Lambda Int () ((pure) (const))
               (@1
                (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (IntLiteral 0)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (1 0))))))
     |}]
 
@@ -763,23 +727,22 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function Int () ()))))) (name f)
+         ((modifiers ()) (typ ((Function Int () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ()
+             (Lambda Int () ()
               (@1
                (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (IntLiteral 0)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name x)
+         ((modifiers ((mut))) (typ (Int)) (name x)
           (init_expr ((@1 (Call (@1 (BoundIdentifier f (0 0))) () ())))))
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (2 0))))))
     |}]
 
@@ -790,13 +753,12 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ((mut))) (typ (Int)) (name x)
+          (init_expr ((@0 (IntLiteral 0)))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name y)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name y) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -807,16 +769,13 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function (Tuple ()) (Bool) ()))))) (name y)
+         ((modifiers ()) (typ ((Function (Tuple ()) (Bool) ()))) (name y)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ())))
+             (Lambda (Tuple ())
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Bool)) (name x) (init_expr ())) (0 1))))
               () (@1 (BoundFrame 1 (@1 (Compound ())))) (0))))))
          (0 0))))))
     |}]
@@ -828,7 +787,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+         ((modifiers ()) (typ (Type)) (name t)
           (init_expr ((@1 (Type (Function (Tuple ()) (Bool) ()))))))
          (0 0))))))
     |}]
@@ -841,16 +800,15 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type Bool)))) (name changed)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ((mut))) (typ (Bool)) (name changed)
+          (init_expr ((@0 (BoolLiteral false)))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function (Tuple (Int Int)) () ()))))) (name f)
+         ((modifiers ()) (typ ((Function (Tuple (Int Int)) () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple (Int Int)))) () ()
+             (Lambda (Tuple (Int Int)) () ()
               (@1
                (BoundFrame 0
                 (@1
@@ -867,8 +825,7 @@ let%expect_test _ =
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
-          (init_expr ((@1 (IntLiteral 2)))))
+         ((modifiers ()) (typ (Int)) (name n) (init_expr ((@1 (IntLiteral 2)))))
          (2 0))))))
     |}]
 
@@ -879,13 +836,11 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name b)
-          (init_expr ((@1 (IntLiteral 1)))))
+         ((modifiers ()) (typ (Int)) (name b) (init_expr ((@1 (IntLiteral 1)))))
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name a)
-          (init_expr ((@1 (IntLiteral 1)))))
+         ((modifiers ()) (typ (Int)) (name a) (init_expr ((@1 (IntLiteral 1)))))
          (0 0))))))
     |}]
 
@@ -897,21 +852,17 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Bool)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Bool)))))
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function Bool (Bool) ())))))
-          (name foo)
+         ((modifiers ()) (typ ((Function Bool (Bool) ()))) (name foo)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Bool))
+             (Lambda Bool
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Bool)) (name x) (init_expr ())) (0 1))))
               ()
               (@1
                (BoundFrame 2
@@ -919,8 +870,8 @@ let%expect_test _ =
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name y)
-                      (init_expr ((@1 (BoolLiteral false)))))
+                     ((modifiers ()) (typ (Bool)) (name y)
+                      (init_expr ((@0 (BoolLiteral false)))))
                      (1 1))))))))
               (0))))))
          (0 0))))))
@@ -934,21 +885,17 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Bool)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Bool)))))
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function Bool (Bool) ())))))
-          (name foo)
+         ((modifiers ()) (typ ((Function Bool (Bool) ()))) (name foo)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Bool))
+             (Lambda Bool
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Bool)) (name x) (init_expr ())) (0 1))))
               ()
               (@1
                (BoundFrame 2
@@ -956,8 +903,8 @@ let%expect_test _ =
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name y)
-                      (init_expr ((@1 (BoolLiteral false)))))
+                     ((modifiers ()) (typ (Bool)) (name y)
+                      (init_expr ((@0 (BoolLiteral false)))))
                      (1 1)))
                    (@1 (Expression (@1 (BoundIdentifier foo (0 0))))))))))
               (0))))))
@@ -971,22 +918,18 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Bool)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Bool)))))
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Bool (Bool) ((pure) (const)))))))
+         ((modifiers ()) (typ ((Function Bool (Bool) ((pure) (const)))))
           (name foo)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Bool))
+             (Lambda Bool
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Bool)) (name x) (init_expr ())) (0 1))))
               ((pure) (const))
               (@1
                (BoundFrame 2
@@ -994,8 +937,8 @@ let%expect_test _ =
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name y)
-                      (init_expr ((@1 (BoolLiteral false)))))
+                     ((modifiers ()) (typ (Bool)) (name y)
+                      (init_expr ((@0 (BoolLiteral false)))))
                      (1 1)))
                    (@1 (Expression (@1 (BoundIdentifier foo (0 0))))))))))
               (0))))))
@@ -1019,17 +962,17 @@ let%expect_test _ =
            (@1 (BoundIdentifier f (0 0)))))))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function Int () ()))))) (name f)
+         ((modifiers ()) (typ ((Function Int () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ()
+             (Lambda Int () ()
               (@1
                (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (IntLiteral 0)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name p)
+         ((modifiers ()) (typ (Bool)) (name p)
           (init_expr ((@1 (BoolLiteral true)))))
          (1 0))))))
     |}]
@@ -1042,18 +985,16 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -1067,12 +1008,11 @@ let%expect_test _ =
          (@1
           (Assignment (@1 (BoundLet (Identifier f) (0 0)))
            (@1
-            (Lambda (@1 (Type Type)) () ((pure) (const))
+            (Lambda Type () ((pure) (const))
              (@1 (BoundFrame 0 (@1 (Return (@1 (Type Int)))))) (0)))))))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -1092,18 +1032,16 @@ let%expect_test _ =
            (@1
             (Tuple
              ((@1
-               (Lambda (@1 (Type Type)) () ((pure) (const))
+               (Lambda Type () ((pure) (const))
                 (@1 (BoundFrame 0 (@1 (Return (@1 (Type Int)))))) (0)))
               (@1 (IntLiteral 2)))))))))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (2 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (3 0))))))
     |}]
 
@@ -1114,17 +1052,14 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type (Type) ((pure) (const)))))))
+         ((modifiers ()) (typ ((Function Type (Type) ((pure) (const)))))
           (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type))
+             (Lambda Type
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Type)) (name t) (init_expr ())) (0 1))))
               ((pure) (const))
               (@1
                (BoundFrame 1
@@ -1138,9 +1073,9 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Tuple (Int Bool)))))) (name x)
+         ((modifiers ()) (typ ((Tuple (Int Bool)))) (name x)
           (init_expr
-           ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (BoolLiteral false))))))))
+           ((@0 (Tuple ((@0 (IntLiteral 0)) (@0 (BoolLiteral false))))))))
          (1 0))))))
     |}]
 
@@ -1159,17 +1094,14 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type (Type) ((pure) (const)))))))
+         ((modifiers ()) (typ ((Function Type (Type) ((pure) (const)))))
           (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type))
+             (Lambda Type
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Type)) (name t) (init_expr ())) (0 1))))
               ((pure) (const))
               (@1
                (BoundFrame 2
@@ -1177,16 +1109,15 @@ let%expect_test _ =
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ((mut))) (type_expr ((@1 (Type Type))))
-                      (name s) (init_expr ((@1 (BoundIdentifier t (0 1))))))
+                     ((modifiers ((mut))) (typ (Type)) (name s)
+                      (init_expr ((@1 (BoundIdentifier t (0 1))))))
                      (1 1)))
                    (@1 (Return (@1 (BoundIdentifier s (1 1))))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -1197,18 +1128,16 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -1219,19 +1148,18 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1
                (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Bool)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (1 0))))))
     |}]
 
@@ -1274,16 +1202,14 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 7)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@1 (IntLiteral 7)))))
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int () ((pure) (const))))))) (name foo)
+         ((modifiers ()) (typ ((Function Int () ((pure) (const))))) (name foo)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ((pure) (const))
+             (Lambda Int () ((pure) (const))
               (@1
                (BoundFrame 0
                 (@1 (Compound ((@1 (Expression (@1 (IntLiteral 7)))))))))
@@ -1302,11 +1228,10 @@ let%expect_test _ =
           (Assignment (@1 (BoundLet (Identifier x) (1 0))) (@1 (IntLiteral 7))))))
        (@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int () ((pure) (const))))))) (name foo)
+         ((modifiers ()) (typ ((Function Int () ((pure) (const))))) (name foo)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ((pure) (const))
+             (Lambda Int () ((pure) (const))
               (@1
                (BoundFrame 0
                 (@1 (Compound ((@1 (Expression (@1 (IntLiteral 7)))))))))
@@ -1322,20 +1247,18 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const)))))))
-          (name foo)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name foo)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1
                (BoundFrame 1
                 (@1
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ((mut))) (type_expr ((@1 (Type Type))))
-                      (name t) (init_expr ((@1 (Type Int)))))
+                     ((modifiers ((mut))) (typ (Type)) (name t)
+                      (init_expr ((@1 (Type Int)))))
                      (0 1)))
                    (@1
                     (Expression
@@ -1347,8 +1270,8 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (1 0))))))
     |}]
 
@@ -1384,21 +1307,19 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name a)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name a)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name b)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name b)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1
                (BoundFrame 0
                 (@1
@@ -1408,8 +1329,7 @@ let%expect_test _ =
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (2 0))))))
     |}]
 
@@ -1427,33 +1347,28 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr
-           ((@1
-             (Type
-              (Function (Function Type () ((pure) (const))) () ((pure) (const)))))))
+          (typ
+           ((Function (Function Type () ((pure) (const))) () ((pure) (const)))))
           (name foo)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Function Type () ((pure) (const))))) ()
-              ((pure) (const))
+             (Lambda (Function Type () ((pure) (const))) () ((pure) (const))
               (@1
                (BoundFrame 2
                 (@1
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+                     ((modifiers ()) (typ (Type)) (name t)
                       (init_expr ((@1 (Type Int)))))
                      (0 1)))
                    (@1
                     (BoundDeclaration
-                     ((modifiers ())
-                      (type_expr
-                       ((@1 (Type (Function Type () ((pure) (const)))))))
+                     ((modifiers ()) (typ ((Function Type () ((pure) (const)))))
                       (name bar)
                       (init_expr
                        ((@1
-                         (Lambda (@1 (Type Type)) () ((pure) (const))
+                         (Lambda Type () ((pure) (const))
                           (@1
                            (BoundFrame 0
                             (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
@@ -1464,8 +1379,7 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name y)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name y) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -1476,11 +1390,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1
                (BoundFrame 1
                 (@1
@@ -1495,9 +1408,9 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Tuple (Int Bool)))))) (name x)
+         ((modifiers ()) (typ ((Tuple (Int Bool)))) (name x)
           (init_expr
-           ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (BoolLiteral false))))))))
+           ((@0 (Tuple ((@0 (IntLiteral 0)) (@0 (BoolLiteral false))))))))
          (1 0))))))
     |}]
 
@@ -1512,11 +1425,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1
                (BoundFrame 2
                 (@1
@@ -1535,8 +1447,8 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (1 0))))))
     |}]
 
@@ -1547,11 +1459,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1
                (BoundFrame 3
                 (@1
@@ -1576,8 +1487,8 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (1 0))))))
     |}]
 
@@ -1600,11 +1511,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1
                (BoundFrame 1
                 (@1
@@ -1621,8 +1531,7 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -1647,11 +1556,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Int () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ((pure) (const))
+             (Lambda Int () ((pure) (const))
               (@1
                (BoundFrame 0
                 (@1
@@ -1676,8 +1584,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (0 0))))))
     |}]
 
@@ -1688,8 +1595,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (0 0))))))
     |}]
 
@@ -1700,13 +1606,12 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name y)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ((mut))) (typ (Int)) (name y)
+          (init_expr ((@0 (IntLiteral 0)))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (1 0))))))
     |}]
 
@@ -1717,11 +1622,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1
                (BoundFrame 0
                 (@1
@@ -1734,8 +1638,7 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -1747,28 +1650,25 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr
-           ((@1
-             (Type
-              (Function (Function Int () ((pure) (const))) () ((pure) (const)))))))
+          (typ
+           ((Function (Function Int () ((pure) (const))) () ((pure) (const)))))
           (name make)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Function Int () ((pure) (const))))) ()
-              ((pure) (const))
+             (Lambda (Function Int () ((pure) (const))) () ((pure) (const))
               (@1
                (BoundFrame 1
                 (@1
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
+                     ((modifiers ()) (typ (Int)) (name x)
                       (init_expr ((@1 (IntLiteral 1)))))
                      (0 1)))
                    (@1
                     (Return
                      (@1
-                      (Lambda (@1 (Type Int)) () ((pure) (const))
+                      (Lambda Int () ((pure) (const))
                        (@1
                         (BoundFrame 0
                          (@1 (Compound ((@1 (Return (@1 (IntLiteral 1)))))))))
@@ -1777,10 +1677,10 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function Int () ()))))) (name g)
+         ((modifiers ()) (typ ((Function Int () ()))) (name g)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ((pure) (const))
+             (Lambda Int () ((pure) (const))
               (@1
                (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (IntLiteral 1)))))))))
               (2))))))
@@ -1807,18 +1707,16 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function (Tuple ()) () ((pure) (const)))))))
+         ((modifiers ()) (typ ((Function (Tuple ()) () ((pure) (const)))))
           (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ()))) () ((pure) (const))
+             (Lambda (Tuple ()) () ((pure) (const))
               (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (1 0))))))
     |}]
 
@@ -1829,28 +1727,26 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function (Tuple ()) () ((pure) (const)))))))
+         ((modifiers ()) (typ ((Function (Tuple ()) () ((pure) (const)))))
           (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ()))) () ((pure) (const))
+             (Lambda (Tuple ()) () ((pure) (const))
               (@1 (BoundFrame 0 (@1 (Compound ())))) (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function (Tuple ()) () ((pure) (const)))))))
+         ((modifiers ()) (typ ((Function (Tuple ()) () ((pure) (const)))))
           (name g)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple ()))) () ((pure) (const))
+             (Lambda (Tuple ()) () ((pure) (const))
               (@1 (BoundFrame 0 (@1 (Compound ())))) (1))))))
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (2 0))))))
     |}]
 
@@ -1863,15 +1759,13 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr
-           ((@1
-             (Type
-              (Function (Function (Tuple ()) () ((pure) (const))) ()
-               ((pure) (const)))))))
+          (typ
+           ((Function (Function (Tuple ()) () ((pure) (const))) ()
+             ((pure) (const)))))
           (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Function (Tuple ()) () ((pure) (const))))) ()
+             (Lambda (Function (Tuple ()) () ((pure) (const))) ()
               ((pure) (const))
               (@1
                (BoundFrame 1
@@ -1880,12 +1774,10 @@ let%expect_test _ =
                   ((@1
                     (BoundDeclaration
                      ((modifiers ())
-                      (type_expr
-                       ((@1 (Type (Function (Tuple ()) () ((pure) (const)))))))
-                      (name g)
+                      (typ ((Function (Tuple ()) () ((pure) (const))))) (name g)
                       (init_expr
                        ((@1
-                         (Lambda (@1 (Type (Tuple ()))) () ((pure) (const))
+                         (Lambda (Tuple ()) () ((pure) (const))
                           (@1 (BoundFrame 0 (@1 (Compound ())))) (1))))))
                      (0 1)))
                    (@1 (Return (@1 (BoundIdentifier g (0 1))))))))))
@@ -1893,8 +1785,8 @@ let%expect_test _ =
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (1 0))))))
     |}]
 
@@ -1921,12 +1813,10 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr
-           ((@1 (Type (Function (DynamicArray Int) () ((pure) (const)))))))
-          (name f)
+          (typ ((Function (DynamicArray Int) () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (DynamicArray Int))) () ((pure) (const))
+             (Lambda (DynamicArray Int) () ((pure) (const))
               (@1
                (BoundFrame 1
                 (@1
@@ -1934,10 +1824,8 @@ let%expect_test _ =
                   ((@1
                     (BoundDeclaration
                      ((modifiers ((mut)))
-                      (type_expr ((@1 (Type (DynamicArray (DynamicArray Int))))))
-                      (name a)
-                      (init_expr
-                       ((@1 (DynamicArray () ((@1 (Type (DynamicArray Int)))))))))
+                      (typ ((DynamicArray (DynamicArray Int)))) (name a)
+                      (init_expr ((@0 (DynamicArray () ((DynamicArray Int)))))))
                      (0 1)))
                    (@1
                     (Expression
@@ -1947,13 +1835,11 @@ let%expect_test _ =
                         (DynamicArray
                          ((@1
                            (DynamicArray
-                            ((@1 (IntLiteral 0)) (@1 (IntLiteral 0)))
-                            ((@1 (Type Int)))))
+                            ((@1 (IntLiteral 0)) (@1 (IntLiteral 0))) (Int)))
                           (@1
                            (DynamicArray
-                            ((@1 (IntLiteral 0)) (@1 (IntLiteral 0)))
-                            ((@1 (Type Int))))))
-                         ((@1 (Type (DynamicArray Int))))))))))
+                            ((@1 (IntLiteral 0)) (@1 (IntLiteral 0))) (Int))))
+                         ((DynamicArray Int))))))))
                    (@1
                     (Expression
                      (@1
@@ -1976,9 +1862,7 @@ let%expect_test _ =
         (Expression
          (@1
           (Assignment (@1 (BoundLet (Identifier x) (1 0)))
-           (@1
-            (DynamicArray ((@1 (IntLiteral 0)) (@1 (IntLiteral 2)))
-             ((@1 (Type Int))))))))))))
+           (@1 (DynamicArray ((@1 (IntLiteral 0)) (@1 (IntLiteral 2))) (Int))))))))))
     |}]
 
 let%expect_test _ =
@@ -1989,23 +1873,20 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ())
-          (type_expr
-           ((@1 (Type (Function (Tuple (Bool Int)) () ((pure) (const)))))))
-          (name f)
+          (typ ((Function (Tuple (Bool Int)) () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type (Tuple (Bool Int)))) () ((pure) (const))
+             (Lambda (Tuple (Bool Int)) () ((pure) (const))
               (@1
                (BoundFrame 1
                 (@1
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ((mut)))
-                      (type_expr ((@1 (Type (Tuple (Bool Int)))))) (name a)
+                     ((modifiers ((mut))) (typ ((Tuple (Bool Int)))) (name a)
                       (init_expr
-                       ((@1
-                         (Tuple ((@1 (BoolLiteral false)) (@1 (IntLiteral 0))))))))
+                       ((@0
+                         (Tuple ((@0 (BoolLiteral false)) (@0 (IntLiteral 0))))))))
                      (0 1)))
                    (@1
                     (Expression
@@ -2041,10 +1922,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function Int () ()))))) (name f)
+         ((modifiers ()) (typ ((Function Int () ()))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ()
+             (Lambda Int () ()
               (@1
                (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (IntLiteral 0)))))))))
               (0))))))
@@ -2068,17 +1949,13 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int (Int) ((pure) (const)))))))
-          (name f)
+         ((modifiers ()) (typ ((Function Int (Int) ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int))
+             (Lambda Int
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name i)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Int)) (name i) (init_expr ())) (0 1))))
               ((pure) (const))
               (@1
                (BoundFrame 2
@@ -2086,11 +1963,9 @@ let%expect_test _ =
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ((mut)))
-                      (type_expr ((@1 (Type (DynamicArray Int))))) (name a)
+                     ((modifiers ((mut))) (typ ((DynamicArray Int))) (name a)
                       (init_expr
-                       ((@1
-                         (DynamicArray ((@1 (IntLiteral 0))) ((@1 (Type Int))))))))
+                       ((@1 (DynamicArray ((@1 (IntLiteral 0))) (Int))))))
                      (1 1)))
                    (@1
                     (Expression
@@ -2116,17 +1991,13 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int (Int) ((pure) (const)))))))
-          (name f)
+         ((modifiers ()) (typ ((Function Int (Int) ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int))
+             (Lambda Int
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name i)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Int)) (name i) (init_expr ())) (0 1))))
               ((pure) (const))
               (@1
                (BoundFrame 2
@@ -2134,11 +2005,9 @@ let%expect_test _ =
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ((mut)))
-                      (type_expr ((@1 (Type (DynamicArray Int))))) (name a)
+                     ((modifiers ((mut))) (typ ((DynamicArray Int))) (name a)
                       (init_expr
-                       ((@1
-                         (DynamicArray ((@1 (IntLiteral 0))) ((@1 (Type Int))))))))
+                       ((@1 (DynamicArray ((@1 (IntLiteral 0))) (Int))))))
                      (1 1)))
                    (@1
                     (Expression
@@ -2180,15 +2049,12 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type (DynamicArray Int)))))
-          (name a)
-          (init_expr
-           ((@1 (DynamicArray ((@1 (IntLiteral 0))) ((@1 (Type Int))))))))
+         ((modifiers ((mut))) (typ ((DynamicArray Int))) (name a)
+          (init_expr ((@1 (DynamicArray ((@1 (IntLiteral 0))) (Int))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (1 0))))))
     |}]
 
@@ -2203,9 +2069,7 @@ let%expect_test _ =
           (Assignment (@1 (BoundLet (Identifier x) (0 0)))
            (@1
             (Index
-             (@1
-              (DynamicArray ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))
-               ((@1 (Type Int)))))
+             (@1 (DynamicArray ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))) (Int)))
              ((@1 (IntLiteral 3))))))))))))
     |}]
 
@@ -2220,9 +2084,7 @@ let%expect_test _ =
           (Assignment (@1 (BoundLet (Identifier x) (0 0)))
            (@1
             (Index
-             (@1
-              (DynamicArray ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))
-               ((@1 (Type Int)))))
+             (@1 (DynamicArray ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))) (Int)))
              ((@1 (IntLiteral -3))))))))))))
     |}]
 
@@ -2242,7 +2104,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+         ((modifiers ()) (typ (Type)) (name t)
           (init_expr ((@1 (Type (DynamicArray Int))))))
          (0 0))))))
     |}]
@@ -2254,8 +2116,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Int)))))
          (0 0))))))
     |}]
 
@@ -2270,19 +2131,18 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1
                (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Bool)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name x)
-          (init_expr ((@1 (BoolLiteral false)))))
+         ((modifiers ()) (typ (Bool)) (name x)
+          (init_expr ((@0 (BoolLiteral false)))))
          (1 0))))))
     |}]
 
@@ -2297,12 +2157,12 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (DynamicArray Int))))) (name a)
-          (init_expr ((@1 (DynamicArray () ((@1 (Type Int))))))))
+         ((modifiers ()) (typ ((DynamicArray Int))) (name a)
+          (init_expr ((@0 (DynamicArray () (Int))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+         ((modifiers ()) (typ (Type)) (name t)
           (init_expr ((@1 (Type (DynamicArray Int))))))
          (1 0))))))
     |}]
@@ -2314,10 +2174,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type (Function Int () ()))))) (name a)
+         ((modifiers ()) (typ ((Function Int () ()))) (name a)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ()
+             (Lambda Int () ()
               (@1
                (BoundFrame 0
                 (@1
@@ -2332,8 +2192,7 @@ let%expect_test _ =
            (@1 (BoundIdentifier a (0 0)))))))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ()) (typ (Int)) (name x) (init_expr ((@0 (IntLiteral 0)))))
          (2 0))))))
     |}]
 
@@ -2392,13 +2251,11 @@ let%expect_test _ =
            (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (BoolLiteral true)))))))))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name s)
-          (init_expr ((@1 (Type Int)))))
+         ((modifiers ()) (typ (Type)) (name s) (init_expr ((@1 (Type Int)))))
          (1 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
-          (init_expr ((@1 (Type Bool)))))
+         ((modifiers ()) (typ (Type)) (name t) (init_expr ((@1 (Type Bool)))))
          (2 0))))))
     |}]
 
@@ -2418,9 +2275,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type (Tuple (Int Int))))))
-          (name a)
-          (init_expr ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (IntLiteral 0))))))))
+         ((modifiers ((mut))) (typ ((Tuple (Int Int)))) (name a)
+          (init_expr ((@0 (Tuple ((@0 (IntLiteral 0)) (@0 (IntLiteral 0))))))))
          (0 0)))
        (@1
         (Expression
@@ -2447,17 +2303,13 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int (Bool) ((pure) (const)))))))
-          (name f)
+         ((modifiers ()) (typ ((Function Int (Bool) ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int))
+             (Lambda Int
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name p)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Bool)) (name p) (init_expr ())) (0 1))))
               ((pure) (const))
               (@1
                (BoundFrame 1
@@ -2482,17 +2334,13 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int (Bool) ((pure) (const)))))))
-          (name f)
+         ((modifiers ()) (typ ((Function Int (Bool) ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int))
+             (Lambda Int
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Bool)))) (name p)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Bool)) (name p) (init_expr ())) (0 1))))
               ((pure) (const))
               (@1
                (BoundFrame 1
@@ -2518,17 +2366,13 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int (Int) ((pure) (const)))))))
-          (name f)
+         ((modifiers ()) (typ ((Function Int (Int) ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int))
+             (Lambda Int
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Int)) (name n) (init_expr ())) (0 1))))
               ((pure) (const))
               (@1
                (BoundFrame 2
@@ -2536,7 +2380,7 @@ let%expect_test _ =
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name i)
+                     ((modifiers ((mut))) (typ (Int)) (name i)
                       (init_expr ((@1 (IntLiteral 0)))))
                      (1 1)))
                    (@1
@@ -2570,17 +2414,13 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int (Int) ((pure) (const)))))))
-          (name f)
+         ((modifiers ()) (typ ((Function Int (Int) ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int))
+             (Lambda Int
               ((@1
                 (BoundDeclaration
-                 ((modifiers ()) (type_expr ((@1 (Type Int)))) (name n)
-                  (init_expr ()))
-                 (0 1))))
+                 ((modifiers ()) (typ (Int)) (name n) (init_expr ())) (0 1))))
               ((pure) (const))
               (@1
                (BoundFrame 2
@@ -2588,7 +2428,7 @@ let%expect_test _ =
                  (Compound
                   ((@1
                     (BoundDeclaration
-                     ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name i)
+                     ((modifiers ((mut))) (typ (Int)) (name i)
                       (init_expr ((@1 (IntLiteral 0)))))
                      (1 1)))
                    (@1
@@ -2634,11 +2474,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Int () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Int () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Int)) () ((pure) (const))
+             (Lambda Int () ((pure) (const))
               (@1
                (BoundFrame 0
                 (@1
@@ -2663,8 +2502,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type Int)))) (name x)
-          (init_expr ((@1 (IntLiteral 0)))))
+         ((modifiers ((mut))) (typ (Int)) (name x)
+          (init_expr ((@0 (IntLiteral 0)))))
          (0 0)))
        (@1
         (Expression
@@ -2693,9 +2532,8 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type (Tuple (Int Int))))))
-          (name x)
-          (init_expr ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (IntLiteral 0))))))))
+         ((modifiers ((mut))) (typ ((Tuple (Int Int)))) (name x)
+          (init_expr ((@0 (Tuple ((@0 (IntLiteral 0)) (@0 (IntLiteral 0))))))))
          (0 0)))
        (@1
         (Expression
@@ -2733,10 +2571,9 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ((mut))) (type_expr ((@1 (Type (Tuple (Int Bool))))))
-          (name x)
+         ((modifiers ((mut))) (typ ((Tuple (Int Bool)))) (name x)
           (init_expr
-           ((@1 (Tuple ((@1 (IntLiteral 0)) (@1 (BoolLiteral false))))))))
+           ((@0 (Tuple ((@0 (IntLiteral 0)) (@0 (BoolLiteral false))))))))
          (0 0)))
        (@1
         (Expression
@@ -2798,17 +2635,16 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+         ((modifiers ()) (typ (Type)) (name t)
           (init_expr ((@1 (Type (Function Int (Bool) ()))))))
          (1 0))))))
     |}]
@@ -2820,17 +2656,16 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+         ((modifiers ()) (typ (Type)) (name t)
           (init_expr ((@1 (Type (Function (Tuple ()) (Int) ()))))))
          (1 0))))))
     |}]
@@ -2842,17 +2677,16 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (BoundDeclaration
-         ((modifiers ())
-          (type_expr ((@1 (Type (Function Type () ((pure) (const))))))) (name f)
+         ((modifiers ()) (typ ((Function Type () ((pure) (const))))) (name f)
           (init_expr
            ((@1
-             (Lambda (@1 (Type Type)) () ((pure) (const))
+             (Lambda Type () ((pure) (const))
               (@1 (BoundFrame 0 (@1 (Compound ((@1 (Return (@1 (Type Int)))))))))
               (0))))))
          (0 0)))
        (@1
         (BoundDeclaration
-         ((modifiers ()) (type_expr ((@1 (Type Type)))) (name t)
+         ((modifiers ()) (typ (Type)) (name t)
           (init_expr ((@1 (Type (DynamicArray Int))))))
          (1 0))))))
     |}]
