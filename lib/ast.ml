@@ -59,7 +59,7 @@ and expression_inner =
   | Type of const_type
   | TypeOf of expression
   | Arity of expression
-  | IntLiteral of int
+  | IntLiteral of int64
   | BoolLiteral of bool
   | Assignment of expression * expression
   | Let of pattern

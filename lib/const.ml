@@ -108,7 +108,7 @@ let type_of_expression (location, expression) =
 
 let rec default_value ((location, const_type): expression) : expression =
   match const_type with
-  | Type Int -> (location, IntLiteral 0)
+  | Type Int -> (location, IntLiteral 0L)
   | Type Bool -> (location, BoolLiteral false)
   | Type (Tuple elements) ->
     (location, Tuple (List.map (fun element -> default_value (location, Type element)) elements))
@@ -118,7 +118,7 @@ let rec default_value ((location, const_type): expression) : expression =
   
 let rec representative_value_of_type ((location, const_type): expression) : expression =
   let representative_value = match const_type with
-    | Type Int -> (location, IntLiteral 0)
+    | Type Int -> (location, IntLiteral 0L)
     | Type Bool -> (location, BoolLiteral false)
     | Type Type -> (location, Type Representative)
     | Type (Function (return_type, param_types, modifiers)) ->

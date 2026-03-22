@@ -36,7 +36,7 @@ rule token = parse
     | "when"                            { WHEN }
     | "while"                           { WHILE }
     | (id_first id_subs*) as lxm        { ID(lxm) }
-    | ['0'-'9']+ as lxm                 { INT_LIT(int_of_string lxm) }
+    | ['0'-'9']+ as lxm                 { INT_LIT(Int64.of_string lxm) }
     | "==" skip_eols                    { EQUALS }
     | "!=" skip_eols                    { NOT_EQUALS }
     | "<=" skip_eols                    { LESS_EQUALS }

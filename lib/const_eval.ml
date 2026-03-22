@@ -124,13 +124,15 @@ let check_is_const_value (expression : expression) : value =
   end else
     raise (error_internal (Printf.sprintf "expected const value, got: %s" (Ast.show_expression expression)))
 
-let nth_list_element_or_error lst n =
+let nth_list_element_or_error lst (n : int64) =
+  let n = Int64.to_int n in
   if n >= 0 && n < List.length lst then
     List.nth lst n
   else
     raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" n))
 
-let nth_array_element_or_error arr n =
+let nth_array_element_or_error arr (n : int64) =
+  let n = Int64.to_int n in
   if n >= 0 && n < Array.length arr then
     arr.(n)
   else
@@ -314,14 +316,14 @@ and evaluate_index env frame mode location indexable index =
 
       begin match index with
       | Const, (_, IntLiteral i) ->
-        if i < 0 || i >= Array.length elements then begin
+        if i < 0L || i >= Int64.of_int (Array.length elements) then begin
           match mode with
           | Fold_consts -> non_const ()
           | Evaluate_type -> Const, element_representative ()
           | Evaluate_const ->
-            raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i))
+            raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %Ld" i))
         end else
-          Const, elements.(i)
+          Const, elements.(Int64.to_int i)
 
       | Non_const _, (_, IntLiteral _) -> non_const ()
     
@@ -337,11 +339,7 @@ and evaluate_index env frame mode location indexable index =
       let index = evaluate_const_value env frame index in
       begin match index with
       | _, (_, IntLiteral i) ->
-        let element = try
-          List.nth elements i
-        with
-        | Invalid_argument _
-        | Failure _ -> raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i)) in
+        let element = nth_list_element_or_error elements i in
         begin match indexable with
         | Const, _ -> Const, element
         | Non_const _, _ -> (Non_const (location, Index (ast_of indexable, Some (ast_of index)))),
@@ -355,9 +353,9 @@ and evaluate_index env frame mode location indexable index =
 and evaluate_unary_op env frame mode location op e =
   let e = evaluate_expression env frame mode e in
   match mode, op, e with
-  | _, Negate, (Const, (_, IntLiteral v)) -> Const, (location, IntLiteral (-v))
+  | _, Negate, (Const, (_, IntLiteral v)) -> Const, (location, IntLiteral (Int64.neg v))
   | _, LogicalNot, (Const, (_, BoolLiteral b)) -> Const, (location, BoolLiteral (not b))
-  | _, BitwiseInvert, (Const, (_, IntLiteral v)) -> Const, (location, IntLiteral (lnot v))
+  | _, BitwiseInvert, (Const, (_, IntLiteral v)) -> Const, (location, IntLiteral (Int64.lognot v))
   | _, BitwiseInvert, (Const, (_, BoolLiteral b)) -> Const, (location, BoolLiteral (not b))
   
   | Fold_consts, Negate, (_, (_, IntLiteral _))
@@ -413,33 +411,33 @@ and evaluate_binary_op env frame mode location op a b =
     | (Const, _), (Const, _), _ -> Const
     | _ -> Non_const (location, BinaryOp (op, ast_of a, ast_of b)) in
   match op, a, b with
-  | Plus, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->  result_ast, (location, IntLiteral (a + b))
-  | Minus, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (a - b))
-  | Times, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (a * b))
+  | Plus, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->  result_ast, (location, IntLiteral (Int64.add a b))
+  | Minus, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (Int64.sub a b))
+  | Times, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (Int64.mul a b))
 
-  | Less, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->          result_ast, (location, BoolLiteral (a < b))
-  | LessEquals, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->    result_ast, (location, BoolLiteral (a <= b))
-  | Greater, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->       result_ast, (location, BoolLiteral (a > b))
-  | GreaterEquals, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, BoolLiteral (a >= b))
+  | Less, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->          result_ast, (location, BoolLiteral (Int64.compare a b < 0))
+  | LessEquals, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->    result_ast, (location, BoolLiteral (Int64.compare a b <= 0))
+  | Greater, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->       result_ast, (location, BoolLiteral (Int64.compare a b > 0))
+  | GreaterEquals, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, BoolLiteral (Int64.compare a b >= 0))
 
   | Div, (_, (_, IntLiteral num)), (_, (_, IntLiteral denom))
   | Modulo, (_, (_, IntLiteral num)), (_, (_, IntLiteral denom)) ->
-    if denom = 0 then begin
+    if denom = 0L then begin
       match mode with
       | Evaluate_const -> raise (error_invalid_operation "division by zero")
       | _ -> (if mode = Evaluate_type then Const else Non_const (location, BinaryOp (op, ast_of a, ast_of b))),
                                    representative_value_of_type (location, Type Int)
     end else
-      result_ast, (location, IntLiteral (if op = Div then num / denom else num mod denom))
+      result_ast, (location, IntLiteral (if op = Div then Int64.div num denom else Int64.rem num denom))
 
-  | ShiftLeft, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->  result_ast, (location, IntLiteral (a lsl b))
-  | ShiftRight, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (a asr b))
+  | ShiftLeft, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->  result_ast, (location, IntLiteral (Int64.shift_left a (Int64.to_int b)))
+  | ShiftRight, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (Int64.shift_right a (Int64.to_int b)))
 
-  | BitwiseAnd, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->   result_ast, (location, IntLiteral (a land b))
+  | BitwiseAnd, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->   result_ast, (location, IntLiteral (Int64.logand a b))
   | BitwiseAnd, (_, (_, BoolLiteral a)), (_, (_, BoolLiteral b)) -> result_ast, (location, BoolLiteral (a && b))
-  | BitwiseOr, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->    result_ast, (location, IntLiteral (a lor b))
+  | BitwiseOr, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->    result_ast, (location, IntLiteral (Int64.logor a b))
   | BitwiseOr, (_, (_, BoolLiteral a)), (_, (_, BoolLiteral b)) ->  result_ast, (location, BoolLiteral (a || b))
-  | BitwiseXor, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->   result_ast, (location, IntLiteral (a lxor b))
+  | BitwiseXor, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->   result_ast, (location, IntLiteral (Int64.logxor a b))
   | BitwiseXor, (_, (_, BoolLiteral a)), (_, (_, BoolLiteral b)) -> result_ast, (location, BoolLiteral (a <> b))
 
   | Equals, (Const, a), (Const, b)
@@ -531,7 +529,7 @@ and evaluate_fall_through env frame mode location a b =
         match pattern_elements with
         | [] -> (location, BoolLiteral true)
         | (_, BoundLet _) :: rest -> helper (idx + 1) rest
-        | head :: rest -> (location, BinaryOp (LogicalAnd, (location, BinaryOp (Equals, head, (location, Index (value, Some (location, IntLiteral idx))))), helper (idx + 1) rest))
+        | head :: rest -> (location, BinaryOp (LogicalAnd, (location, BinaryOp (Equals, head, (location, Index (value, Some (location, IntLiteral (Int64.of_int idx)))))), helper (idx + 1) rest))
       in
       helper 0 pattern_elements     
     | _ -> location, BinaryOp (Equals, pattern, value)
@@ -641,10 +639,10 @@ and evaluate_assignment env frame mode location a b =
         | Const, (_, Tuple elements) ->
           begin match index with
           | _, (_, IntLiteral i) ->
-            if i < 0 || i >= (List.length elements) then
-              raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %d" i));
+            if i < 0L || i >= (Int64.of_int (List.length elements)) then
+              raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %Ld" i));
             let elements =
-              List.mapi (fun j e -> if j = i then ast_of new_value else e) elements in
+              List.mapi (fun j e -> if Int64.of_int j = i then ast_of new_value else e) elements in
             set_value (Const, (location, Tuple elements))
           | _ -> raise error_type_mismatch
           end
@@ -652,10 +650,10 @@ and evaluate_assignment env frame mode location a b =
         | Const, (_, DynamicArray (elements, element_type)) ->
           begin match index with
           | _, (_, IntLiteral i) ->
-            if i < 0 || i >= Array.length elements then
-              raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %d" i));
+            if i < 0L || i >= (Int64.of_int (Array.length elements)) then
+              raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %Ld" i));
             let elements = Array.copy elements in
-            elements.(i) <- ast_of new_value;
+            elements.(Int64.to_int i) <- ast_of new_value;
             set_value (Const, (location, DynamicArray (elements, element_type)))
           | _ -> raise error_type_mismatch
           end
@@ -786,8 +784,8 @@ and evaluate_dynamic_array env frame mode location elements element_type =
 
 and evaluate_arity env frame _ location e =
   match evaluate_expression env frame Evaluate_type e with
-  | _, (_, Tuple elements) -> Const, (location, IntLiteral (List.length elements))
-  | _ -> Const, (location, IntLiteral 1)
+  | _, (_, Tuple elements) -> Const, (location, IntLiteral (Int64.of_int (List.length elements)))
+  | _ -> Const, (location, IntLiteral 1L)
   
 
 and evaluate_lambda_part1 env frame mode location return_type params (modifiers : function_modifiers) body_location num_variables statement =
@@ -842,7 +840,7 @@ and evaluate_expression_statement env frame mode location statement =
                               (location, Tuple [])
 
 and set_lambda_aliases (location, const_value) ast_alias =
-  let ith_index i e = set_lambda_aliases e (location, Index (ast_alias, Some (location, (IntLiteral i)))) in
+  let ith_index i e = set_lambda_aliases e (location, Index (ast_alias, Some (location, (IntLiteral (Int64.of_int i))))) in
   match const_value with
   | Lambda (return_type, params, modifiers, statement, Some (closure_identity, Closure (frame, _))) ->
     (location, Lambda (return_type, params, modifiers, statement, Some (closure_identity, Closure (frame, Some ast_alias))))

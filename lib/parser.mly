@@ -7,7 +7,7 @@
     let loc ((s: Lexing.position), (e: Lexing.position)) : location = make_location s e
 %}
 %token <string> ID
-%token <int> INT_LIT
+%token <int64> INT_LIT
 
 (* Please keep these in alphabetic order *)
 %token ANY ARITY ASSIGN
