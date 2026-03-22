@@ -88,12 +88,12 @@ let const_value_exists (predicate : expression -> bool) expression : bool =
   not (const_value_for_all (fun e -> not (predicate e)) expression)
 
 (* This must work on any const value, which by definition includes any lambda (const or not) and any representative value. *)
-let rec ast_type_of_expression ((location, expression): expression) : ast_type =
+let rec const_type_of_expression ((location, expression): expression) : const_type =
   match expression with
   | IntLiteral _ -> Int
   | BoolLiteral _ -> Bool
   | Type _ -> Type
-  | Tuple elements -> Tuple (List.map ast_type_of_expression elements)
+  | Tuple elements -> Tuple (List.map const_type_of_expression elements)
   | TypeOf _ -> Type
   | DynamicArray (_, Some (_, Type element_type)) -> DynamicArray element_type
   | Lambda ((_, Type return_type), params, modifiers, _, _) ->
@@ -104,7 +104,7 @@ let rec ast_type_of_expression ((location, expression): expression) : ast_type =
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false (* TODO: implement for more expressions as needed *)
 
 let type_of_expression (location, expression) =
-  location, Type (ast_type_of_expression (location, expression))
+  location, Type (const_type_of_expression (location, expression))
 
 let rec default_value ((location, const_type): expression) : expression =
   match const_type with
@@ -120,7 +120,7 @@ let rec representative_value_of_type ((location, const_type): expression) : expr
   let representative_value = match const_type with
     | Type Int -> (location, IntLiteral 0)
     | Type Bool -> (location, BoolLiteral false)
-    | Type Type -> (location, Type Type)
+    | Type Type -> (location, Type Representative)
     | Type (Function (return_type, param_types, modifiers)) ->
       (location, Lambda ((location, Type return_type),
         List.map (fun param_type -> (location, BoundDeclaration ({type_expr=Some (location, Type param_type); init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,

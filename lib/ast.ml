@@ -40,22 +40,23 @@ and pattern =
   | Any
   | Identifier of string
 
-and ast_type =
-  | Bool
-  | DynamicArray of (* element_type: *) ast_type
-  | Int
-  | Function of (* return_type: *) ast_type * (* param_types: *) ast_type list * (* modifiers: *) lambda_modifiers
-  | Tuple of ast_type list
-  | Type
-
-and lambda_modifiers = {
+and function_modifiers = {
   pure: bool [@sexp.bool];
   const: bool [@sexp.bool];
 }
 
+and const_type =
+  | Representative (* Uninstantiable type. (Type Representative) is used as a representative value for type values. *)
+  | Bool
+  | DynamicArray of (* element_type: *) const_type
+  | Int
+  | Function of (* return_type: *) const_type * (* param_types: *) const_type list * (* modifiers: *) function_modifiers
+  | Tuple of const_type list
+  | Type
+
 (* TODO: change all these to Constructor_name style *)
 and expression_inner =
-  | Type of ast_type
+  | Type of const_type
   | TypeOf of expression
   | Arity of expression
   | IntLiteral of int
@@ -72,8 +73,8 @@ and expression_inner =
   | UnaryOp of unary_op * expression
   | Conditional of expression * expression * expression
   | Tuple of expression list
-  | Call of expression * expression list * lambda_modifiers
-  | Lambda of (* return_type: *) expression * (* params: *) statement list * lambda_modifiers * (* body: *) statement * closure option
+  | Call of expression * expression list * function_modifiers
+  | Lambda of (* return_type: *) expression * (* params: *) statement list * function_modifiers * (* body: *) statement * closure option
   | DynamicArray of expression array * (* element_type: *) expression option
   | Index of expression * (* subscript: *) expression option
   | Statement of statement
@@ -109,7 +110,7 @@ and statement = location * statement_inner
 [@@deriving sexp, show]
 
 let empty_declaration_modifiers : declaration_modifiers = { mut = false }
-let empty_lambda_modifiers : lambda_modifiers = { pure = false; const = false }
+let empty_function_modifiers : function_modifiers = { pure = false; const = false }
 
 let loc ((s: Lexing.position), (e: Lexing.position)) : location = make_location s e
 

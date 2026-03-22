@@ -58,10 +58,10 @@ pattern
   | ANY                                     { Any }
   ;
 
-lambda_modifiers
-  : /* empty */                             { empty_lambda_modifiers }
-  | lambda_modifiers PURE                   { { $1 with pure = true } }
-  | lambda_modifiers CONST                  { { $1 with const = true } }
+function_modifiers
+  : /* empty */                               { empty_function_modifiers }
+  | function_modifiers PURE                   { { $1 with pure = true } }
+  | function_modifiers CONST                  { { $1 with const = true } }
   ;
 
 primary_expr
@@ -84,7 +84,7 @@ primary_expr
 postfix_expr
   : e=primary_expr                                          { e }
   | f=postfix_expr LPAREN es=exprs0 RPAREN
-    lm=lambda_modifiers                                     { loc $loc, Call (f, es, lm) }
+    lm=function_modifiers                                   { loc $loc, Call (f, es, lm) }
   | a=postfix_expr LBRACKET e=expr? RBRACKET                { loc $loc, Index (a, e) }
   ;
 
@@ -194,7 +194,7 @@ lambda_body
 lambda_expr
   : e=fallback_expr                                         { e }
   | BACKSLASH rt=primary_expr LPAREN ps=params0 RPAREN
-    lm=lambda_modifiers b=lambda_body                       { loc $loc, Lambda (rt, ps, lm, b, None) }
+    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (rt, ps, lm, b, None) }
   ;
 
 expr: e=lambda_expr                                         { e }
@@ -213,7 +213,7 @@ initialize
 declaration
   : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; type_expr=Some t; name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN
-    lm=lambda_modifiers b=compound_stat                         { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, lm, b, None)) } }
+    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; type_expr=None; name=n; init_expr=Some (loc $loc, Lambda (t, ps, lm, b, None)) } }
   | MUT d=declaration                                           { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;
 

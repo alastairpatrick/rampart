@@ -710,8 +710,8 @@ and evaluate_call env frame mode location callee args call_modifiers =
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (fun arg -> evaluate_expression env frame mode arg) args in
   match mode, callee with
-  | Evaluate_const, (_, (_, Lambda (return_type, params, lambda_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _))))) ->
-    if not lambda_modifiers.const then
+  | Evaluate_const, (_, (_, Lambda (return_type, params, function_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _))))) ->
+    if not function_modifiers.const then
       raise (Error "cannot call non-const lambda in a constant expression");
     let callee_frame = {
       depth = closure_frame.depth+1;
@@ -790,8 +790,8 @@ and evaluate_arity env frame _ location e =
   | _ -> Const, (location, IntLiteral 1)
   
 
-and evaluate_lambda_part1 env frame mode location return_type params (modifiers : lambda_modifiers) body_location num_variables statement =
-  let modifiers : lambda_modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
+and evaluate_lambda_part1 env frame mode location return_type params (modifiers : function_modifiers) body_location num_variables statement =
+  let modifiers : function_modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
   if frame.const && not modifiers.const then
     raise error_expected_const_lambda;
   (* Return and param types must be evaluated in part 1. *)
@@ -947,7 +947,7 @@ and implicit_convert mode (from_evaluation : evaluation) (to_type : expression) 
     | _ -> false
   in
 
-  let rec convert_type expression : ast_type =
+  let rec convert_type expression : const_type =
     match expression with
     | _, Type t -> t
     | _, Tuple elements -> Tuple (List.map convert_type elements)
