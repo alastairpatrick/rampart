@@ -44,12 +44,10 @@ let const_types_equal (a : expression) (b : expression) : bool =
   | (_, Type a), (_, Type b) -> a = b
   | _ -> false
 
-let check_is_const_type expression =
+let check_is_const_type expression : const_type =
   match expression with
-  | _, Type _ ->
-    expression
-  | _ ->
-    raise error_type_expected
+  | _, Type t -> t
+  | _ -> raise error_type_expected
 
 let rec const_values_equal (a : expression) (b : expression) : bool =
   match a, b with
