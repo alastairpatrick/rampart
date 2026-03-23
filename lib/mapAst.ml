@@ -94,3 +94,23 @@ and map_const_type (sf : statement -> statement) (ef : expression -> expression)
   match const_type with
   | Unevaluated_type type_expr -> Unevaluated_type (map_expression sf ef type_expr)
   | _ -> const_type
+
+let reduce_statement (sf : 'acc -> statement -> 'acc) (ef : 'acc -> expression -> 'acc) (acc : 'acc) (stmt : statement) : 'acc =
+  let acc = ref acc in
+  map_statement (fun s -> acc := sf !acc s; s) (fun e -> acc := ef !acc e; e) stmt |> ignore;
+  !acc
+
+let reduce_expression (sf : 'acc -> statement -> 'acc) (ef : 'acc -> expression -> 'acc) (acc : 'acc) (expr : expression) : 'acc =
+  let acc = ref acc in
+  map_expression (fun s -> acc := sf !acc s; s) (fun e -> acc := ef !acc e; e) expr |> ignore;
+  !acc
+  
+let reduce_map_expression (sf : 'acc -> statement -> 'acc * statement) (ef : 'acc -> expression -> 'acc * expression) (acc : 'acc) (expr : expression) : 'acc * expression =
+  let acc = ref acc in
+  let expr = map_expression (fun s -> let s = sf !acc s in acc := fst s; snd s) (fun e -> let e = ef !acc e in acc := fst e; snd e) expr in
+  !acc, expr
+
+let reduce_map_statement (sf : 'acc -> statement -> 'acc * statement) (ef : 'acc -> expression -> 'acc * expression) (acc : 'acc) (stmt : statement) : 'acc * statement =
+  let acc = ref acc in
+  let stmt = map_statement (fun s -> let s = sf !acc s in acc := fst s; snd s) (fun e -> let e = ef !acc e in acc := fst e; snd e) stmt in
+  !acc, stmt
