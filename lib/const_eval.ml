@@ -213,18 +213,18 @@ and evaluate_const_protect f =
 
 and evaluate_expression env frame mode ((location, expression) : expression) : evaluation =
   let result = match expression with
-  | IntLiteral _
-  | BoolLiteral _
+  | Int_literal _
+  | Bool_literal _
   | Type _ -> Const, (location, expression)
 
   | Arity e -> evaluate_arity env frame mode location e
   | Assignment (a, b) -> evaluate_assignment env frame mode location a b
-  | BinaryOp (op, a, b) -> evaluate_binary_op env frame mode location op a b
-  | BoundIdentifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
-  | BoundLet _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
+  | Binary_op (op, a, b) -> evaluate_binary_op env frame mode location op a b
+  | Bound_identifier (display_name, slot) -> evaluate_identifier env frame mode location display_name slot
+  | Bound_let _ -> raise (Error "'let' expressions may only appear to the left of an assignment")
   | Call (callee, args, modifiers) -> evaluate_call env frame mode location callee args modifiers
   | Conditional (condition, consequent, alternative) -> evaluate_conditional env frame mode location condition consequent alternative
-  | DynamicArray (elements, element_type) -> evaluate_dynamic_array env frame mode location elements element_type
+  | Dynamic_array (elements, element_type) -> evaluate_dynamic_array env frame mode location elements element_type
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | In (a, b) -> evaluate_in env frame mode location a b
   | Index (array, index) -> evaluate_index env frame mode location array index
@@ -233,8 +233,8 @@ and evaluate_expression env frame mode ((location, expression) : expression) : e
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
   | Statement s -> evaluate_expression_statement env frame mode location s
   | Tuple elements -> evaluate_tuple env frame mode location elements
-  | TypeOf e -> evaluate_typeof env frame mode location e
-  | UnaryOp (op, e) -> evaluate_unary_op env frame mode location op e
+  | Type_of e -> evaluate_typeof env frame mode location e
+  | Unary_op (op, e) -> evaluate_unary_op env frame mode location op e
   | _ -> raise (error_internal (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))))
   in
    match result with
@@ -297,7 +297,7 @@ and evaluate_identifier _ frame mode location display_name ({index; depth; mut} 
   | Non_const_of_type typ ->
     match mode with
     | Evaluate_const -> raise (error_not_a_compile_time_constant display_name)
-    | _ -> (if mode = Evaluate_type then Const else Non_const (location, BoundIdentifier (display_name, {index; depth; mut}))),
+    | _ -> (if mode = Evaluate_type then Const else Non_const (location, Bound_identifier (display_name, {index; depth; mut}))),
                      representative_value_of_type typ
   end
 
@@ -309,18 +309,18 @@ and evaluate_index env frame mode location indexable index =
     (* Syntactically, dynamic array types are represented as index operations. This is where we
       convert those to an explicit type representation. *)
     let element_type = evaluate_const_type env frame (ast_of element_type) in
-    Const, (location, Type (DynamicArray element_type))
+    Const, (location, Type (Dynamic_array element_type))
   | None, _ -> raise (Error "expected an index sub-expression")
   | Some index, _ ->
     match indexable with
-    | Const, (_, DynamicArray (elements, Some element_type)) ->
+    | Const, (_, Dynamic_array (elements, Some element_type)) ->
       let index = evaluate_expression env frame mode index in
       let element_representative () = representative_value_of_type element_type in
       let non_const () = Non_const (location, Index (ast_of indexable, Some (ast_of index))),
                                    element_representative () in
 
       begin match index with
-      | Const, (_, IntLiteral i) ->
+      | Const, (_, Int_literal i) ->
         if i < 0L || i >= Int64.of_int (Array.length elements) then begin
           match mode with
           | Fold_consts -> non_const ()
@@ -330,12 +330,12 @@ and evaluate_index env frame mode location indexable index =
         end else
           Const, elements.(Int64.to_int i)
 
-      | Non_const _, (_, IntLiteral _) -> non_const ()
+      | Non_const _, (_, Int_literal _) -> non_const ()
     
       | _ -> raise error_type_mismatch
       end
 
-    | Non_const _, (_, DynamicArray (_, Some element_type)) ->
+    | Non_const _, (_, Dynamic_array (_, Some element_type)) ->
       let index = evaluate_expression env frame mode index in
       Non_const (location, Index (ast_of indexable, Some (ast_of index))),
                 representative_value_of_type element_type
@@ -343,7 +343,7 @@ and evaluate_index env frame mode location indexable index =
     | _, (_, Tuple elements) ->
       let index = evaluate_const_value env frame index in
       begin match index with
-      | _, (_, IntLiteral i) ->
+      | _, (_, Int_literal i) ->
         let element = nth_list_element_or_error elements i in
         begin match indexable with
         | Const, _ -> Const, element
@@ -358,19 +358,19 @@ and evaluate_index env frame mode location indexable index =
 and evaluate_unary_op env frame mode location op e =
   let e = evaluate_expression env frame mode e in
   match mode, op, e with
-  | _, Negate, (Const, (_, IntLiteral v)) -> Const, (location, IntLiteral (Int64.neg v))
-  | _, LogicalNot, (Const, (_, BoolLiteral b)) -> Const, (location, BoolLiteral (not b))
-  | _, BitwiseInvert, (Const, (_, IntLiteral v)) -> Const, (location, IntLiteral (Int64.lognot v))
-  | _, BitwiseInvert, (Const, (_, BoolLiteral b)) -> Const, (location, BoolLiteral (not b))
+  | _, Negate, (Const, (_, Int_literal v)) -> Const, (location, Int_literal (Int64.neg v))
+  | _, LogicalNot, (Const, (_, Bool_literal b)) -> Const, (location, Bool_literal (not b))
+  | _, BitwiseInvert, (Const, (_, Int_literal v)) -> Const, (location, Int_literal (Int64.lognot v))
+  | _, BitwiseInvert, (Const, (_, Bool_literal b)) -> Const, (location, Bool_literal (not b))
   
-  | Fold_consts, Negate, (_, (_, IntLiteral _))
-  | Fold_consts, BitwiseInvert, (_, (_, IntLiteral _)) ->
-    Non_const (location, UnaryOp (op, ast_of e)),
+  | Fold_consts, Negate, (_, (_, Int_literal _))
+  | Fold_consts, BitwiseInvert, (_, (_, Int_literal _)) ->
+    Non_const (location, Unary_op (op, ast_of e)),
               representative_value_of_type Int
 
-  | Fold_consts, LogicalNot, (_, (_, BoolLiteral _))
-  | Fold_consts, BitwiseInvert, (_, (_, BoolLiteral _)) ->
-    Non_const (location, UnaryOp (op, ast_of e)),
+  | Fold_consts, LogicalNot, (_, (_, Bool_literal _))
+  | Fold_consts, BitwiseInvert, (_, (_, Bool_literal _)) ->
+    Non_const (location, Unary_op (op, ast_of e)),
               representative_value_of_type Bool
 
   | _ -> raise error_type_mismatch
@@ -382,17 +382,17 @@ and evaluate_logical_op env frame mode location op (a : expression) (b : express
   | Evaluate_type ->
     let b = evaluate_expression env frame mode b in
     begin match op, a, b with
-    | LogicalAnd, (Const, (_, BoolLiteral false)), (_, (_, BoolLiteral _)) -> a
-    | LogicalAnd, (Const, (_, BoolLiteral true)), (_, (_, BoolLiteral _)) -> b
-    | LogicalAnd, (_, (_, BoolLiteral _)), (Const, (_, BoolLiteral false)) -> b
-    | LogicalAnd, (_, (_, BoolLiteral _)), (Const, (_, BoolLiteral true)) -> a
+    | LogicalAnd, (Const, (_, Bool_literal false)), (_, (_, Bool_literal _)) -> a
+    | LogicalAnd, (Const, (_, Bool_literal true)), (_, (_, Bool_literal _)) -> b
+    | LogicalAnd, (_, (_, Bool_literal _)), (Const, (_, Bool_literal false)) -> b
+    | LogicalAnd, (_, (_, Bool_literal _)), (Const, (_, Bool_literal true)) -> a
 
-    | LogicalOr, (Const, (_, BoolLiteral false)), (_, (_, BoolLiteral _)) -> b
-    | LogicalOr, (Const, (_, BoolLiteral true)), (_, (_, BoolLiteral _)) -> a
-    | LogicalOr, (_, (_, BoolLiteral _)), (Const, (_, BoolLiteral false)) -> a
-    | LogicalOr, (_, (_, BoolLiteral _)), (Const, (_, BoolLiteral true)) -> b
+    | LogicalOr, (Const, (_, Bool_literal false)), (_, (_, Bool_literal _)) -> b
+    | LogicalOr, (Const, (_, Bool_literal true)), (_, (_, Bool_literal _)) -> a
+    | LogicalOr, (_, (_, Bool_literal _)), (Const, (_, Bool_literal false)) -> a
+    | LogicalOr, (_, (_, Bool_literal _)), (Const, (_, Bool_literal true)) -> b
 
-    | _, (_, (_, BoolLiteral _)), (_, (_, BoolLiteral _)) -> Non_const (location, BinaryOp (op, ast_of a, ast_of b)),
+    | _, (_, (_, Bool_literal _)), (_, (_, Bool_literal _)) -> Non_const (location, Binary_op (op, ast_of a, ast_of b)),
                                                                        representative_value_of_type Bool
 
     | _ -> raise error_type_mismatch
@@ -400,10 +400,10 @@ and evaluate_logical_op env frame mode location op (a : expression) (b : express
     
   | Evaluate_const ->
     begin match op, a with
-    | LogicalAnd, (Const, (_, BoolLiteral false)) -> a
-    | LogicalAnd, (Const, (_, BoolLiteral true)) -> evaluate_expression env frame mode b
-    | LogicalOr, (Const, (_, BoolLiteral false)) -> evaluate_expression env frame mode b
-    | LogicalOr, (Const, (_, BoolLiteral true)) -> a
+    | LogicalAnd, (Const, (_, Bool_literal false)) -> a
+    | LogicalAnd, (Const, (_, Bool_literal true)) -> evaluate_expression env frame mode b
+    | LogicalOr, (Const, (_, Bool_literal false)) -> evaluate_expression env frame mode b
+    | LogicalOr, (Const, (_, Bool_literal true)) -> a
     | _, _ -> raise error_type_mismatch
     end
 
@@ -414,42 +414,42 @@ and evaluate_binary_op env frame mode location op a b =
   let result_ast =
     match a, b, mode with
     | (Const, _), (Const, _), _ -> Const
-    | _ -> Non_const (location, BinaryOp (op, ast_of a, ast_of b)) in
+    | _ -> Non_const (location, Binary_op (op, ast_of a, ast_of b)) in
   match op, a, b with
-  | Plus, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->  result_ast, (location, IntLiteral (Int64.add a b))
-  | Minus, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (Int64.sub a b))
-  | Times, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (Int64.mul a b))
+  | Plus, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->  result_ast, (location, Int_literal (Int64.add a b))
+  | Minus, (_, (_, Int_literal a)), (_, (_, Int_literal b)) -> result_ast, (location, Int_literal (Int64.sub a b))
+  | Times, (_, (_, Int_literal a)), (_, (_, Int_literal b)) -> result_ast, (location, Int_literal (Int64.mul a b))
 
-  | Less, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->          result_ast, (location, BoolLiteral (Int64.compare a b < 0))
-  | LessEquals, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->    result_ast, (location, BoolLiteral (Int64.compare a b <= 0))
-  | Greater, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->       result_ast, (location, BoolLiteral (Int64.compare a b > 0))
-  | GreaterEquals, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, BoolLiteral (Int64.compare a b >= 0))
+  | Less, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->          result_ast, (location, Bool_literal (Int64.compare a b < 0))
+  | LessEquals, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->    result_ast, (location, Bool_literal (Int64.compare a b <= 0))
+  | Greater, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->       result_ast, (location, Bool_literal (Int64.compare a b > 0))
+  | GreaterEquals, (_, (_, Int_literal a)), (_, (_, Int_literal b)) -> result_ast, (location, Bool_literal (Int64.compare a b >= 0))
 
-  | Div, (_, (_, IntLiteral num)), (_, (_, IntLiteral denom))
-  | Modulo, (_, (_, IntLiteral num)), (_, (_, IntLiteral denom)) ->
+  | Div, (_, (_, Int_literal num)), (_, (_, Int_literal denom))
+  | Modulo, (_, (_, Int_literal num)), (_, (_, Int_literal denom)) ->
     if denom = 0L then begin
       match mode with
       | Evaluate_const -> raise (error_invalid_operation "division by zero")
-      | _ -> (if mode = Evaluate_type then Const else Non_const (location, BinaryOp (op, ast_of a, ast_of b))),
+      | _ -> (if mode = Evaluate_type then Const else Non_const (location, Binary_op (op, ast_of a, ast_of b))),
                                    representative_value_of_type Int
     end else
-      result_ast, (location, IntLiteral (if op = Div then Int64.div num denom else Int64.rem num denom))
+      result_ast, (location, Int_literal (if op = Div then Int64.div num denom else Int64.rem num denom))
 
-  | ShiftLeft, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->  result_ast, (location, IntLiteral (Int64.shift_left a (Int64.to_int b)))
-  | ShiftRight, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) -> result_ast, (location, IntLiteral (Int64.shift_right a (Int64.to_int b)))
+  | ShiftLeft, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->  result_ast, (location, Int_literal (Int64.shift_left a (Int64.to_int b)))
+  | ShiftRight, (_, (_, Int_literal a)), (_, (_, Int_literal b)) -> result_ast, (location, Int_literal (Int64.shift_right a (Int64.to_int b)))
 
-  | BitwiseAnd, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->   result_ast, (location, IntLiteral (Int64.logand a b))
-  | BitwiseAnd, (_, (_, BoolLiteral a)), (_, (_, BoolLiteral b)) -> result_ast, (location, BoolLiteral (a && b))
-  | BitwiseOr, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->    result_ast, (location, IntLiteral (Int64.logor a b))
-  | BitwiseOr, (_, (_, BoolLiteral a)), (_, (_, BoolLiteral b)) ->  result_ast, (location, BoolLiteral (a || b))
-  | BitwiseXor, (_, (_, IntLiteral a)), (_, (_, IntLiteral b)) ->   result_ast, (location, IntLiteral (Int64.logxor a b))
-  | BitwiseXor, (_, (_, BoolLiteral a)), (_, (_, BoolLiteral b)) -> result_ast, (location, BoolLiteral (a <> b))
+  | BitwiseAnd, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->   result_ast, (location, Int_literal (Int64.logand a b))
+  | BitwiseAnd, (_, (_, Bool_literal a)), (_, (_, Bool_literal b)) -> result_ast, (location, Bool_literal (a && b))
+  | BitwiseOr, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->    result_ast, (location, Int_literal (Int64.logor a b))
+  | BitwiseOr, (_, (_, Bool_literal a)), (_, (_, Bool_literal b)) ->  result_ast, (location, Bool_literal (a || b))
+  | BitwiseXor, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->   result_ast, (location, Int_literal (Int64.logxor a b))
+  | BitwiseXor, (_, (_, Bool_literal a)), (_, (_, Bool_literal b)) -> result_ast, (location, Bool_literal (a <> b))
 
   | Equals, (Const, a), (Const, b)
   | NotEquals, (Const, a), (Const, b) ->
     if (type_of_expression a) = (type_of_expression b) then
       let are_equal = const_values_equal a b in
-      result_ast, (location, BoolLiteral (if op = Equals then are_equal else not are_equal))
+      result_ast, (location, Bool_literal (if op = Equals then are_equal else not are_equal))
     else begin
       raise error_type_mismatch
     end
@@ -462,7 +462,7 @@ and evaluate_binary_op env frame mode location op a b =
 and evaluate_conditional env frame mode location condition consequent alternative =
   let condition = evaluate_expression env frame mode condition in
   match condition with
-  | ast, (_, BoolLiteral c) ->
+  | ast, (_, Bool_literal c) ->
     let taken_mode, untaken_mode = match mode with
       | Fold_consts -> Fold_consts, Fold_consts
       | Evaluate_type -> Evaluate_type, Evaluate_type
@@ -484,10 +484,10 @@ and evaluate_fall_through env frame mode location a b =
     (*
       Lower a match/fall-through into a purely expression-level conditional.
 
-      The bind pass already created distinct slots for each `BoundLet` in the
+      The bind pass already created distinct slots for each `Bound_let` in the
       pattern and ensured that those slots are only ever referenced (via
-      BoundIdentifier) in the body/guard of this match. In other words, by the
-      time const-eval runs, the only way any code can observe a `BoundLet` slot is
+      Bound_identifier) in the body/guard of this match. In other words, by the
+      time const-eval runs, the only way any code can observe a `Bound_let` slot is
       via the successful path of this match.
 
       That means we can safely evaluate the assignment unconditionally (even on
@@ -515,39 +515,39 @@ and evaluate_fall_through env frame mode location a b =
   *)
   let rec substitute_let_any expression =
     match expression with
-    | _, BoundLet _ -> expression
+    | _, Bound_let _ -> expression
     | location, Tuple elements -> location, Tuple (List.map substitute_let_any elements)
-    | location, _ -> location, BoundLet (Any, unbindable_slot)
+    | location, _ -> location, Bound_let (Any, unbindable_slot)
   in
   let rec lower_pattern_match pattern value =
     match pattern, value with
-    | (location, BoundLet _), _ -> (location, BoolLiteral true)
+    | (location, Bound_let _), _ -> (location, Bool_literal true)
     | (location, Tuple pattern_elements), (_, Tuple value_elements) ->
       (try
         List.fold_left2 (fun acc pattern_element value_element ->
           let element_match = lower_pattern_match pattern_element value_element in
-          (location, BinaryOp (LogicalAnd, acc, element_match))
-        ) (location, BoolLiteral true) pattern_elements value_elements
+          (location, Binary_op (LogicalAnd, acc, element_match))
+        ) (location, Bool_literal true) pattern_elements value_elements
       with Invalid_argument _ -> raise error_type_mismatch)
     | (location, Tuple pattern_elements), _ ->
       let rec helper idx pattern_elements =
         match pattern_elements with
-        | [] -> (location, BoolLiteral true)
-        | (_, BoundLet _) :: rest -> helper (idx + 1) rest
-        | head :: rest -> (location, BinaryOp (LogicalAnd, (location, BinaryOp (Equals, head, (location, Index (value, Some (location, IntLiteral (Int64.of_int idx)))))), helper (idx + 1) rest))
+        | [] -> (location, Bool_literal true)
+        | (_, Bound_let _) :: rest -> helper (idx + 1) rest
+        | head :: rest -> (location, Binary_op (LogicalAnd, (location, Binary_op (Equals, head, (location, Index (value, Some (location, Int_literal (Int64.of_int idx)))))), helper (idx + 1) rest))
       in
       helper 0 pattern_elements     
-    | _ -> location, BinaryOp (Equals, pattern, value)
+    | _ -> location, Binary_op (Equals, pattern, value)
   in
   begin match a with
   | location, Match (pattern, value, condition, body, temp_slot) ->
-    let temp_identifier = (location, BoundIdentifier ("$v", temp_slot)) in
+    let temp_identifier = (location, Bound_identifier ("$v", temp_slot)) in
     let lowered = location, In (
-      (location, Assignment ((location, BoundLet (Identifier "$v", temp_slot)), value)),
+      (location, Assignment ((location, Bound_let (Identifier "$v", temp_slot)), value)),
       (location, In (
         (location, Assignment (substitute_let_any pattern, temp_identifier)),
         (location, Conditional (
-          (location, BinaryOp (LogicalAnd,
+          (location, Binary_op (LogicalAnd,
             lower_pattern_match pattern temp_identifier,
             condition)),
           body,
@@ -576,7 +576,7 @@ and evaluate_assignment env frame mode location a b =
      Also returns a function, which takes the new value as parameter. In Evaluate_const mode only, it performs
      the assignment.
      
-     Take special care with the 'b' parameter. Its only purpose is to provide initializers for BoundLet and to
+     Take special care with the 'b' parameter. Its only purpose is to provide initializers for Bound_let and to
      infer the type of BoundLets. It should only be used in that context and on the right hand side of a
      recursive call to 'assign'.
      *)
@@ -585,7 +585,7 @@ and evaluate_assignment env frame mode location a b =
       set_assignable_value assignable (check_is_const_value (ast_of new_value)) in
 
     match a, b with
-    | (_, BoundIdentifier (display_name, slot)), _ ->
+    | (_, Bound_identifier (display_name, slot)), _ ->
         
       let assignable = get_assignable frame slot in
       let current_value = get_assignable_value assignable in
@@ -606,15 +606,15 @@ and evaluate_assignment env frame mode location a b =
         null_assignable_evaluation ((if mode = Fold_consts then Non_const a else Const), const_value)
       end
 
-    | (_, BoundLet (pattern, slot)), _ ->
-      (* This goes quite differently from BoundIdentifier because assignment of BoundLet is also initialization *)
+    | (_, Bound_let (pattern, slot)), _ ->
+      (* This goes quite differently from Bound_identifier because assignment of Bound_let is also initialization *)
       if is_slot_bindable slot then begin
         let assignable = get_assignable frame slot in
         match b with
         | Const, new_value ->
             let new_value = if mode <> Fold_consts then new_value else match pattern with
-            | Identifier name -> set_lambda_aliases new_value (location, BoundIdentifier (name, slot))
-            | _ -> set_lambda_aliases new_value (location, BoundIdentifier ("_", slot)) in
+            | Identifier name -> set_lambda_aliases new_value (location, Bound_identifier (name, slot))
+            | _ -> set_lambda_aliases new_value (location, Bound_identifier ("_", slot)) in
             set_assignable_value assignable (check_is_const_value (new_value))
         | Non_const _, rep ->
           set_assignable_value assignable (Non_const_of_type (type_of_expression (rep)))
@@ -627,13 +627,13 @@ and evaluate_assignment env frame mode location a b =
       | _, (_, Tuple indexable_elements) ->
         let index = (evaluate_const_value env frame index) in
         begin match index with
-        | _, (_, IntLiteral i) -> index, nth_list_element_or_error indexable_elements i
+        | _, (_, Int_literal i) -> index, nth_list_element_or_error indexable_elements i
         | _ -> raise error_type_mismatch
         end
-      | _, (_, DynamicArray (array_elements, Some element_type)) ->
+      | _, (_, Dynamic_array (array_elements, Some element_type)) ->
         let index = evaluate_expression env frame mode index in
         begin match mode, index with
-        | Evaluate_const, (Const, (_, IntLiteral i)) ->
+        | Evaluate_const, (Const, (_, Int_literal i)) ->
           index, (nth_array_element_or_error array_elements i)
         | _ -> index, representative_value_of_type element_type
         end
@@ -643,7 +643,7 @@ and evaluate_assignment env frame mode location a b =
         begin match indexable with
         | Const, (_, Tuple elements) ->
           begin match index with
-          | _, (_, IntLiteral i) ->
+          | _, (_, Int_literal i) ->
             if i < 0L || i >= (Int64.of_int (List.length elements)) then
               raise (error_invalid_operation (Printf.sprintf "tuple index out of bounds: %Ld" i));
             let elements =
@@ -652,14 +652,14 @@ and evaluate_assignment env frame mode location a b =
           | _ -> raise error_type_mismatch
           end
 
-        | Const, (_, DynamicArray (elements, element_type)) ->
+        | Const, (_, Dynamic_array (elements, element_type)) ->
           begin match index with
-          | _, (_, IntLiteral i) ->
+          | _, (_, Int_literal i) ->
             if i < 0L || i >= (Int64.of_int (Array.length elements)) then
               raise (error_invalid_operation (Printf.sprintf "array index out of bounds: %Ld" i));
             let elements = Array.copy elements in
             elements.(Int64.to_int i) <- ast_of new_value;
-            set_value (Const, (location, DynamicArray (elements, element_type)))
+            set_value (Const, (location, Dynamic_array (elements, element_type)))
           | _ -> raise error_type_mismatch
           end
 
@@ -767,7 +767,7 @@ and evaluate_tuple env frame mode location elements =
 and evaluate_dynamic_array env frame mode location elements element_type =
   if Array.length elements = 0 then begin
     match element_type with
-    | Some _ -> Const, (location, DynamicArray (elements, element_type))
+    | Some _ -> Const, (location, Dynamic_array (elements, element_type))
     | _ ->
       (* TODO: we plan to allow empty array literals in some special cases where the element type is known, including initializers, the RHS of some assignments and function call arguments *)
       raise (Error "cannot infer type of empty array literal")
@@ -781,16 +781,16 @@ and evaluate_dynamic_array env frame mode location elements element_type =
       raise error_type_mismatch;
 
     if Array.for_all (function Const, _ -> true | _ -> false) elements then
-      Const, (location, DynamicArray (Array.map ast_of elements, Some element_type))
+      Const, (location, Dynamic_array (Array.map ast_of elements, Some element_type))
     else
-      Non_const (location, DynamicArray (Array.map ast_of elements, Some element_type)),
-                (location, DynamicArray (Array.map representative_value_of elements, Some element_type))
+      Non_const (location, Dynamic_array (Array.map ast_of elements, Some element_type)),
+                (location, Dynamic_array (Array.map representative_value_of elements, Some element_type))
   end
 
 and evaluate_arity env frame _ location e =
   match evaluate_expression env frame Evaluate_type e with
-  | _, (_, Tuple elements) -> Const, (location, IntLiteral (Int64.of_int (List.length elements)))
-  | _ -> Const, (location, IntLiteral 1L)
+  | _, (_, Tuple elements) -> Const, (location, Int_literal (Int64.of_int (List.length elements)))
+  | _ -> Const, (location, Int_literal 1L)
   
 and evaluate_lambda_part1 env frame mode location return_type params (modifiers : function_modifiers) body_location num_variables statement =
   let modifiers : function_modifiers = { modifiers with pure = modifiers.pure || modifiers.const } in
@@ -844,12 +844,12 @@ and evaluate_expression_statement env frame mode location statement =
                               (location, Tuple [])
 
 and set_lambda_aliases (location, const_value) ast_alias =
-  let ith_index i e = set_lambda_aliases e (location, Index (ast_alias, Some (location, (IntLiteral (Int64.of_int i))))) in
+  let ith_index i e = set_lambda_aliases e (location, Index (ast_alias, Some (location, (Int_literal (Int64.of_int i))))) in
   match const_value with
   | Lambda (return_type, params, modifiers, statement, Some (closure_identity, Closure (frame, _))) ->
     (location, Lambda (return_type, params, modifiers, statement, Some (closure_identity, Closure (frame, Some ast_alias))))
   | Tuple elements -> (location, Tuple (List.mapi ith_index elements))
-  | DynamicArray (elements, element_type) -> (location, DynamicArray ((Array.mapi ith_index elements), element_type))
+  | Dynamic_array (elements, element_type) -> (location, Dynamic_array ((Array.mapi ith_index elements), element_type))
   | _ -> (location, const_value)
 
 and evaluate_declaration env frame mode location declaration slot =
@@ -860,12 +860,12 @@ and evaluate_declaration env frame mode location declaration slot =
   let initialize_assignable type_expr init_expr =
     if (declaration.modifiers.mut || not (is_const_value init_expr)) then begin
       if mode=Evaluate_const && frame.const then
-        let init_expr = set_lambda_aliases init_expr (location, BoundIdentifier (declaration.name, slot)) in
+        let init_expr = set_lambda_aliases init_expr (location, Bound_identifier (declaration.name, slot)) in
         set_assignable_value assignable (check_is_const_value init_expr)
       else        
         set_assignable_value assignable (Non_const_of_type type_expr)
     end else
-      let init_expr = set_lambda_aliases init_expr (location, BoundIdentifier (declaration.name, slot)) in
+      let init_expr = set_lambda_aliases init_expr (location, Bound_identifier (declaration.name, slot)) in
       set_assignable_value assignable (check_is_const_value init_expr) in
       
   match declaration with
@@ -906,8 +906,8 @@ and evaluate_if env frame mode location condition consequent alternative =
 
   | Evaluate_const ->
     begin match condition with
-    | _, (_, BoolLiteral true) -> evaluate_statement env frame mode consequent
-    | _, (_, BoolLiteral false) -> evaluate_statement env frame mode alternative
+    | _, (_, Bool_literal true) -> evaluate_statement env frame mode consequent
+    | _, (_, Bool_literal false) -> evaluate_statement env frame mode alternative
     | _ -> raise error_type_mismatch
     end
 
@@ -925,8 +925,8 @@ and evaluate_do_while env frame mode location body condition =
       increment_loop_count ();
       evaluate_statement env frame mode body |> ignore;
       match evaluate_expression env frame mode condition with
-      | _, (_, BoolLiteral true) -> loop ()
-      | _, (_, BoolLiteral false) -> ()
+      | _, (_, Bool_literal true) -> loop ()
+      | _, (_, Bool_literal false) -> ()
       | _ -> raise error_type_mismatch in
     loop ();
     (location, DoWhile (body, condition))

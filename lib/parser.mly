@@ -69,15 +69,15 @@ primary_expr
   | INT                                                     { loc $loc, Type Int }
   | BOOL                                                    { loc $loc, Type Bool }
   | TYPE                                                    { loc $loc, Type Type }
-  | v=INT_LIT                                               { loc $loc, IntLiteral v }
-  | TRUE                                                    { loc $loc, BoolLiteral true }
-  | FALSE                                                   { loc $loc, BoolLiteral false }
+  | v=INT_LIT                                               { loc $loc, Int_literal v }
+  | TRUE                                                    { loc $loc, Bool_literal true }
+  | FALSE                                                   { loc $loc, Bool_literal false }
   | n=ID                                                    { loc $loc, Identifier n }
   | LET p=pattern                                           { loc $loc, Let p }
   | ANY                                                     { loc $loc, Let Any }
   | LPAREN es=exprs0 RPAREN                                 { make_tuple_node (loc $loc) es }
-  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, DynamicArray (Array.of_list es, None) }
-  | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, TypeOf e }
+  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, Dynamic_array (Array.of_list es, None) }
+  | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, Type_of e }
   | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
   ;
 
@@ -90,67 +90,67 @@ postfix_expr
 
 unary_expr
   : e=postfix_expr                                          { e }
-  | MINUS e=postfix_expr                                    { loc $loc, UnaryOp (Negate, e) }
-  | BANG e=postfix_expr                                     { loc $loc, UnaryOp (LogicalNot, e) }
-  | BITWISE_NOT e=postfix_expr                              { loc $loc, UnaryOp (BitwiseInvert, e) }
+  | MINUS e=postfix_expr                                    { loc $loc, Unary_op (Negate, e) }
+  | BANG e=postfix_expr                                     { loc $loc, Unary_op (LogicalNot, e) }
+  | BITWISE_NOT e=postfix_expr                              { loc $loc, Unary_op (BitwiseInvert, e) }
   ;
 
 multiplicative_expr
   : e=unary_expr                                            { e }
-  | a=multiplicative_expr TIMES b=unary_expr                { loc $loc, BinaryOp (Times, a, b) }
-  | a=multiplicative_expr DIV b=unary_expr                  { loc $loc, BinaryOp (Div, a, b) }
-  | a=multiplicative_expr MODULO b=unary_expr               { loc $loc, BinaryOp (Modulo, a, b) }
+  | a=multiplicative_expr TIMES b=unary_expr                { loc $loc, Binary_op (Times, a, b) }
+  | a=multiplicative_expr DIV b=unary_expr                  { loc $loc, Binary_op (Div, a, b) }
+  | a=multiplicative_expr MODULO b=unary_expr               { loc $loc, Binary_op (Modulo, a, b) }
   ;
 
 additive_expr
   : e = multiplicative_expr                                 { e }
-  | a=additive_expr PLUS b=multiplicative_expr              { loc $loc, BinaryOp (Plus, a, b) }
-  | a=additive_expr MINUS b=multiplicative_expr             { loc $loc, BinaryOp (Minus, a, b) }
+  | a=additive_expr PLUS b=multiplicative_expr              { loc $loc, Binary_op (Plus, a, b) }
+  | a=additive_expr MINUS b=multiplicative_expr             { loc $loc, Binary_op (Minus, a, b) }
   ;
 
 shift_expr
   : e = additive_expr                                       { e }
-  | a=shift_expr SHIFT_LEFT b=additive_expr                 { loc $loc, BinaryOp (ShiftLeft, a, b) }
-  | a=shift_expr SHIFT_RIGHT b=additive_expr                { loc $loc, BinaryOp (ShiftRight, a, b) }
+  | a=shift_expr SHIFT_LEFT b=additive_expr                 { loc $loc, Binary_op (ShiftLeft, a, b) }
+  | a=shift_expr SHIFT_RIGHT b=additive_expr                { loc $loc, Binary_op (ShiftRight, a, b) }
   ;
 
 relational_expr
   : e=shift_expr                                            { e }
-  | a=relational_expr LESS b=shift_expr                    { loc $loc, BinaryOp (Less, a, b) }
-  | a=relational_expr LESS_EQUALS b=shift_expr             { loc $loc, BinaryOp (LessEquals, a, b) }
-  | a=relational_expr GREATER b=shift_expr                 { loc $loc, BinaryOp (Greater, a, b) }
-  | a=relational_expr GREATER_EQUALS b=shift_expr          { loc $loc, BinaryOp (GreaterEquals, a, b) }
+  | a=relational_expr LESS b=shift_expr                    { loc $loc, Binary_op (Less, a, b) }
+  | a=relational_expr LESS_EQUALS b=shift_expr             { loc $loc, Binary_op (LessEquals, a, b) }
+  | a=relational_expr GREATER b=shift_expr                 { loc $loc, Binary_op (Greater, a, b) }
+  | a=relational_expr GREATER_EQUALS b=shift_expr          { loc $loc, Binary_op (GreaterEquals, a, b) }
 ;
 
 equality_expr
   : e=relational_expr                                       { e }
-  | a=equality_expr EQUALS b=relational_expr                { loc $loc, BinaryOp (Equals, a, b) }
-  | a=equality_expr NOT_EQUALS b=relational_expr            { loc $loc, BinaryOp (NotEquals, a, b) }
+  | a=equality_expr EQUALS b=relational_expr                { loc $loc, Binary_op (Equals, a, b) }
+  | a=equality_expr NOT_EQUALS b=relational_expr            { loc $loc, Binary_op (NotEquals, a, b) }
   ;
 
 bitwise_and_expr
   : e=equality_expr                                         { e }
-  | a=bitwise_and_expr BITWISE_AND b=equality_expr          { loc $loc, BinaryOp (BitwiseAnd, a, b) }
+  | a=bitwise_and_expr BITWISE_AND b=equality_expr          { loc $loc, Binary_op (BitwiseAnd, a, b) }
   ;
 
 bitwise_xor_expr
   : e=bitwise_and_expr                                      { e }
-  | a=bitwise_xor_expr BITWISE_XOR b=bitwise_and_expr       { loc $loc, BinaryOp (BitwiseXor, a, b) }
+  | a=bitwise_xor_expr BITWISE_XOR b=bitwise_and_expr       { loc $loc, Binary_op (BitwiseXor, a, b) }
   ;
 
 bitwise_or_expr
   : e=bitwise_xor_expr                                      { e }
-  | a=bitwise_or_expr BITWISE_OR b=bitwise_xor_expr         { loc $loc, BinaryOp (BitwiseOr, a, b) }
+  | a=bitwise_or_expr BITWISE_OR b=bitwise_xor_expr         { loc $loc, Binary_op (BitwiseOr, a, b) }
   ;
 
 logical_and_expr
   : e=bitwise_or_expr                                       { e }
-  | a=logical_and_expr LOGICAL_AND b=bitwise_or_expr        { loc $loc, BinaryOp (LogicalAnd, a, b) }
+  | a=logical_and_expr LOGICAL_AND b=bitwise_or_expr        { loc $loc, Binary_op (LogicalAnd, a, b) }
   ;
 
 logical_or_expr
   : e=logical_and_expr                                      { e }
-  | a=logical_or_expr LOGICAL_OR b=logical_and_expr         { loc $loc, BinaryOp (LogicalOr, a, b) }
+  | a=logical_or_expr LOGICAL_OR b=logical_and_expr         { loc $loc, Binary_op (LogicalOr, a, b) }
   ;
 
 binary_expr: e=logical_or_expr {e}
@@ -177,7 +177,7 @@ expr_or_stat
 in_expr
   : a=assign_expr IN skip_eols b=expr_or_stat               { loc $loc, In (a, b) }
   | a=primary_expr TILDE b=assign_expr c=when_expr?
-    IN skip_eols d=expr_or_stat                             { loc $loc, Match (a, b, Option.value ~default:(loc $loc, BoolLiteral true) c, d, unbindable_slot) }
+    IN skip_eols d=expr_or_stat                             { loc $loc, Match (a, b, Option.value ~default:(loc $loc, Bool_literal true) c, d, unbindable_slot) }
   | e=assign_expr                                           { e }
   ;
 

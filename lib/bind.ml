@@ -119,10 +119,10 @@ and bind_opt env pass (expr : expression option) : env * expression option =
 
 and bind env pass ((location, expr) : expression) : env * expression =
   match expr with
-  | BoolLiteral _
-  | BoundIdentifier _
-  | BoundLet _
-  | IntLiteral _
+  | Bool_literal _
+  | Bound_identifier _
+  | Bound_let _
+  | Int_literal _
   | Type _
          -> env, (location, expr)
   
@@ -134,7 +134,7 @@ and bind env pass ((location, expr) : expression) : env * expression =
   | Let Identifier name ->
     assert (pass != OrderIndependent2);
     let env, slot = declare_slot env name false in
-    env, (location, BoundLet (Identifier name, slot))
+    env, (location, Bound_let (Identifier name, slot))
 
   | In (a, b) ->
     if pass == OrderIndependent1 then env, (location, expr) else
@@ -152,7 +152,7 @@ and bind env pass ((location, expr) : expression) : env * expression =
 
   | Let Any ->
     assert (pass != OrderIndependent2);
-    env, (location, BoundLet (Any, unbindable_slot))
+    env, (location, Bound_let (Any, unbindable_slot))
 
   | Fall_through (a, b) ->
     let _, a = bind env pass a in
@@ -162,17 +162,16 @@ and bind env pass ((location, expr) : expression) : env * expression =
   | Identifier name ->
     if pass == OrderIndependent1 then env, (location, expr) else
     let slot = lookup_slot env name in
-    env, (location, BoundIdentifier (name, slot))
+    env, (location, Bound_identifier (name, slot))
 
-  | BinaryOp (op, a, b) ->
+  | Binary_op (op, a, b) ->
     let _, a = bind env pass a in
     let _, b = bind env pass b in
-    env, (location, BinaryOp (op, a, b))
+    env, (location, Binary_op (op, a, b))
 
-  | UnaryOp (op, a) ->
+  | Unary_op (op, a) ->
     let _, a = bind env pass a in
-    env, (location, UnaryOp (op, a))
-
+    env, (location, Unary_op (op, a))
   | Conditional (c, a, b) ->
     let _, c = bind env pass c in
     let _, a = bind env pass a in
@@ -184,9 +183,9 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let env, es = List.fold_left (fun (env, es) e -> let env, e = bind env pass e in (env, e::es)) (env, []) es in
     env, (location, Tuple (List.rev es))
 
-  | TypeOf e ->
+  | Type_of e ->
     let _, e = bind env pass e in
-    env, (location, TypeOf e)
+    env, (location, Type_of e)
 
   | Arity e ->
     let _, e = bind env pass e in
@@ -205,10 +204,10 @@ and bind env pass ((location, expr) : expression) : env * expression =
     let arg_exprs = bind_expressions env pass arg_exprs in
     env, (location, Call (callable, arg_exprs, pure))
 
-  | DynamicArray (es, t) ->
+  | Dynamic_array (es, t) ->
     let es = Array.map (fun e -> let _, e = bind env pass e in e) es in
     let t = Option.map (bind_const_type env pass) t in
-    env, (location, DynamicArray (es, t))
+    env, (location, Dynamic_array (es, t))
 
   | Index (a, b) ->
     let _, a = bind env pass a in

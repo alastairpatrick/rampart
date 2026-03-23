@@ -47,7 +47,7 @@ and function_modifiers = {
 
 and const_type_expression =
   | Bool
-  | DynamicArray of (* element_type: *) const_type_expression
+  | Dynamic_array of (* element_type: *) const_type_expression
   | Int
   | Function of (* return_type: *) const_type_expression * (* param_types: *) const_type_expression list * (* modifiers: *) function_modifiers
   | Representative (* Uninstantiable type, used as a representative value for type values. *)
@@ -58,25 +58,25 @@ and const_type_expression =
 (* TODO: change all these to Constructor_name style *)
 and expression_inner =
   | Type of const_type_expression
-  | TypeOf of expression
+  | Type_of of expression
   | Arity of expression
-  | IntLiteral of int64
-  | BoolLiteral of bool
+  | Int_literal of int64
+  | Bool_literal of bool
   | Assignment of expression * expression
   | Let of pattern
   | In of expression * expression
   | Match of (* pattern: *) expression * expression * (* condition: *) expression * (* body: *) expression * (* temp_slot: *) slot
   | Fall_through of expression * expression
   | Identifier of string
-  | BoundIdentifier of string * slot
-  | BoundLet of pattern * slot
-  | BinaryOp of binary_op * expression * expression
-  | UnaryOp of unary_op * expression
+  | Bound_identifier of string * slot
+  | Bound_let of pattern * slot
+  | Binary_op of binary_op * expression * expression
+  | Unary_op of unary_op * expression
   | Conditional of expression * expression * expression
   | Tuple of expression list
   | Call of expression * expression list * function_modifiers
   | Lambda of (* return_type: *) const_type_expression * (* params: *) statement list * function_modifiers * (* body: *) statement * closure option
-  | DynamicArray of expression array * (* element_type: *) const_type_expression option
+  | Dynamic_array of expression array * (* element_type: *) const_type_expression option
   | Index of expression * (* subscript: *) expression option
   | Statement of statement
   

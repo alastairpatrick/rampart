@@ -13,11 +13,11 @@ let parse text =
 
 let%expect_test _ =
   parse "true;";
-  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral true))))))) |}]
+  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (Bool_literal true))))))) |}]
 
 let%expect_test _ =
   parse "false;";
-  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (BoolLiteral false))))))) |}]
+  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (Bool_literal false))))))) |}]
 
 let%expect_test _ =
   parse "1+1;";
@@ -25,7 +25,8 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1
-        (Expression (@1 (BinaryOp Plus (@1 (IntLiteral 1)) (@1 (IntLiteral 1)))))))))
+        (Expression
+         (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -35,7 +36,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (BinaryOp Minus (@1 (IntLiteral 1)) (@1 (IntLiteral 1)))))))))
+         (@1 (Binary_op Minus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -45,7 +46,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (BinaryOp Times (@1 (Identifier x)) (@1 (IntLiteral 2)))))))))
+         (@1 (Binary_op Times (@1 (Identifier x)) (@1 (Int_literal 2)))))))))
     |}]
 
 let%expect_test _ =
@@ -55,7 +56,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (BinaryOp Equals (@1 (Identifier n)) (@1 (IntLiteral 0)))))))))
+         (@1 (Binary_op Equals (@1 (Identifier n)) (@1 (Int_literal 0)))))))))
     |}]
 
 let%expect_test _ =
@@ -65,7 +66,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (BinaryOp NotEquals (@1 (Identifier n)) (@1 (IntLiteral 1)))))))))
+         (@1 (Binary_op NotEquals (@1 (Identifier n)) (@1 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -76,9 +77,9 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (BinaryOp Plus
-           (@1 (BinaryOp Div (@1 (Identifier a)) (@1 (IntLiteral 1))))
-           (@1 (IntLiteral 3)))))))))
+          (Binary_op Plus
+           (@1 (Binary_op Div (@1 (Identifier a)) (@1 (Int_literal 1))))
+           (@1 (Int_literal 3)))))))))
     |}]
 
 let%expect_test _ =
@@ -89,8 +90,8 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (BinaryOp Plus (@1 (IntLiteral 3))
-           (@1 (BinaryOp Div (@1 (Identifier a)) (@1 (IntLiteral 1)))))))))))
+          (Binary_op Plus (@1 (Int_literal 3))
+           (@1 (Binary_op Div (@1 (Identifier a)) (@1 (Int_literal 1)))))))))))
     |}]
 
 let%expect_test _ =
@@ -101,8 +102,8 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (BinaryOp Div (@1 (Identifier a))
-           (@1 (BinaryOp Plus (@1 (IntLiteral 1)) (@1 (IntLiteral 3)))))))))))
+          (Binary_op Div (@1 (Identifier a))
+           (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 3)))))))))))
     |}]
 
 let%expect_test _ =
@@ -110,7 +111,7 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (UnaryOp Negate (@1 (Identifier x)))))))))
+      ((@1 (Expression (@1 (Unary_op Negate (@1 (Identifier x)))))))))
     |}]
 
 let%expect_test _ =
@@ -122,8 +123,8 @@ let%expect_test _ =
         (Expression
          (@1
           (Conditional
-           (@1 (BinaryOp Equals (@1 (Identifier a)) (@1 (IntLiteral 0))))
-           (@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))
+           (@1 (Binary_op Equals (@1 (Identifier a)) (@1 (Int_literal 0))))
+           (@1 (Int_literal 1)) (@1 (Int_literal 2)))))))))
     |}]
 
 let%expect_test _ =
@@ -135,12 +136,15 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))))
+      ((@1 (Expression (@1 (Tuple ((@1 (Int_literal 1)) (@1 (Int_literal 2))))))))))
     |}]
 
 let%expect_test _ =
   parse "typeof(x);";
-  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (TypeOf (@1 (Identifier x))))))))) |}]
+  [% expect{|
+    (@1
+     (OrderIndependent ((@1 (Expression (@1 (Type_of (@1 (Identifier x)))))))))
+    |}]
 
 let%expect_test _ =
   parse "arity(x);";
@@ -154,15 +158,15 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (DynamicArray
-           ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))) ())))))))
+          (Dynamic_array
+           ((@1 (Int_literal 1)) (@1 (Int_literal 2)) (@1 (Int_literal 3))) ())))))))
     |}]
 let%expect_test _ =
   parse "[int];";
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (DynamicArray ((@1 (Type Int))) ())))))))
+      ((@1 (Expression (@1 (Dynamic_array ((@1 (Type Int))) ())))))))
     |}]
 
 let%expect_test _ =
@@ -170,7 +174,7 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Index (@1 (Identifier x)) ((@1 (IntLiteral 0))))))))))
+      ((@1 (Expression (@1 (Index (@1 (Identifier x)) ((@1 (Int_literal 0))))))))))
     |}]
   
 let%expect_test _ =
@@ -181,8 +185,8 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (Assignment (@1 (Index (@1 (Identifier z)) ((@1 (IntLiteral 1)))))
-           (@1 (IntLiteral 2)))))))))
+          (Assignment (@1 (Index (@1 (Identifier z)) ((@1 (Int_literal 1)))))
+           (@1 (Int_literal 2)))))))))
     |}]
 
 let%expect_test _ =
@@ -233,7 +237,7 @@ let%expect_test _ =
         (Declaration
          ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int))))) (name x)
           (init_expr
-           ((@1 (BinaryOp Plus (@1 (IntLiteral 2)) (@1 (IntLiteral 1))))))))))))
+           ((@1 (Binary_op Plus (@1 (Int_literal 2)) (@1 (Int_literal 1))))))))))))
     |}]
 
 let%expect_test _ =
@@ -254,7 +258,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (Assignment (@1 (Let (Identifier max))) (@1 (IntLiteral 5)))))))))
+         (@1 (Assignment (@1 (Let (Identifier max))) (@1 (Int_literal 5)))))))))
     |}]
 
 let%expect_test _ =
@@ -284,7 +288,7 @@ let%expect_test _ =
                    (@1
                     (Conditional
                      (@1
-                      (BinaryOp Greater (@1 (Identifier a)) (@1 (Identifier b))))
+                      (Binary_op Greater (@1 (Identifier a)) (@1 (Identifier b))))
                      (@1 (Identifier a)) (@1 (Identifier b)))))))))
               ()))))))))))
     |}]
@@ -294,7 +298,7 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Assignment (@1 (Let Any)) (@1 (IntLiteral 7)))))))))
+      ((@1 (Expression (@1 (Assignment (@1 (Let Any)) (@1 (Int_literal 7)))))))))
     |}]
 
     
@@ -303,7 +307,7 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (Assignment (@1 (Let Any)) (@1 (IntLiteral 7)))))))))
+      ((@1 (Expression (@1 (Assignment (@1 (Let Any)) (@1 (Int_literal 7)))))))))
     |}]
 
 let%expect_test _ =
@@ -316,7 +320,7 @@ let%expect_test _ =
          (@1
           (Assignment
            (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (Let (Identifier b))))))
-           (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))))))
+           (@1 (Tuple ((@1 (Int_literal 1)) (@1 (Int_literal 2))))))))))))
     |}]
 
 let%expect_test _ =
@@ -330,7 +334,7 @@ let%expect_test _ =
           (typ
            ((Unevaluated_type (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))))
           (name x)
-          (init_expr ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)))))))))))))
+          (init_expr ((@1 (Tuple ((@1 (Int_literal 1)) (@1 (Int_literal 2)))))))))))))
     |}]
 
 let%expect_test _ =
@@ -355,8 +359,8 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (In (@1 (Assignment (@1 (Let (Identifier a))) (@1 (IntLiteral 1))))
-           (@1 (BinaryOp Plus (@1 (Identifier a)) (@1 (IntLiteral 1)))))))))))
+          (In (@1 (Assignment (@1 (Let (Identifier a))) (@1 (Int_literal 1))))
+           (@1 (Binary_op Plus (@1 (Identifier a)) (@1 (Int_literal 1)))))))))))
     |}]
 
   (* Lambdas & calls *)
@@ -425,7 +429,7 @@ let%expect_test _ =
               (In
                (@1
                 (Assignment (@1 (Let (Identifier b)))
-                 (@1 (BinaryOp Plus (@1 (Identifier a)) (@1 (IntLiteral 1))))))
+                 (@1 (Binary_op Plus (@1 (Identifier a)) (@1 (Int_literal 1))))))
                (@1 (Identifier b))))))
            ())))))))
     |}]
@@ -557,7 +561,7 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1
-        (Expression (@1 (Call (@1 (Identifier foo)) ((@1 (IntLiteral 7))) ())))))))
+        (Expression (@1 (Call (@1 (Identifier foo)) ((@1 (Int_literal 7))) ())))))))
     |}]
 
 (* We don't support this syntax because we want to avoid this ambiguity:
@@ -578,7 +582,7 @@ let%expect_test _ =
 
 let%expect_test _ =
   parse "return 7;";
-  [% expect{| (@1 (OrderIndependent ((@1 (Return (@1 (IntLiteral 7))))))) |}]
+  [% expect{| (@1 (OrderIndependent ((@1 (Return (@1 (Int_literal 7))))))) |}]
 
 
   (* Control flow Statements *)
@@ -630,9 +634,9 @@ let%expect_test _ =
          ((@1
            (Declaration
             ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int))))) (name i)
-             (init_expr ((@1 (IntLiteral 0)))))))
+             (init_expr ((@1 (Int_literal 0)))))))
           (@1
-           (If (@1 (BinaryOp Less (@1 (Identifier i)) (@1 (IntLiteral 10))))
+           (If (@1 (Binary_op Less (@1 (Identifier i)) (@1 (Int_literal 10))))
             (@1
              (DoWhile
               (@1
@@ -642,8 +646,9 @@ let%expect_test _ =
                   (Expression
                    (@1
                     (Assignment (@1 (Identifier i))
-                     (@1 (BinaryOp Plus (@1 (Identifier i)) (@1 (IntLiteral 1)))))))))))
-              (@1 (BinaryOp Less (@1 (Identifier i)) (@1 (IntLiteral 10))))))
+                     (@1
+                      (Binary_op Plus (@1 (Identifier i)) (@1 (Int_literal 1)))))))))))
+              (@1 (Binary_op Less (@1 (Identifier i)) (@1 (Int_literal 10))))))
             (@0 (Compound ()))))))))))
     |}]
 
@@ -660,8 +665,8 @@ let%expect_test _ =
          (@2
           (Fall_through
            (@2
-            (Match (@2 (Tuple ((@2 (Let (Identifier a))) (@2 (IntLiteral 2)))))
-             (@2 (Identifier v)) (@2 (BoolLiteral true)) (@2 (Identifier a))
+            (Match (@2 (Tuple ((@2 (Let (Identifier a))) (@2 (Int_literal 2)))))
+             (@2 (Identifier v)) (@2 (Bool_literal true)) (@2 (Identifier a))
              (-1 -1)))
            (@3
             (Match (@3 (Tuple ((@3 (Let (Identifier a))) (@3 (Let Any)))))
@@ -685,8 +690,8 @@ let%expect_test _ =
          (@2
           (Fall_through
            (@2
-            (Match (@2 (Tuple ((@2 (Let (Identifier a))) (@2 (IntLiteral 2)))))
-             (@2 (Identifier v)) (@2 (BoolLiteral true)) (@3 (Identifier a))
+            (Match (@2 (Tuple ((@2 (Let (Identifier a))) (@2 (Int_literal 2)))))
+             (@2 (Identifier v)) (@2 (Bool_literal true)) (@3 (Identifier a))
              (-1 -1)))
            (@4
             (Match (@4 (Tuple ((@4 (Let (Identifier a))) (@4 (Let Any)))))
@@ -707,8 +712,8 @@ let%expect_test _ =
          (@2
           (Fall_through
            (@2
-            (Match (@2 (Tuple ((@2 (Let (Identifier a))) (@2 (IntLiteral 2)))))
-             (@2 (Identifier v)) (@2 (BoolLiteral true))
+            (Match (@2 (Tuple ((@2 (Let (Identifier a))) (@2 (Int_literal 2)))))
+             (@2 (Identifier v)) (@2 (Bool_literal true))
              (@2
               (Statement (@2 (Compound ((@2 (Expression (@2 (Identifier a)))))))))
              (-1 -1)))
@@ -727,8 +732,8 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (Expression (@1 (IntLiteral 1))))
-       (@2 (Expression (@2 (UnaryOp Negate (@2 (IntLiteral 1)))))))))
+      ((@1 (Expression (@1 (Int_literal 1))))
+       (@2 (Expression (@2 (Unary_op Negate (@2 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -738,7 +743,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (BinaryOp Minus (@1 (IntLiteral 1)) (@2 (IntLiteral 1)))))))))
+         (@1 (Binary_op Minus (@1 (Int_literal 1)) (@2 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -751,7 +756,7 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@2 (If (@2 (Identifier c)) (@2 (Compound ())) (@2 (Compound ()))))
-       (@4 (Expression (@4 (IntLiteral 1)))))))
+       (@4 (Expression (@4 (Int_literal 1)))))))
     |}]
 
 let%expect_test _ =
@@ -765,7 +770,7 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@2 (If (@2 (Identifier c)) (@3 (Compound ())) (@2 (Compound ()))))
-       (@5 (Expression (@5 (IntLiteral 1)))))))
+       (@5 (Expression (@5 (Int_literal 1)))))))
     |}]
 
 let%expect_test _ =
@@ -782,7 +787,7 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@2 (If (@2 (Identifier c)) (@3 (Compound ())) (@6 (Compound ()))))
-       (@8 (Expression (@8 (IntLiteral 1)))))))
+       (@8 (Expression (@8 (Int_literal 1)))))))
     |}]
 
 let%expect_test _ =
@@ -797,7 +802,7 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@2 (If (@2 (Identifier c)) (@2 (Compound ())) (@4 (Compound ()))))
-       (@6 (Expression (@6 (IntLiteral 1)))))))
+       (@6 (Expression (@6 (Int_literal 1)))))))
     |}]
 
 let%expect_test _ =
@@ -813,9 +818,9 @@ let%expect_test _ =
      (OrderIndependent
       ((@2
         (Compound
-         ((@3 (Expression (@3 (IntLiteral 1))))
-          (@4 (Expression (@4 (IntLiteral 2))))
-          (@5 (Expression (@5 (IntLiteral 3))))))))))
+         ((@3 (Expression (@3 (Int_literal 1))))
+          (@4 (Expression (@4 (Int_literal 2))))
+          (@5 (Expression (@5 (Int_literal 3))))))))))
     |}]
 
 let%expect_test _ =
@@ -831,10 +836,10 @@ let%expect_test _ =
      (OrderIndependent
       ((@2
         (Compound
-         ((@3 (Expression (@3 (IntLiteral 1))))
+         ((@3 (Expression (@3 (Int_literal 1))))
           (@5
            (Expression
-            (@5 (Assignment (@5 (Let (Identifier x))) (@5 (IntLiteral 2))))))))))))
+            (@5 (Assignment (@5 (Let (Identifier x))) (@5 (Int_literal 2))))))))))))
     |}]
 
 let%expect_test _ =
@@ -905,7 +910,8 @@ let%expect_test _ =
       ((@2
         (Expression
          (@2
-          (Tuple ((@3 (IntLiteral 1)) (@4 (IntLiteral 2)) (@5 (IntLiteral 3))))))))))
+          (Tuple
+           ((@3 (Int_literal 1)) (@4 (Int_literal 2)) (@5 (Int_literal 3))))))))))
     |}]
 
 let%expect_test _ =
@@ -922,8 +928,8 @@ let%expect_test _ =
       ((@2
         (Expression
          (@2
-          (DynamicArray
-           ((@3 (IntLiteral 1)) (@4 (IntLiteral 2)) (@5 (IntLiteral 3))) ())))))))
+          (Dynamic_array
+           ((@3 (Int_literal 1)) (@4 (Int_literal 2)) (@5 (Int_literal 3))) ())))))))
     |}]
 
 let%expect_test _ =
@@ -990,7 +996,8 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1
-        (Expression (@1 (BinaryOp Plus (@1 (IntLiteral 1)) (@1 (IntLiteral 1)))))))))
+        (Expression
+         (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -1000,7 +1007,8 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1
-        (Expression (@1 (BinaryOp Plus (@1 (IntLiteral 1)) (@1 (IntLiteral 1)))))))))
+        (Expression
+         (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -1010,7 +1018,8 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1
-        (Expression (@1 (BinaryOp Plus (@1 (IntLiteral 1)) (@1 (IntLiteral 1)))))))))
+        (Expression
+         (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -1020,7 +1029,8 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1
-        (Expression (@1 (BinaryOp Plus (@1 (IntLiteral 1)) (@1 (IntLiteral 1)))))))))
+        (Expression
+         (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =

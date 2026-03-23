@@ -26,12 +26,12 @@ let%expect_test _ =
       ((@1
         (BoundDeclaration
          ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Bool))))) (name a)
-          (init_expr ((@1 (BoolLiteral true)))))
+          (init_expr ((@1 (Bool_literal true)))))
          (0 0)))
        (@1
         (BoundDeclaration
          ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Bool))))) (name b)
-          (init_expr ((@1 (BoundIdentifier a (0 0))))))
+          (init_expr ((@1 (Bound_identifier a (0 0))))))
          (1 0))))))
     |}]
 
@@ -43,10 +43,10 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (Assignment (@1 (BoundLet (Identifier a) (0 0)))
+          (Assignment (@1 (Bound_let (Identifier a) (0 0)))
            (@1
-            (DynamicArray
-             ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))) ())))))))))
+            (Dynamic_array
+             ((@1 (Int_literal 1)) (@1 (Int_literal 2)) (@1 (Int_literal 3))) ())))))))))
     |}]
 
 let%expect_test _ =
@@ -76,8 +76,8 @@ let%expect_test _ =
        (@1
         (Expression
          (@1
-          (Assignment (@1 (BoundLet (Identifier y) (1 0)))
-           (@1 (Index (@1 (BoundIdentifier x (0 0))) ((@1 (IntLiteral 0))))))))))))
+          (Assignment (@1 (Bound_let (Identifier y) (1 0)))
+           (@1 (Index (@1 (Bound_identifier x (0 0))) ((@1 (Int_literal 0))))))))))))
     |}]
 
 let%expect_test _ =
@@ -88,18 +88,18 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (Assignment (@1 (BoundLet (Identifier z) (0 0)))
+          (Assignment (@1 (Bound_let (Identifier z) (0 0)))
            (@1
             (Index
-             (@1 (DynamicArray ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))) ()))
-             ((@1 (IntLiteral 1))))))))))))
+             (@1 (Dynamic_array ((@1 (Int_literal 1)) (@1 (Int_literal 2))) ()))
+             ((@1 (Int_literal 1))))))))))))
     |}]
 
 let%expect_test _ =
 parse "let x;";
   [% expect{|
     (@1
-     (OrderIndependent ((@1 (Expression (@1 (BoundLet (Identifier x) (0 0))))))))
+     (OrderIndependent ((@1 (Expression (@1 (Bound_let (Identifier x) (0 0))))))))
     |}]
 
 let%expect_test _ =
@@ -110,13 +110,13 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (Assignment (@1 (BoundLet (Identifier a) (0 0)))
-           (@1 (BoolLiteral true))))))
+          (Assignment (@1 (Bound_let (Identifier a) (0 0)))
+           (@1 (Bool_literal true))))))
        (@1
         (Expression
          (@1
-          (Assignment (@1 (BoundLet (Identifier b) (1 0)))
-           (@1 (BoundIdentifier a (0 0))))))))))
+          (Assignment (@1 (Bound_let (Identifier b) (1 0)))
+           (@1 (Bound_identifier a (0 0))))))))))
     |}]
 
 let%expect_test _ =
@@ -127,13 +127,13 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (Assignment (@1 (BoundLet (Identifier b) (0 0)))
-           (@1 (BoundIdentifier a (1 0)))))))
+          (Assignment (@1 (Bound_let (Identifier b) (0 0)))
+           (@1 (Bound_identifier a (1 0)))))))
        (@1
         (Expression
          (@1
-          (Assignment (@1 (BoundLet (Identifier a) (1 0)))
-           (@1 (BoolLiteral true)))))))))
+          (Assignment (@1 (Bound_let (Identifier a) (1 0)))
+           (@1 (Bool_literal true)))))))))
     |}]
 
 let%expect_test _ =
@@ -145,8 +145,8 @@ let%expect_test _ =
         (Expression
          (@1
           (Tuple
-           ((@1 (BoundLet (Identifier a) (0 0)))
-            (@1 (BoundLet (Identifier b) (1 0)))))))))))
+           ((@1 (Bound_let (Identifier a) (0 0)))
+            (@1 (Bound_let (Identifier b) (1 0)))))))))))
     |}]
 
 let%expect_test _ =
@@ -160,9 +160,9 @@ let%expect_test _ =
           (Assignment
            (@1
             (Tuple
-             ((@1 (BoundLet (Identifier a) (0 0)))
-              (@1 (BoundLet (Identifier b) (1 0))))))
-           (@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))))))
+             ((@1 (Bound_let (Identifier a) (0 0)))
+              (@1 (Bound_let (Identifier b) (1 0))))))
+           (@1 (Tuple ((@1 (Int_literal 1)) (@1 (Int_literal 2))))))))))))
     |}]
 
 let%expect_test _ =
@@ -176,7 +176,7 @@ let%expect_test _ =
           (typ
            ((Unevaluated_type (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))))
           (name x)
-          (init_expr ((@1 (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2))))))))
+          (init_expr ((@1 (Tuple ((@1 (Int_literal 1)) (@1 (Int_literal 2))))))))
          (0 0))))))
     |}]
 
@@ -190,13 +190,13 @@ let%expect_test _ =
          ((@1
            (Expression
             (@1
-             (Assignment (@1 (BoundLet (Identifier a) (0 0)))
-              (@1 (BoolLiteral true))))))
+             (Assignment (@1 (Bound_let (Identifier a) (0 0)))
+              (@1 (Bool_literal true))))))
           (@1
            (Expression
             (@1
-             (Assignment (@1 (BoundLet (Identifier b) (1 0)))
-              (@1 (BoundIdentifier a (0 0)))))))))))))
+             (Assignment (@1 (Bound_let (Identifier b) (1 0)))
+              (@1 (Bound_identifier a (0 0)))))))))))))
     |}]
 
 let%expect_test _ =
@@ -225,13 +225,13 @@ let%expect_test _ =
                   ((@1
                     (Expression
                      (@1
-                      (Assignment (@1 (BoundLet (Identifier a) (0 1)))
-                       (@1 (BoolLiteral true))))))
+                      (Assignment (@1 (Bound_let (Identifier a) (0 1)))
+                       (@1 (Bool_literal true))))))
                    (@1
                     (Expression
                      (@1
-                      (Assignment (@1 (BoundLet (Identifier b) (1 1)))
-                       (@1 (BoundIdentifier a (0 1))))))))))))
+                      (Assignment (@1 (Bound_let (Identifier b) (1 1)))
+                       (@1 (Bound_identifier a (0 1))))))))))))
               ())))))
          (0 0))))))
     |}]
@@ -260,7 +260,7 @@ let%expect_test _ =
                   ((@1
                     (BoundDeclaration
                      ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int)))))
-                      (name y) (init_expr ((@1 (BoundIdentifier x (0 1))))))
+                      (name y) (init_expr ((@1 (Bound_identifier x (0 1))))))
                      (1 1))))))))
               ())))))
          (0 0))))))
@@ -277,7 +277,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (Assignment (@1 (BoundLet Any (-1 -1))) (@1 (IntLiteral 1)))))))))
+         (@1 (Assignment (@1 (Bound_let Any (-1 -1))) (@1 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -288,8 +288,8 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (In (@1 (BoundLet (Identifier a) (0 0)))
-           (@1 (BoundIdentifier a (0 0))))))))))
+          (In (@1 (Bound_let (Identifier a) (0 0)))
+           (@1 (Bound_identifier a (0 0))))))))))
     |}]
 
 let%expect_test _ =
@@ -300,8 +300,8 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (Match (@1 (BoundLet (Identifier a) (0 0))) (@1 (IntLiteral 1))
-           (@1 (BoolLiteral true)) (@1 (BoundIdentifier a (0 0))) (1 0))))))))
+          (Match (@1 (Bound_let (Identifier a) (0 0))) (@1 (Int_literal 1))
+           (@1 (Bool_literal true)) (@1 (Bound_identifier a (0 0))) (1 0))))))))
     |}]
 
 let%expect_test _ =
@@ -312,8 +312,8 @@ let%expect_test _ =
       ((@1
         (Expression
          (@1
-          (Match (@1 (BoundLet (Identifier a) (0 0))) (@1 (BoolLiteral true))
-           (@1 (BoundIdentifier a (0 0))) (@1 (BoundIdentifier a (0 0)))
+          (Match (@1 (Bound_let (Identifier a) (0 0))) (@1 (Bool_literal true))
+           (@1 (Bound_identifier a (0 0))) (@1 (Bound_identifier a (0 0)))
            (1 0))))))))
     |}]
 
@@ -347,32 +347,32 @@ let%expect_test _ =
                   ((@3
                     (If
                      (@3
-                      (BinaryOp Equals (@3 (BoundIdentifier n (0 1)))
-                       (@3 (IntLiteral 0))))
-                     (@3 (Compound ((@3 (Return (@3 (IntLiteral 0)))))))
+                      (Binary_op Equals (@3 (Bound_identifier n (0 1)))
+                       (@3 (Int_literal 0))))
+                     (@3 (Compound ((@3 (Return (@3 (Int_literal 0)))))))
                      (@3 (Compound ()))))
                    (@4
                     (If
                      (@4
-                      (BinaryOp Equals (@4 (BoundIdentifier n (0 1)))
-                       (@4 (IntLiteral 1))))
-                     (@4 (Compound ((@4 (Return (@4 (IntLiteral 1)))))))
+                      (Binary_op Equals (@4 (Bound_identifier n (0 1)))
+                       (@4 (Int_literal 1))))
+                     (@4 (Compound ((@4 (Return (@4 (Int_literal 1)))))))
                      (@4 (Compound ()))))
                    (@5
                     (Return
                      (@5
-                      (BinaryOp Plus
+                      (Binary_op Plus
                        (@5
-                        (Call (@5 (BoundIdentifier fib (0 0)))
+                        (Call (@5 (Bound_identifier fib (0 0)))
                          ((@5
-                           (BinaryOp Minus (@5 (BoundIdentifier n (0 1)))
-                            (@5 (IntLiteral 2)))))
+                           (Binary_op Minus (@5 (Bound_identifier n (0 1)))
+                            (@5 (Int_literal 2)))))
                          ()))
                        (@5
-                        (Call (@5 (BoundIdentifier fib (0 0)))
+                        (Call (@5 (Bound_identifier fib (0 0)))
                          ((@5
-                           (BinaryOp Minus (@5 (BoundIdentifier n (0 1)))
-                            (@5 (IntLiteral 1)))))
+                           (Binary_op Minus (@5 (Bound_identifier n (0 1)))
+                            (@5 (Int_literal 1)))))
                          ())))))))))))
               ())))))
          (0 0))))))

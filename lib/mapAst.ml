@@ -35,11 +35,11 @@ let rec map_statement (sf : statement -> statement) (ef : expression -> expressi
 
 and map_expression (sf : statement -> statement) (ef : expression -> expression) ((location, expr) : expression) : expression =
   match expr with
-  | BoolLiteral _
-  | BoundIdentifier _
-  | BoundLet _
+  | Bool_literal _
+  | Bound_identifier _
+  | Bound_let _
   | Identifier _
-  | IntLiteral _
+  | Int_literal _
   | Let Any
   | Let Identifier _
   | Type _ ->
@@ -51,20 +51,19 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
   | In (a, b) ->
     ef (location, (In (map_expression sf ef a, map_expression sf ef b)))
 
-  | BinaryOp (op, a, b) ->
-    ef (location, (BinaryOp (op, map_expression sf ef a, map_expression sf ef b)))
+  | Binary_op (op, a, b) ->
+    ef (location, (Binary_op (op, map_expression sf ef a, map_expression sf ef b)))
 
-  | UnaryOp (op, a) ->
-    ef (location, (UnaryOp (op, map_expression sf ef a)))
-
+  | Unary_op (op, a) ->
+    ef (location, (Unary_op (op, map_expression sf ef a)))
   | Conditional (c, a, b) ->
     ef (location, (Conditional (map_expression sf ef c, map_expression sf ef a, map_expression sf ef b)))
 
   | Tuple es ->
     ef (location, (Tuple (List.map (map_expression sf ef) es)))
 
-  | TypeOf e ->
-    ef (location, (TypeOf (map_expression sf ef e)))
+  | Type_of e ->
+    ef (location, (Type_of (map_expression sf ef e)))
 
   | Arity e ->
     ef (location, (Arity (map_expression sf ef e)))
@@ -75,9 +74,8 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
   | Call (callable, arg_exprs, pure) ->
     ef (location, (Call (map_expression sf ef callable, List.map (map_expression sf ef) arg_exprs, pure)))
 
-  | DynamicArray (es, t) ->
-    ef (location, (DynamicArray (Array.map (map_expression sf ef) es, Option.map (map_const_type sf ef) t)))
-
+  | Dynamic_array (es, t) ->
+    ef (location, (Dynamic_array (Array.map (map_expression sf ef) es, Option.map (map_const_type sf ef) t)))
   | Index (a, b) ->
     ef (location, (Index (map_expression sf ef a, Option.map (map_expression sf ef) b)))
 

@@ -47,14 +47,14 @@ let check_is_const_type expression : const_type_expression =
 
 let rec const_values_equal (a : expression) (b : expression) : bool =
   match a, b with
-  | (_, IntLiteral a), (_, IntLiteral b) -> a = b
-  | (_, BoolLiteral a), (_, BoolLiteral b) -> a = b
+  | (_, Int_literal a), (_, Int_literal b) -> a = b
+  | (_, Bool_literal a), (_, Bool_literal b) -> a = b
   | (_, Tuple a_elements), (_, Tuple b_elements) ->
     (try
       List.for_all2 const_values_equal a_elements b_elements
     with Invalid_argument _ -> false)
   (* Invariant on dynamic arrays of constant value: all elements have the type designated by the element type field, which is never None. *)
-  | (_, DynamicArray (a_elements, Some a_type)), (_, DynamicArray (b_elements, Some b_type)) ->
+  | (_, Dynamic_array (a_elements, Some a_type)), (_, Dynamic_array (b_elements, Some b_type)) ->
     (try
       Array.for_all2 const_values_equal a_elements b_elements && a_type = b_type
     with Invalid_argument _ -> false)
@@ -64,18 +64,18 @@ let rec const_values_equal (a : expression) (b : expression) : bool =
 
 let rec is_const_value (expression : expression) : bool =
   match expression with
-  | _, IntLiteral _ -> true
-  | _, BoolLiteral _ -> true
+  | _, Int_literal _ -> true
+  | _, Bool_literal _ -> true
   | _, Type _ -> true
   | _, Tuple elements -> List.for_all is_const_value elements
-  | _, DynamicArray (elements, _) -> Array.for_all is_const_value elements
+  | _, Dynamic_array (elements, _) -> Array.for_all is_const_value elements
   | _, Lambda _ -> true
   | _ -> false
 
 let rec const_value_for_all (predicate : expression -> bool) expression : bool =
   match expression with
   | _, Tuple elements -> List.for_all (const_value_for_all predicate) elements
-  | _, DynamicArray (elements, _) -> Array.for_all (const_value_for_all predicate) elements
+  | _, Dynamic_array (elements, _) -> Array.for_all (const_value_for_all predicate) elements
   | _ -> predicate expression 
 
 let const_value_exists (predicate : expression -> bool) expression : bool =
@@ -84,12 +84,12 @@ let const_value_exists (predicate : expression -> bool) expression : bool =
 (* This must work on any const value, which by definition includes any lambda (const or not) and any representative value. *)
 let rec type_of_expression ((location, expression): expression) : const_type_expression =
   match expression with
-  | IntLiteral _ -> Int
-  | BoolLiteral _ -> Bool
+  | Int_literal _ -> Int
+  | Bool_literal _ -> Bool
   | Type _ -> Type
   | Tuple elements -> Tuple (List.map type_of_expression elements)
-  | TypeOf _ -> Type
-  | DynamicArray (_, Some element_type) -> DynamicArray element_type
+  | Type_of _ -> Type
+  | Dynamic_array (_, Some element_type) -> Dynamic_array element_type
   | Lambda (return_type, params, modifiers, _, _) ->
     let param_types = List.map (fun (_, param) -> match param with
       | BoundDeclaration ({typ=Some param_type; _}, _) -> param_type
@@ -99,18 +99,18 @@ let rec type_of_expression ((location, expression): expression) : const_type_exp
 
 let rec default_value const_type : expression =
   match const_type with
-  | Int -> (null_location, IntLiteral 0L)
-  | Bool -> (null_location, BoolLiteral false)
+  | Int -> (null_location, Int_literal 0L)
+  | Bool -> (null_location, Bool_literal false)
   | (Tuple elements) ->
     (null_location, Tuple (List.map (fun element -> default_value element) elements))
-  | (DynamicArray element_type) ->
-    (null_location, DynamicArray ([| |], Some element_type))
+  | (Dynamic_array element_type) ->
+    (null_location, Dynamic_array ([| |], Some element_type))
   | _ -> raise error_no_default_value
   
 let rec representative_value_of_type (const_type: const_type_expression) : expression =
   let representative_value = match const_type with
-    | Int -> (null_location, IntLiteral 0L)
-    | Bool -> (null_location, BoolLiteral false)
+    | Int -> (null_location, Int_literal 0L)
+    | Bool -> (null_location, Bool_literal false)
     | Type -> (null_location, Type Representative)
     | Function (return_type, param_types, modifiers) ->
       (null_location, Lambda (return_type,
@@ -118,8 +118,8 @@ let rec representative_value_of_type (const_type: const_type_expression) : expre
         modifiers, (null_location, Compound []), None))
     | Tuple elements ->
       (null_location, Tuple (List.map (fun element -> representative_value_of_type element) elements))
-    | DynamicArray element_type ->
-      (null_location, DynamicArray ([| |], Some element_type))
+    | Dynamic_array element_type ->
+      (null_location, Dynamic_array ([| |], Some element_type))
     | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_const_type_expression const_type))) 
   in
     if (not (is_const_value representative_value)) then
