@@ -18,23 +18,23 @@ type binary_op =
   | Div
   | Modulo
   | Equals
-  | NotEquals
+  | Not_equals
   | Less
-  | LessEquals
+  | Less_equals
   | Greater
-  | GreaterEquals
-  | LogicalAnd (* operands must be bool, can short-circuit *)
-  | LogicalOr (* operands must be bool, can short-circuit *)
-  | BitwiseAnd (* int or bool operands *)
-  | BitwiseOr (* int or bool operands *)
-  | BitwiseXor (* int or bool operands *)
-  | ShiftLeft   (* int operands only, C "<<" *)
-  | ShiftRight  (* int operands only, C ">>"; arithmetic shift like Java *)
+  | Greater_equals
+  | Logical_and (* operands must be bool, can short-circuit *)
+  | Logical_or (* operands must be bool, can short-circuit *)
+  | Bitwise_and (* int or bool operands *)
+  | Bitwise_or (* int or bool operands *)
+  | Bitwise_xor (* int or bool operands *)
+  | Shift_left   (* int operands only, C "<<" *)
+  | Shift_right  (* int operands only, C ">>"; arithmetic shift like Java *)
 
 and unary_op =
   | Negate (* int operand *)
-  | LogicalNot (* bool operand *)
-  | BitwiseInvert (* int or bool operand *)
+  | Logical_not (* bool operand *)
+  | Bitwise_invert (* int or bool operand *)
 
 and pattern =
   | Any
@@ -138,20 +138,20 @@ let show_binary_op = function
   | Modulo -> "%"
   | Div -> "/"
   | Equals -> "=="
-  | NotEquals -> "!="
+  | Not_equals -> "!="
   | Less -> "<"
-  | LessEquals -> "<="
+  | Less_equals -> "<="
   | Greater -> ">"
-  | GreaterEquals -> ">="
-  | LogicalAnd -> "&&"
-  | LogicalOr -> "||"
-  | BitwiseAnd -> "band"
-  | BitwiseOr -> "bor"
-  | BitwiseXor -> "bxor"
-  | ShiftLeft -> "<<"
-  | ShiftRight -> ">>"
+  | Greater_equals -> ">="
+  | Logical_and -> "&&"
+  | Logical_or -> "||"
+  | Bitwise_and -> "band"
+  | Bitwise_or -> "bor"
+  | Bitwise_xor -> "bxor"
+  | Shift_left -> "<<"
+  | Shift_right -> ">>"
 
 let show_unary_op = function
   | Negate -> "-"
-  | LogicalNot -> "!"
-  | BitwiseInvert -> "bnot"
+  | Logical_not -> "!"
+  | Bitwise_invert -> "bnot"

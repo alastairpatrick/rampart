@@ -359,17 +359,17 @@ and evaluate_unary_op env frame mode location op e =
   let e = evaluate_expression env frame mode e in
   match mode, op, e with
   | _, Negate, (Const, (_, Int_literal v)) -> Const, (location, Int_literal (Int64.neg v))
-  | _, LogicalNot, (Const, (_, Bool_literal b)) -> Const, (location, Bool_literal (not b))
-  | _, BitwiseInvert, (Const, (_, Int_literal v)) -> Const, (location, Int_literal (Int64.lognot v))
-  | _, BitwiseInvert, (Const, (_, Bool_literal b)) -> Const, (location, Bool_literal (not b))
+  | _, Logical_not, (Const, (_, Bool_literal b)) -> Const, (location, Bool_literal (not b))
+  | _, Bitwise_invert, (Const, (_, Int_literal v)) -> Const, (location, Int_literal (Int64.lognot v))
+  | _, Bitwise_invert, (Const, (_, Bool_literal b)) -> Const, (location, Bool_literal (not b))
   
   | Fold_consts, Negate, (_, (_, Int_literal _))
-  | Fold_consts, BitwiseInvert, (_, (_, Int_literal _)) ->
+  | Fold_consts, Bitwise_invert, (_, (_, Int_literal _)) ->
     Non_const (location, Unary_op (op, ast_of e)),
               representative_value_of_type Int
 
-  | Fold_consts, LogicalNot, (_, (_, Bool_literal _))
-  | Fold_consts, BitwiseInvert, (_, (_, Bool_literal _)) ->
+  | Fold_consts, Logical_not, (_, (_, Bool_literal _))
+  | Fold_consts, Bitwise_invert, (_, (_, Bool_literal _)) ->
     Non_const (location, Unary_op (op, ast_of e)),
               representative_value_of_type Bool
 
@@ -382,15 +382,15 @@ and evaluate_logical_op env frame mode location op (a : expression) (b : express
   | Evaluate_type ->
     let b = evaluate_expression env frame mode b in
     begin match op, a, b with
-    | LogicalAnd, (Const, (_, Bool_literal false)), (_, (_, Bool_literal _)) -> a
-    | LogicalAnd, (Const, (_, Bool_literal true)), (_, (_, Bool_literal _)) -> b
-    | LogicalAnd, (_, (_, Bool_literal _)), (Const, (_, Bool_literal false)) -> b
-    | LogicalAnd, (_, (_, Bool_literal _)), (Const, (_, Bool_literal true)) -> a
+    | Logical_and, (Const, (_, Bool_literal false)), (_, (_, Bool_literal _)) -> a
+    | Logical_and, (Const, (_, Bool_literal true)), (_, (_, Bool_literal _)) -> b
+    | Logical_and, (_, (_, Bool_literal _)), (Const, (_, Bool_literal false)) -> b
+    | Logical_and, (_, (_, Bool_literal _)), (Const, (_, Bool_literal true)) -> a
 
-    | LogicalOr, (Const, (_, Bool_literal false)), (_, (_, Bool_literal _)) -> b
-    | LogicalOr, (Const, (_, Bool_literal true)), (_, (_, Bool_literal _)) -> a
-    | LogicalOr, (_, (_, Bool_literal _)), (Const, (_, Bool_literal false)) -> a
-    | LogicalOr, (_, (_, Bool_literal _)), (Const, (_, Bool_literal true)) -> b
+    | Logical_or, (Const, (_, Bool_literal false)), (_, (_, Bool_literal _)) -> b
+    | Logical_or, (Const, (_, Bool_literal true)), (_, (_, Bool_literal _)) -> a
+    | Logical_or, (_, (_, Bool_literal _)), (Const, (_, Bool_literal false)) -> a
+    | Logical_or, (_, (_, Bool_literal _)), (Const, (_, Bool_literal true)) -> b
 
     | _, (_, (_, Bool_literal _)), (_, (_, Bool_literal _)) -> Non_const (location, Binary_op (op, ast_of a, ast_of b)),
                                                                        representative_value_of_type Bool
@@ -400,15 +400,15 @@ and evaluate_logical_op env frame mode location op (a : expression) (b : express
     
   | Evaluate_const ->
     begin match op, a with
-    | LogicalAnd, (Const, (_, Bool_literal false)) -> a
-    | LogicalAnd, (Const, (_, Bool_literal true)) -> evaluate_expression env frame mode b
-    | LogicalOr, (Const, (_, Bool_literal false)) -> evaluate_expression env frame mode b
-    | LogicalOr, (Const, (_, Bool_literal true)) -> a
+    | Logical_and, (Const, (_, Bool_literal false)) -> a
+    | Logical_and, (Const, (_, Bool_literal true)) -> evaluate_expression env frame mode b
+    | Logical_or, (Const, (_, Bool_literal false)) -> evaluate_expression env frame mode b
+    | Logical_or, (Const, (_, Bool_literal true)) -> a
     | _, _ -> raise error_type_mismatch
     end
 
 and evaluate_binary_op env frame mode location op a b =
-  if op = LogicalAnd || op = LogicalOr then evaluate_logical_op env frame mode location op a b else
+  if op = Logical_and || op = Logical_or then evaluate_logical_op env frame mode location op a b else
   let a = evaluate_expression env frame mode a in
   let b = evaluate_expression env frame mode b in
   let result_ast =
@@ -421,9 +421,9 @@ and evaluate_binary_op env frame mode location op a b =
   | Times, (_, (_, Int_literal a)), (_, (_, Int_literal b)) -> result_ast, (location, Int_literal (Int64.mul a b))
 
   | Less, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->          result_ast, (location, Bool_literal (Int64.compare a b < 0))
-  | LessEquals, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->    result_ast, (location, Bool_literal (Int64.compare a b <= 0))
+  | Less_equals, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->    result_ast, (location, Bool_literal (Int64.compare a b <= 0))
   | Greater, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->       result_ast, (location, Bool_literal (Int64.compare a b > 0))
-  | GreaterEquals, (_, (_, Int_literal a)), (_, (_, Int_literal b)) -> result_ast, (location, Bool_literal (Int64.compare a b >= 0))
+  | Greater_equals, (_, (_, Int_literal a)), (_, (_, Int_literal b)) -> result_ast, (location, Bool_literal (Int64.compare a b >= 0))
 
   | Div, (_, (_, Int_literal num)), (_, (_, Int_literal denom))
   | Modulo, (_, (_, Int_literal num)), (_, (_, Int_literal denom)) ->
@@ -435,18 +435,18 @@ and evaluate_binary_op env frame mode location op a b =
     end else
       result_ast, (location, Int_literal (if op = Div then Int64.div num denom else Int64.rem num denom))
 
-  | ShiftLeft, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->  result_ast, (location, Int_literal (Int64.shift_left a (Int64.to_int b)))
-  | ShiftRight, (_, (_, Int_literal a)), (_, (_, Int_literal b)) -> result_ast, (location, Int_literal (Int64.shift_right a (Int64.to_int b)))
+  | Shift_left, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->  result_ast, (location, Int_literal (Int64.shift_left a (Int64.to_int b)))
+  | Shift_right, (_, (_, Int_literal a)), (_, (_, Int_literal b)) -> result_ast, (location, Int_literal (Int64.shift_right a (Int64.to_int b)))
 
-  | BitwiseAnd, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->   result_ast, (location, Int_literal (Int64.logand a b))
-  | BitwiseAnd, (_, (_, Bool_literal a)), (_, (_, Bool_literal b)) -> result_ast, (location, Bool_literal (a && b))
-  | BitwiseOr, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->    result_ast, (location, Int_literal (Int64.logor a b))
-  | BitwiseOr, (_, (_, Bool_literal a)), (_, (_, Bool_literal b)) ->  result_ast, (location, Bool_literal (a || b))
-  | BitwiseXor, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->   result_ast, (location, Int_literal (Int64.logxor a b))
-  | BitwiseXor, (_, (_, Bool_literal a)), (_, (_, Bool_literal b)) -> result_ast, (location, Bool_literal (a <> b))
+  | Bitwise_and, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->   result_ast, (location, Int_literal (Int64.logand a b))
+  | Bitwise_and, (_, (_, Bool_literal a)), (_, (_, Bool_literal b)) -> result_ast, (location, Bool_literal (a && b))
+  | Bitwise_or, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->    result_ast, (location, Int_literal (Int64.logor a b))
+  | Bitwise_or, (_, (_, Bool_literal a)), (_, (_, Bool_literal b)) ->  result_ast, (location, Bool_literal (a || b))
+  | Bitwise_xor, (_, (_, Int_literal a)), (_, (_, Int_literal b)) ->   result_ast, (location, Int_literal (Int64.logxor a b))
+  | Bitwise_xor, (_, (_, Bool_literal a)), (_, (_, Bool_literal b)) -> result_ast, (location, Bool_literal (a <> b))
 
   | Equals, (Const, a), (Const, b)
-  | NotEquals, (Const, a), (Const, b) ->
+  | Not_equals, (Const, a), (Const, b) ->
     if (type_of_expression a) = (type_of_expression b) then
       let are_equal = const_values_equal a b in
       result_ast, (location, Bool_literal (if op = Equals then are_equal else not are_equal))
@@ -455,7 +455,7 @@ and evaluate_binary_op env frame mode location op a b =
     end
 
   | Equals, _, _
-  | NotEquals, _, _ -> result_ast, representative_value_of_type Bool
+  | Not_equals, _, _ -> result_ast, representative_value_of_type Bool
 
   | _ -> raise error_type_mismatch
 
@@ -526,7 +526,7 @@ and evaluate_fall_through env frame mode location a b =
       (try
         List.fold_left2 (fun acc pattern_element value_element ->
           let element_match = lower_pattern_match pattern_element value_element in
-          (location, Binary_op (LogicalAnd, acc, element_match))
+          (location, Binary_op (Logical_and, acc, element_match))
         ) (location, Bool_literal true) pattern_elements value_elements
       with Invalid_argument _ -> raise error_type_mismatch)
     | (location, Tuple pattern_elements), _ ->
@@ -534,7 +534,7 @@ and evaluate_fall_through env frame mode location a b =
         match pattern_elements with
         | [] -> (location, Bool_literal true)
         | (_, Bound_let _) :: rest -> helper (idx + 1) rest
-        | head :: rest -> (location, Binary_op (LogicalAnd, (location, Binary_op (Equals, head, (location, Index (value, Some (location, Int_literal (Int64.of_int idx)))))), helper (idx + 1) rest))
+        | head :: rest -> (location, Binary_op (Logical_and, (location, Binary_op (Equals, head, (location, Index (value, Some (location, Int_literal (Int64.of_int idx)))))), helper (idx + 1) rest))
       in
       helper 0 pattern_elements     
     | _ -> location, Binary_op (Equals, pattern, value)
@@ -547,7 +547,7 @@ and evaluate_fall_through env frame mode location a b =
       (location, In (
         (location, Assignment (substitute_let_any pattern, temp_identifier)),
         (location, Conditional (
-          (location, Binary_op (LogicalAnd,
+          (location, Binary_op (Logical_and,
             lower_pattern_match pattern temp_identifier,
             condition)),
           body,

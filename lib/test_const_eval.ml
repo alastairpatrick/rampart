@@ -2566,7 +2566,7 @@ let%expect_test _ =
              (@1
               (Conditional
                (@1
-                (Binary_op LogicalAnd
+                (Binary_op Logical_and
                  (@1
                   (Binary_op Equals (@1 (Int_literal 1))
                    (@1

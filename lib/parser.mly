@@ -91,8 +91,8 @@ postfix_expr
 unary_expr
   : e=postfix_expr                                          { e }
   | MINUS e=postfix_expr                                    { loc $loc, Unary_op (Negate, e) }
-  | BANG e=postfix_expr                                     { loc $loc, Unary_op (LogicalNot, e) }
-  | BITWISE_NOT e=postfix_expr                              { loc $loc, Unary_op (BitwiseInvert, e) }
+  | BANG e=postfix_expr                                     { loc $loc, Unary_op (Logical_not, e) }
+  | BITWISE_NOT e=postfix_expr                              { loc $loc, Unary_op (Bitwise_invert, e) }
   ;
 
 multiplicative_expr
@@ -110,47 +110,47 @@ additive_expr
 
 shift_expr
   : e = additive_expr                                       { e }
-  | a=shift_expr SHIFT_LEFT b=additive_expr                 { loc $loc, Binary_op (ShiftLeft, a, b) }
-  | a=shift_expr SHIFT_RIGHT b=additive_expr                { loc $loc, Binary_op (ShiftRight, a, b) }
+  | a=shift_expr SHIFT_LEFT b=additive_expr                 { loc $loc, Binary_op (Shift_left, a, b) }
+  | a=shift_expr SHIFT_RIGHT b=additive_expr                { loc $loc, Binary_op (Shift_right, a, b) }
   ;
 
 relational_expr
   : e=shift_expr                                            { e }
   | a=relational_expr LESS b=shift_expr                    { loc $loc, Binary_op (Less, a, b) }
-  | a=relational_expr LESS_EQUALS b=shift_expr             { loc $loc, Binary_op (LessEquals, a, b) }
+  | a=relational_expr LESS_EQUALS b=shift_expr             { loc $loc, Binary_op (Less_equals, a, b) }
   | a=relational_expr GREATER b=shift_expr                 { loc $loc, Binary_op (Greater, a, b) }
-  | a=relational_expr GREATER_EQUALS b=shift_expr          { loc $loc, Binary_op (GreaterEquals, a, b) }
+  | a=relational_expr GREATER_EQUALS b=shift_expr          { loc $loc, Binary_op (Greater_equals, a, b) }
 ;
 
 equality_expr
   : e=relational_expr                                       { e }
   | a=equality_expr EQUALS b=relational_expr                { loc $loc, Binary_op (Equals, a, b) }
-  | a=equality_expr NOT_EQUALS b=relational_expr            { loc $loc, Binary_op (NotEquals, a, b) }
+  | a=equality_expr NOT_EQUALS b=relational_expr            { loc $loc, Binary_op (Not_equals, a, b) }
   ;
 
 bitwise_and_expr
   : e=equality_expr                                         { e }
-  | a=bitwise_and_expr BITWISE_AND b=equality_expr          { loc $loc, Binary_op (BitwiseAnd, a, b) }
+  | a=bitwise_and_expr BITWISE_AND b=equality_expr          { loc $loc, Binary_op (Bitwise_and, a, b) }
   ;
 
 bitwise_xor_expr
   : e=bitwise_and_expr                                      { e }
-  | a=bitwise_xor_expr BITWISE_XOR b=bitwise_and_expr       { loc $loc, Binary_op (BitwiseXor, a, b) }
+  | a=bitwise_xor_expr BITWISE_XOR b=bitwise_and_expr       { loc $loc, Binary_op (Bitwise_xor, a, b) }
   ;
 
 bitwise_or_expr
   : e=bitwise_xor_expr                                      { e }
-  | a=bitwise_or_expr BITWISE_OR b=bitwise_xor_expr         { loc $loc, Binary_op (BitwiseOr, a, b) }
+  | a=bitwise_or_expr BITWISE_OR b=bitwise_xor_expr         { loc $loc, Binary_op (Bitwise_or, a, b) }
   ;
 
 logical_and_expr
   : e=bitwise_or_expr                                       { e }
-  | a=logical_and_expr LOGICAL_AND b=bitwise_or_expr        { loc $loc, Binary_op (LogicalAnd, a, b) }
+  | a=logical_and_expr LOGICAL_AND b=bitwise_or_expr        { loc $loc, Binary_op (Logical_and, a, b) }
   ;
 
 logical_or_expr
   : e=logical_and_expr                                      { e }
-  | a=logical_or_expr LOGICAL_OR b=logical_and_expr         { loc $loc, Binary_op (LogicalOr, a, b) }
+  | a=logical_or_expr LOGICAL_OR b=logical_and_expr         { loc $loc, Binary_op (Logical_or, a, b) }
   ;
 
 binary_expr: e=logical_or_expr {e}

@@ -66,7 +66,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (Binary_op NotEquals (@1 (Identifier n)) (@1 (Int_literal 1)))))))))
+         (@1 (Binary_op Not_equals (@1 (Identifier n)) (@1 (Int_literal 1)))))))))
     |}]
 
 let%expect_test _ =
