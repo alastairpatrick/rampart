@@ -328,51 +328,51 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (BoundDeclaration
          ((modifiers ()) (typ ()) (name fib)
           (init_expr
-           ((@1
-             (Lambda (Unevaluated_type (@1 (Type Int)))
-              ((@1
+           ((@2
+             (Lambda (Unevaluated_type (@2 (Type Int)))
+              ((@2
                 (BoundDeclaration
-                 ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int)))))
+                 ((modifiers ()) (typ ((Unevaluated_type (@2 (Type Int)))))
                   (name n) (init_expr ()))
                  (0 1))))
               ()
-              (@1
+              (@2
                (BoundFrame 1
-                (@1
+                (@2
                  (Compound
-                  ((@1
+                  ((@3
                     (If
-                     (@1
-                      (BinaryOp Equals (@1 (BoundIdentifier n (0 1)))
-                       (@1 (IntLiteral 0))))
-                     (@1 (Compound ((@1 (Return (@1 (IntLiteral 0)))))))
-                     (@1 (Compound ()))))
-                   (@1
+                     (@3
+                      (BinaryOp Equals (@3 (BoundIdentifier n (0 1)))
+                       (@3 (IntLiteral 0))))
+                     (@3 (Compound ((@3 (Return (@3 (IntLiteral 0)))))))
+                     (@3 (Compound ()))))
+                   (@4
                     (If
-                     (@1
-                      (BinaryOp Equals (@1 (BoundIdentifier n (0 1)))
-                       (@1 (IntLiteral 1))))
-                     (@1 (Compound ((@1 (Return (@1 (IntLiteral 1)))))))
-                     (@1 (Compound ()))))
-                   (@1
+                     (@4
+                      (BinaryOp Equals (@4 (BoundIdentifier n (0 1)))
+                       (@4 (IntLiteral 1))))
+                     (@4 (Compound ((@4 (Return (@4 (IntLiteral 1)))))))
+                     (@4 (Compound ()))))
+                   (@5
                     (Return
-                     (@1
+                     (@5
                       (BinaryOp Plus
-                       (@1
-                        (Call (@1 (BoundIdentifier fib (0 0)))
-                         ((@1
-                           (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
-                            (@1 (IntLiteral 2)))))
+                       (@5
+                        (Call (@5 (BoundIdentifier fib (0 0)))
+                         ((@5
+                           (BinaryOp Minus (@5 (BoundIdentifier n (0 1)))
+                            (@5 (IntLiteral 2)))))
                          ()))
-                       (@1
-                        (Call (@1 (BoundIdentifier fib (0 0)))
-                         ((@1
-                           (BinaryOp Minus (@1 (BoundIdentifier n (0 1)))
-                            (@1 (IntLiteral 1)))))
+                       (@5
+                        (Call (@5 (BoundIdentifier fib (0 0)))
+                         ((@5
+                           (BinaryOp Minus (@5 (BoundIdentifier n (0 1)))
+                            (@5 (IntLiteral 1)))))
                          ())))))))))))
               ())))))
          (0 0))))))

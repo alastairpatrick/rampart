@@ -655,17 +655,17 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Expression
-         (@1
+         (@2
           (Fall_through
-           (@1
-            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (IntLiteral 2)))))
-             (@1 (Identifier v)) (@1 (BoolLiteral true)) (@1 (Identifier a))
+           (@2
+            (Match (@2 (Tuple ((@2 (Let (Identifier a))) (@2 (IntLiteral 2)))))
+             (@2 (Identifier v)) (@2 (BoolLiteral true)) (@2 (Identifier a))
              (-1 -1)))
-           (@1
-            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (Let Any)))))
-             (@1 (Identifier v)) (@1 (Identifier p)) (@1 (Identifier a))
+           (@3
+            (Match (@3 (Tuple ((@3 (Let (Identifier a))) (@3 (Let Any)))))
+             (@3 (Identifier v)) (@3 (Identifier p)) (@3 (Identifier a))
              (-1 -1))))))))))
     |}]
 
@@ -680,17 +680,17 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Expression
-         (@1
+         (@2
           (Fall_through
-           (@1
-            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (IntLiteral 2)))))
-             (@1 (Identifier v)) (@1 (BoolLiteral true)) (@1 (Identifier a))
+           (@2
+            (Match (@2 (Tuple ((@2 (Let (Identifier a))) (@2 (IntLiteral 2)))))
+             (@2 (Identifier v)) (@2 (BoolLiteral true)) (@3 (Identifier a))
              (-1 -1)))
-           (@1
-            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (Let Any)))))
-             (@1 (Identifier v)) (@1 (Identifier p)) (@1 (Identifier a))
+           (@4
+            (Match (@4 (Tuple ((@4 (Let (Identifier a))) (@4 (Let Any)))))
+             (@4 (Identifier v)) (@4 (Identifier p)) (@5 (Identifier a))
              (-1 -1))))))))))
     |}]
 
@@ -702,21 +702,21 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Expression
-         (@1
+         (@2
           (Fall_through
-           (@1
-            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (IntLiteral 2)))))
-             (@1 (Identifier v)) (@1 (BoolLiteral true))
-             (@1
-              (Statement (@1 (Compound ((@1 (Expression (@1 (Identifier a)))))))))
+           (@2
+            (Match (@2 (Tuple ((@2 (Let (Identifier a))) (@2 (IntLiteral 2)))))
+             (@2 (Identifier v)) (@2 (BoolLiteral true))
+             (@2
+              (Statement (@2 (Compound ((@2 (Expression (@2 (Identifier a)))))))))
              (-1 -1)))
-           (@1
-            (Match (@1 (Tuple ((@1 (Let (Identifier a))) (@1 (Let Any)))))
-             (@1 (Identifier v)) (@1 (Identifier p))
-             (@1
-              (Statement (@1 (Compound ((@1 (Expression (@1 (Identifier a)))))))))
+           (@3
+            (Match (@3 (Tuple ((@3 (Let (Identifier a))) (@3 (Let Any)))))
+             (@3 (Identifier v)) (@3 (Identifier p))
+             (@3
+              (Statement (@3 (Compound ((@3 (Expression (@3 (Identifier a)))))))))
              (-1 -1))))))))))
     |}]
 
@@ -728,7 +728,7 @@ let%expect_test _ =
     (@1
      (OrderIndependent
       ((@1 (Expression (@1 (IntLiteral 1))))
-       (@1 (Expression (@1 (UnaryOp Negate (@1 (IntLiteral 1)))))))))
+       (@2 (Expression (@2 (UnaryOp Negate (@2 (IntLiteral 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -738,7 +738,7 @@ let%expect_test _ =
      (OrderIndependent
       ((@1
         (Expression
-         (@1 (BinaryOp Minus (@1 (IntLiteral 1)) (@1 (IntLiteral 1)))))))))
+         (@1 (BinaryOp Minus (@1 (IntLiteral 1)) (@2 (IntLiteral 1)))))))))
     |}]
 
 let%expect_test _ =
@@ -750,8 +750,8 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (If (@1 (Identifier c)) (@1 (Compound ())) (@1 (Compound ()))))
-       (@1 (Expression (@1 (IntLiteral 1)))))))
+      ((@2 (If (@2 (Identifier c)) (@2 (Compound ())) (@2 (Compound ()))))
+       (@4 (Expression (@4 (IntLiteral 1)))))))
     |}]
 
 let%expect_test _ =
@@ -764,8 +764,8 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (If (@1 (Identifier c)) (@1 (Compound ())) (@1 (Compound ()))))
-       (@1 (Expression (@1 (IntLiteral 1)))))))
+      ((@2 (If (@2 (Identifier c)) (@3 (Compound ())) (@2 (Compound ()))))
+       (@5 (Expression (@5 (IntLiteral 1)))))))
     |}]
 
 let%expect_test _ =
@@ -781,8 +781,8 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (If (@1 (Identifier c)) (@1 (Compound ())) (@1 (Compound ()))))
-       (@1 (Expression (@1 (IntLiteral 1)))))))
+      ((@2 (If (@2 (Identifier c)) (@3 (Compound ())) (@6 (Compound ()))))
+       (@8 (Expression (@8 (IntLiteral 1)))))))
     |}]
 
 let%expect_test _ =
@@ -796,8 +796,8 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1 (If (@1 (Identifier c)) (@1 (Compound ())) (@1 (Compound ()))))
-       (@1 (Expression (@1 (IntLiteral 1)))))))
+      ((@2 (If (@2 (Identifier c)) (@2 (Compound ())) (@4 (Compound ()))))
+       (@6 (Expression (@6 (IntLiteral 1)))))))
     |}]
 
 let%expect_test _ =
@@ -811,11 +811,11 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Compound
-         ((@1 (Expression (@1 (IntLiteral 1))))
-          (@1 (Expression (@1 (IntLiteral 2))))
-          (@1 (Expression (@1 (IntLiteral 3))))))))))
+         ((@3 (Expression (@3 (IntLiteral 1))))
+          (@4 (Expression (@4 (IntLiteral 2))))
+          (@5 (Expression (@5 (IntLiteral 3))))))))))
     |}]
 
 let%expect_test _ =
@@ -829,12 +829,12 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Compound
-         ((@1 (Expression (@1 (IntLiteral 1))))
-          (@1
+         ((@3 (Expression (@3 (IntLiteral 1))))
+          (@5
            (Expression
-            (@1 (Assignment (@1 (Let (Identifier x))) (@1 (IntLiteral 2))))))))))))
+            (@5 (Assignment (@5 (Let (Identifier x))) (@5 (IntLiteral 2))))))))))))
     |}]
 
 let%expect_test _ =
@@ -846,21 +846,21 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Declaration
          ((modifiers ()) (typ ()) (name f)
           (init_expr
-           ((@1
-             (Lambda (Unevaluated_type (@1 (Type (Tuple ()))))
-              ((@1
+           ((@2
+             (Lambda (Unevaluated_type (@2 (Type (Tuple ()))))
+              ((@2
                 (Declaration
-                 ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int)))))
+                 ((modifiers ()) (typ ((Unevaluated_type (@2 (Type Int)))))
                   (name x) (init_expr ()))))
-               (@1
+               (@3
                 (Declaration
-                 ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int)))))
+                 ((modifiers ()) (typ ((Unevaluated_type (@3 (Type Int)))))
                   (name y) (init_expr ())))))
-              () (@1 (Compound ())) ()))))))))))
+              () (@3 (Compound ())) ()))))))))))
     |}]
 
 let%expect_test _ =
@@ -874,21 +874,21 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Declaration
          ((modifiers ()) (typ ()) (name f)
           (init_expr
-           ((@1
-             (Lambda (Unevaluated_type (@1 (Type (Tuple ()))))
-              ((@1
+           ((@2
+             (Lambda (Unevaluated_type (@2 (Type (Tuple ()))))
+              ((@3
                 (Declaration
-                 ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int)))))
+                 ((modifiers ()) (typ ((Unevaluated_type (@3 (Type Int)))))
                   (name x) (init_expr ()))))
-               (@1
+               (@4
                 (Declaration
-                 ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int)))))
+                 ((modifiers ()) (typ ((Unevaluated_type (@4 (Type Int)))))
                   (name y) (init_expr ())))))
-              () (@1 (Compound ())) ()))))))))))
+              () (@5 (Compound ())) ()))))))))))
     |}]
 
 let%expect_test _ =
@@ -902,10 +902,10 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Expression
-         (@1
-          (Tuple ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))))))))))
+         (@2
+          (Tuple ((@3 (IntLiteral 1)) (@4 (IntLiteral 2)) (@5 (IntLiteral 3))))))))))
     |}]
 
 let%expect_test _ =
@@ -919,11 +919,11 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Expression
-         (@1
+         (@2
           (DynamicArray
-           ((@1 (IntLiteral 1)) (@1 (IntLiteral 2)) (@1 (IntLiteral 3))) ())))))))
+           ((@3 (IntLiteral 1)) (@4 (IntLiteral 2)) (@5 (IntLiteral 3))) ())))))))
     |}]
 
 let%expect_test _ =
@@ -935,15 +935,15 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Expression
-         (@1
-          (Lambda (Unevaluated_type (@1 (Type Int)))
-           ((@1
+         (@2
+          (Lambda (Unevaluated_type (@2 (Type Int)))
+           ((@3
              (Declaration
-              ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int)))))
+              ((modifiers ()) (typ ((Unevaluated_type (@3 (Type Int)))))
                (name a) (init_expr ())))))
-           () (@1 (Compound ())) ())))))))
+           () (@4 (Compound ())) ())))))))
     |}]
 
   let%expect_test _ =
@@ -954,12 +954,12 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Expression
-         (@1
-          (Assignment (@1 (Let (Identifier x)))
-           (@1
-            (Call (@1 (Identifier f)) ((@1 (Identifier x)) (@1 (Identifier y)))
+         (@2
+          (Assignment (@2 (Let (Identifier x)))
+           (@2
+            (Call (@2 (Identifier f)) ((@2 (Identifier x)) (@3 (Identifier y)))
              ())))))))))
     |}]
 
@@ -971,12 +971,12 @@ let%expect_test _ =
   [% expect{|
     (@1
      (OrderIndependent
-      ((@1
+      ((@2
         (Expression
-         (@1
-          (Assignment (@1 (Let (Identifier x)))
-           (@1
-            (Call (@1 (Identifier f)) ((@1 (Identifier x)) (@1 (Identifier y)))
+         (@2
+          (Assignment (@2 (Let (Identifier x)))
+           (@2
+            (Call (@2 (Identifier f)) ((@2 (Identifier x)) (@3 (Identifier y)))
              ())))))))))
     |}]
 
