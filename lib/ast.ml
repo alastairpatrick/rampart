@@ -55,7 +55,6 @@ and const_type_expression =
   | Unevaluated_type of expression (* Represents types before they are evaluated to actual const_type values. *)
   | Type
 
-(* TODO: change all these to Constructor_name style *)
 and expression_inner =
   | Type of const_type_expression
   | Type_of of expression
@@ -98,12 +97,12 @@ and switch_case = location * expression option * expression option * statement
 and statement_inner =
   | Expression of expression
   | Declaration of declaration
-  | BoundDeclaration of declaration * slot
-  | BoundFrame of int * statement
+  | Bound_declaration of declaration * slot
+  | Bound_frame of int * statement
   | Compound of statement list
-  | OrderIndependent of statement list
+  | Order_independent of statement list
   | If of expression * (* then: *) statement * (* else: *) statement
-  | DoWhile of statement * expression
+  | Do_while of statement * expression
   | Return of expression
 
 and statement = location * statement_inner

@@ -13,17 +13,17 @@ let parse text =
 
 let%expect_test _ =
   parse "true;";
-  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (Bool_literal true))))))) |}]
+  [% expect{| (@1 (Order_independent ((@1 (Expression (@1 (Bool_literal true))))))) |}]
 
 let%expect_test _ =
   parse "false;";
-  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (Bool_literal false))))))) |}]
+  [% expect{| (@1 (Order_independent ((@1 (Expression (@1 (Bool_literal false))))))) |}]
 
 let%expect_test _ =
   parse "1+1;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
@@ -33,7 +33,7 @@ let%expect_test _ =
   parse "1 - 1;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Minus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
@@ -43,7 +43,7 @@ let%expect_test _ =
   parse "x * 2;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Times (@1 (Identifier x)) (@1 (Int_literal 2)))))))))
@@ -53,7 +53,7 @@ let%expect_test _ =
   parse "n == 0;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Equals (@1 (Identifier n)) (@1 (Int_literal 0)))))))))
@@ -63,7 +63,7 @@ let%expect_test _ =
   parse "n != 1;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Not_equals (@1 (Identifier n)) (@1 (Int_literal 1)))))))))
@@ -73,7 +73,7 @@ let%expect_test _ =
   parse "a / 1 + 3;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -86,7 +86,7 @@ let%expect_test _ =
   parse "3 + a / 1;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -98,7 +98,7 @@ let%expect_test _ =
   parse "a / (1+3);";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -110,7 +110,7 @@ let%expect_test _ =
   parse "-x;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Unary_op Negate (@1 (Identifier x)))))))))
     |}]
 
@@ -118,7 +118,7 @@ let%expect_test _ =
   parse "a == 0 ? 1 : 2;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -129,13 +129,13 @@ let%expect_test _ =
 
 let%expect_test _ =
   parse "();";
-  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (Tuple ()))))))) |}]
+  [% expect{| (@1 (Order_independent ((@1 (Expression (@1 (Tuple ()))))))) |}]
 
 let%expect_test _ =
   parse "(1, 2);";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Tuple ((@1 (Int_literal 1)) (@1 (Int_literal 2))))))))))
     |}]
 
@@ -143,18 +143,18 @@ let%expect_test _ =
   parse "typeof(x);";
   [% expect{|
     (@1
-     (OrderIndependent ((@1 (Expression (@1 (Type_of (@1 (Identifier x)))))))))
+     (Order_independent ((@1 (Expression (@1 (Type_of (@1 (Identifier x)))))))))
     |}]
 
 let%expect_test _ =
   parse "arity(x);";
-  [% expect{| (@1 (OrderIndependent ((@1 (Expression (@1 (Arity (@1 (Identifier x))))))))) |}]
+  [% expect{| (@1 (Order_independent ((@1 (Expression (@1 (Arity (@1 (Identifier x))))))))) |}]
 
 let%expect_test _ =
   parse "[1, 2, 3];";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -165,7 +165,7 @@ let%expect_test _ =
   parse "[int];";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Dynamic_array ((@1 (Type Int))) ())))))))
     |}]
 
@@ -173,7 +173,7 @@ let%expect_test _ =
   parse "x[0];";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Index (@1 (Identifier x)) ((@1 (Int_literal 0))))))))))
     |}]
   
@@ -181,7 +181,7 @@ let%expect_test _ =
   parse "z[1] = 2;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -193,7 +193,7 @@ let%expect_test _ =
   parse "int (int, bool);";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Call (@1 (Type Int)) ((@1 (Type Int)) (@1 (Type Bool))) ())))))))
@@ -203,7 +203,7 @@ let%expect_test _ =
   parse "int(int) pure;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Call (@1 (Type Int)) ((@1 (Type Int))) ((pure)))))))))
     |}]
 
@@ -211,7 +211,7 @@ let%expect_test _ =
   parse "int(int) const;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Call (@1 (Type Int)) ((@1 (Type Int))) ((const)))))))))
     |}]
 
@@ -221,7 +221,7 @@ let%expect_test _ =
   parse "int x;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Declaration
          ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int))))) (name x)
@@ -232,7 +232,7 @@ let%expect_test _ =
   parse "int x = 2+1;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Declaration
          ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int))))) (name x)
@@ -244,7 +244,7 @@ let%expect_test _ =
   parse "mut int x;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Declaration
          ((modifiers ((mut))) (typ ((Unevaluated_type (@1 (Type Int)))))
@@ -255,7 +255,7 @@ let%expect_test _ =
   parse "let max = 5;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Assignment (@1 (Let (Identifier max))) (@1 (Int_literal 5)))))))))
@@ -265,7 +265,7 @@ let%expect_test _ =
   parse "int max(int a, int b) { a > b ? a : b; }";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Declaration
          ((modifiers ()) (typ ()) (name max)
@@ -297,7 +297,7 @@ let%expect_test _ =
   parse "let _ = 7;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Assignment (@1 (Let Any)) (@1 (Int_literal 7)))))))))
     |}]
 
@@ -306,7 +306,7 @@ let%expect_test _ =
   parse "_=7;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Assignment (@1 (Let Any)) (@1 (Int_literal 7)))))))))
     |}]
 
@@ -314,7 +314,7 @@ let%expect_test _ =
   parse "(let a, let b) = (1, 2);";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -327,7 +327,7 @@ let%expect_test _ =
   parse "(int, int) x = (1, 2);";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Declaration
          ((modifiers ())
@@ -341,7 +341,7 @@ let%expect_test _ =
   parse "int (int x, int y) f;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Declaration
          ((modifiers ())
@@ -355,7 +355,7 @@ let%expect_test _ =
   parse "let a = 1 in a + 1;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -370,14 +370,14 @@ let%expect_test _ =
   [% expect{|
     Error line 1, characters 5-6: unexpected '\' symbol
     Error line 1, character 15: unexpected '}' symbol
-    (@1 (OrderIndependent ()))
+    (@1 (Order_independent ()))
     |}]
 
 let%expect_test _ =
   parse "\\int() {};";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -388,7 +388,7 @@ let%expect_test _ =
   parse "\\int() pure {};";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -400,7 +400,7 @@ let%expect_test _ =
   parse "\\int() const {};";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -413,7 +413,7 @@ let%expect_test _ =
 
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -439,14 +439,14 @@ let%expect_test _ =
   [% expect{|
     Error line 1, characters 4-5: unexpected '\' symbol
     Error line 1, character 22: unexpected '}' symbol
-    (@1 (OrderIndependent ()))
+    (@1 (Order_independent ()))
     |}]
 
 let%expect_test _ =
   parse "\\int(int a, int b) {};";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -466,7 +466,7 @@ let%expect_test _ =
   parse "\\int(int a, int b) pure {};";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -486,7 +486,7 @@ let%expect_test _ =
   parse "\\int(int a, int b) const {};";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -506,7 +506,7 @@ let%expect_test _ =
   parse "int foo (int a, int b) {}";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Declaration
          ((modifiers ()) (typ ()) (name foo)
@@ -528,7 +528,7 @@ let%expect_test _ =
   parse "int foo (int a, int b) pure {}";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Declaration
          ((modifiers ()) (typ ()) (name foo)
@@ -551,7 +551,7 @@ let%expect_test _ =
   parse "foo();";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Call (@1 (Identifier foo)) () ())))))))
     |}]
 
@@ -559,7 +559,7 @@ let%expect_test _ =
   parse "foo(7);";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression (@1 (Call (@1 (Identifier foo)) ((@1 (Int_literal 7))) ())))))))
     |}]
@@ -577,12 +577,12 @@ let%expect_test _ =
   parse "return;";
   [% expect{|
     Error line 1, character 7: unexpected ';' symbol
-    (@1 (OrderIndependent ()))
+    (@1 (Order_independent ()))
     |}]
 
 let%expect_test _ =
   parse "return 7;";
-  [% expect{| (@1 (OrderIndependent ((@1 (Return (@1 (Int_literal 7))))))) |}]
+  [% expect{| (@1 (Order_independent ((@1 (Return (@1 (Int_literal 7))))))) |}]
 
 
   (* Control flow Statements *)
@@ -591,7 +591,7 @@ let%expect_test _ =
   parse "if condition {}";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (If (@1 (Identifier condition)) (@1 (Compound ())) (@1 (Compound ())))))))
     |}]
@@ -600,7 +600,7 @@ let%expect_test _ =
   parse "if condition {} else {}";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (If (@1 (Identifier condition)) (@1 (Compound ())) (@1 (Compound ())))))))
     |}]
@@ -609,10 +609,10 @@ let%expect_test _ =
   parse "while condition {}";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (If (@1 (Identifier condition))
-         (@1 (DoWhile (@1 (Compound ())) (@1 (Identifier condition))))
+         (@1 (Do_while (@1 (Compound ())) (@1 (Identifier condition))))
          (@0 (Compound ())))))))
     |}]
    
@@ -620,15 +620,15 @@ let%expect_test _ =
   parse "do {} while condition;";
   [% expect{|
     (@1
-     (OrderIndependent
-      ((@1 (DoWhile (@1 (Compound ())) (@1 (Identifier condition)))))))
+     (Order_independent
+      ((@1 (Do_while (@1 (Compound ())) (@1 (Identifier condition)))))))
     |}]
 
 let%expect_test _ =
   parse "for int i=0; i<10; i=i+1 {}";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Compound
          ((@1
@@ -638,7 +638,7 @@ let%expect_test _ =
           (@1
            (If (@1 (Binary_op Less (@1 (Identifier i)) (@1 (Int_literal 10))))
             (@1
-             (DoWhile
+             (Do_while
               (@1
                (Compound
                 ((@1 (Compound ()))
@@ -659,7 +659,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Expression
          (@2
@@ -684,7 +684,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Expression
          (@2
@@ -706,7 +706,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Expression
          (@2
@@ -731,7 +731,7 @@ let%expect_test _ =
   parse "1\n-1;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1 (Expression (@1 (Int_literal 1))))
        (@2 (Expression (@2 (Unary_op Negate (@2 (Int_literal 1)))))))))
     |}]
@@ -740,7 +740,7 @@ let%expect_test _ =
   parse "1-\n1;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Minus (@1 (Int_literal 1)) (@2 (Int_literal 1)))))))))
@@ -754,7 +754,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2 (If (@2 (Identifier c)) (@2 (Compound ())) (@2 (Compound ()))))
        (@4 (Expression (@4 (Int_literal 1)))))))
     |}]
@@ -768,7 +768,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2 (If (@2 (Identifier c)) (@3 (Compound ())) (@2 (Compound ()))))
        (@5 (Expression (@5 (Int_literal 1)))))))
     |}]
@@ -785,7 +785,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2 (If (@2 (Identifier c)) (@3 (Compound ())) (@6 (Compound ()))))
        (@8 (Expression (@8 (Int_literal 1)))))))
     |}]
@@ -800,7 +800,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2 (If (@2 (Identifier c)) (@2 (Compound ())) (@4 (Compound ()))))
        (@6 (Expression (@6 (Int_literal 1)))))))
     |}]
@@ -815,7 +815,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Compound
          ((@3 (Expression (@3 (Int_literal 1))))
@@ -833,7 +833,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Compound
          ((@3 (Expression (@3 (Int_literal 1))))
@@ -850,7 +850,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Declaration
          ((modifiers ()) (typ ()) (name f)
@@ -878,7 +878,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Declaration
          ((modifiers ()) (typ ()) (name f)
@@ -906,7 +906,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Expression
          (@2
@@ -924,7 +924,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Expression
          (@2
@@ -940,7 +940,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Expression
          (@2
@@ -959,7 +959,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Expression
          (@2
@@ -976,7 +976,7 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
         (Expression
          (@2
@@ -994,7 +994,7 @@ let%expect_test _ =
   [% expect{|
     Error line 1, character 1: unexpected '+' symbol
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
@@ -1005,7 +1005,7 @@ let%expect_test _ =
   [% expect{|
     Error line 1, character 3: unexpected ';' symbol
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
@@ -1016,7 +1016,7 @@ let%expect_test _ =
   [% expect{|
     Error line 1, character 3: unexpected ';' symbol
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
@@ -1027,7 +1027,7 @@ let%expect_test _ =
   [% expect{|
     Error line 1, character 2: unexpected ')' symbol
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Binary_op Plus (@1 (Int_literal 1)) (@1 (Int_literal 1)))))))))
@@ -1037,6 +1037,6 @@ let%expect_test _ =
   parse "{a}";
   [% expect{|
     Error line 1, character 3: unexpected '}' symbol
-    (@1 (OrderIndependent ((@1 (Compound ())))))
+    (@1 (Order_independent ((@1 (Compound ())))))
     |}]
 

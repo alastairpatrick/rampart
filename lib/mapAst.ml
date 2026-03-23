@@ -5,12 +5,12 @@ let rec map_statement (sf : statement -> statement) (ef : expression -> expressi
   | Declaration { modifiers=modifiers; name=name; typ; init_expr=init_expr } ->
     sf (location, Declaration { modifiers=modifiers; name=name; typ=Option.map (map_const_type sf ef) typ; init_expr=Option.map (map_expression sf ef) init_expr })
 
-  | BoundDeclaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
+  | Bound_declaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
     let typ = match typ with
     | None -> None
     | Some (Unevaluated_type type_expr) -> Some (Unevaluated_type (map_expression sf ef type_expr))
     | _ -> typ in
-    sf (location, BoundDeclaration ({ modifiers=modifiers; name=name; typ; init_expr=Option.map (map_expression sf ef) init_expr }, slot))
+    sf (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=Option.map (map_expression sf ef) init_expr }, slot))
 
   | Expression expr ->
     sf (location, Expression (map_expression sf ef expr))
@@ -18,20 +18,20 @@ let rec map_statement (sf : statement -> statement) (ef : expression -> expressi
   | Compound statements ->
     let statements = List.map (map_statement sf ef) statements in sf (location, Compound statements)
 
-  | OrderIndependent statements ->
-    let statements = List.map (map_statement sf ef) statements in sf (location, OrderIndependent statements)
+  | Order_independent statements ->
+    let statements = List.map (map_statement sf ef) statements in sf (location, Order_independent statements)
 
   | If (c, a, b) ->
     sf (location, If (map_expression sf ef c, map_statement sf ef a, map_statement sf ef b))
 
-  | DoWhile (body, cond) ->
-    sf (location, DoWhile (map_statement sf ef body, map_expression sf ef cond))
+  | Do_while (body, cond) ->
+    sf (location, Do_while (map_statement sf ef body, map_expression sf ef cond))
 
   | Return expr ->
     sf (location, Return (map_expression sf ef expr))
 
-  | BoundFrame (num_variables, body) ->
-    sf (location, BoundFrame (num_variables, map_statement sf ef body))
+  | Bound_frame (num_variables, body) ->
+    sf (location, Bound_frame (num_variables, map_statement sf ef body))
 
 and map_expression (sf : statement -> statement) (ef : expression -> expression) ((location, expr) : expression) : expression =
   match expr with

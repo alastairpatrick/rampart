@@ -92,7 +92,7 @@ let rec type_of_expression ((location, expression): expression) : const_type_exp
   | Dynamic_array (_, Some element_type) -> Dynamic_array element_type
   | Lambda (return_type, params, modifiers, _, _) ->
     let param_types = List.map (fun (_, param) -> match param with
-      | BoundDeclaration ({typ=Some param_type; _}, _) -> param_type
+      | Bound_declaration ({typ=Some param_type; _}, _) -> param_type
       | _ -> assert false) params in
     Function (return_type, param_types, modifiers)
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false (* TODO: implement for more expressions as needed *)
@@ -114,7 +114,7 @@ let rec representative_value_of_type (const_type: const_type_expression) : expre
     | Type -> (null_location, Type Representative)
     | Function (return_type, param_types, modifiers) ->
       (null_location, Lambda (return_type,
-        List.map (fun param_type -> (null_location, BoundDeclaration ({typ=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
+        List.map (fun param_type -> (null_location, Bound_declaration ({typ=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
         modifiers, (null_location, Compound []), None))
     | Tuple elements ->
       (null_location, Tuple (List.map (fun element -> representative_value_of_type element) elements))

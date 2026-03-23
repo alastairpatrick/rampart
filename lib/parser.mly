@@ -237,7 +237,7 @@ stat
   | FOR LPAREN i=stat c=expr s_delimiter n=expr RPAREN
     b=compound_stat                                             { prelower_for (loc($loc)) i c n b }
   | WHILE c=expr b=compound_stat                                { prelower_while (loc($loc)) c b }
-  | DO b=compound_stat WHILE c=expr s_delimiter                 { loc $loc, DoWhile (b, c) }
+  | DO b=compound_stat WHILE c=expr s_delimiter                 { loc $loc, Do_while (b, c) }
   | RETURN e=expr s_delimiter                                   { loc $loc, Return e }
   | s=stat EOL                                                  { s }
   ;
@@ -259,5 +259,5 @@ compound_stat
   ;
 
 main
-  : skip_eols ss=stats0 EOF                 { (loc $loc, OrderIndependent ss) }
+  : skip_eols ss=stats0 EOF                 { (loc $loc, Order_independent ss) }
   ;

@@ -182,10 +182,10 @@ and evaluate_statement (env : env) (frame : frame) (mode : eval_mode) ((location
     match statement with
     | Expression expression -> (location, Expression (substitute_lambda_aliases (ast_of (evaluate_expression env frame mode expression))))
     | Compound statements -> (location, Compound (evaluate_statements env frame mode statements))
-    | OrderIndependent statements -> (location, OrderIndependent (evaluate_order_independent env frame mode statements))
-    | BoundDeclaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
+    | Order_independent statements -> (location, Order_independent (evaluate_order_independent env frame mode statements))
+    | Bound_declaration (declaration, slot) -> (location, evaluate_declaration env frame mode location declaration slot)
     | If (condition, consequent, alternative) -> evaluate_if env frame mode location condition consequent alternative
-    | DoWhile (body, condition) -> evaluate_do_while env frame mode location body condition  
+    | Do_while (body, condition) -> evaluate_do_while env frame mode location body condition  
     | Return e -> (location, Return (substitute_lambda_aliases (evaluate_return env frame mode location e)))
     | _ -> print_endline (Printf.sprintf "statement not implemented: %s" (Ast.show_statement (location, statement))); assert false;
   with Error message -> raise (Located_error (location, message))
@@ -228,7 +228,7 @@ and evaluate_expression env frame mode ((location, expression) : expression) : e
   | Fall_through (a, b) -> evaluate_fall_through env frame mode location a b
   | In (a, b) -> evaluate_in env frame mode location a b
   | Index (array, index) -> evaluate_index env frame mode location array index
-  | Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), closure) ->
+  | Lambda (return_type, params, modifiers, (body_location, Bound_frame (num_variables, statement)), closure) ->
     evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement closure
   | Match (pattern, value, condition, body, temp_slot) -> evaluate_match env frame mode location pattern value condition body temp_slot
   | Statement s -> evaluate_expression_statement env frame mode location s
@@ -713,7 +713,7 @@ and evaluate_call env frame mode location callee args call_modifiers =
   let callee = evaluate_expression env frame mode callee in
   let args = List.map (fun arg -> evaluate_expression env frame mode arg) args in
   match mode, callee with
-  | Evaluate_const, (_, (_, Lambda (return_type, params, function_modifiers, (_, BoundFrame (num_variables, statement)), Some (_, Closure (closure_frame, _))))) ->
+  | Evaluate_const, (_, (_, Lambda (return_type, params, function_modifiers, (_, Bound_frame (num_variables, statement)), Some (_, Closure (closure_frame, _))))) ->
     if not function_modifiers.const then
       raise (Error "cannot call non-const lambda in a constant expression");
     let callee_frame = {
@@ -725,7 +725,7 @@ and evaluate_call env frame mode location callee args call_modifiers =
       const = true;
     } in
     List.iteri (fun i (location, param) -> match param with
-      | BoundDeclaration ({typ=Some typ; _}, slot) ->
+      | Bound_declaration ({typ=Some typ; _}, slot) ->
         let arg = List.nth args i in
         let arg = implicit_convert mode arg typ in
         set_assignable_value (get_assignable callee_frame slot) (check_is_const_value (ast_of arg))
@@ -799,18 +799,18 @@ and evaluate_lambda_part1 env frame mode location return_type params (modifiers 
   (* Return and param types must be evaluated in part 1. *)
   let return_type = normalize_const_type env frame return_type in
   let params = List.map (fun (location, param) -> match param with
-    | BoundDeclaration ({typ=Some typ; _} as declaration, slot) ->
+    | Bound_declaration ({typ=Some typ; _} as declaration, slot) ->
       let typ = normalize_const_type env frame typ in
-      (location, BoundDeclaration ( { declaration with typ = Some typ }, slot))
+      (location, Bound_declaration ( { declaration with typ = Some typ }, slot))
     | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
-  Const, (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)),
+  Const, (location, Lambda (return_type, params, modifiers, (body_location, Bound_frame (num_variables, statement)),
                             if mode = Evaluate_type then None else Some (distinct_closure_identity (), Closure (frame, None))))
 
 and evaluate_lambda_part2 env mode part1 =
   match mode, part1 with
   | Evaluate_type, _ ->
     part1
-  | _, (Const, (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (closure_identity, Closure (frame, _))))) ->
+  | _, (Const, (location, Lambda (return_type, params, modifiers, (body_location, Bound_frame (num_variables, statement)), Some (closure_identity, Closure (frame, _))))) ->
     let lambda_frame = {
       depth = frame.depth + 1;
       enclosing_frame = Some frame;
@@ -820,13 +820,13 @@ and evaluate_lambda_part2 env mode part1 =
       const = modifiers.const
     } in
     let params = List.map (fun (location, param) -> match param with
-      | BoundDeclaration ({init_expr=init_expr; typ=Some typ; name=name; modifiers=modifiers}, slot) ->
+      | Bound_declaration ({init_expr=init_expr; typ=Some typ; name=name; modifiers=modifiers}, slot) ->
         set_assignable_value (get_assignable lambda_frame slot) (Non_const_of_type typ);
-        (location, BoundDeclaration ( { init_expr=init_expr; typ = Some typ; name=name; modifiers=modifiers }, slot))
+        (location, Bound_declaration ( { init_expr=init_expr; typ = Some typ; name=name; modifiers=modifiers }, slot))
       | _ -> raise (error_internal (Printf.sprintf "parameter not implemented: %s" (Ast.show_statement (location, param))))) params in
     let statement = evaluate_statement env lambda_frame Fold_consts statement in
     (* A subsequent pass will verify that the lambda meets the requirements for pure or const. *)
-    Const, (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), Some (closure_identity, Closure (frame, None))))
+    Const, (location, Lambda (return_type, params, modifiers, (body_location, Bound_frame (num_variables, statement)), Some (closure_identity, Closure (frame, None))))
   | _ -> assert false
 
 and evaluate_lambda env frame mode location return_type params modifiers body_location num_variables statement _ =
@@ -874,16 +874,16 @@ and evaluate_declaration env frame mode location declaration slot =
     set_assignable_value assignable (Uninitialized_of_type (Some typ));
     let init_expr = ast_of (implicit_convert mode (evaluate_expression env frame mode init_expr) typ) in
     initialize_assignable typ init_expr;
-    BoundDeclaration ({ declaration with typ = Some typ; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
+    Bound_declaration ({ declaration with typ = Some typ; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
 
   | { typ=Some typ; init_expr=None; _} ->
     let typ = normalize_const_type env frame typ in
     let init_expr = default_value typ in
     initialize_assignable typ init_expr;
-    BoundDeclaration ({ declaration with typ = Some typ; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
+    Bound_declaration ({ declaration with typ = Some typ; init_expr = Some (substitute_lambda_aliases init_expr) }, slot)
 
   (* This form of declaration is only used for lambda expressions. *)
-  | { typ=None; init_expr=Some (location, Lambda (return_type, params, modifiers, (body_location, BoundFrame (num_variables, statement)), _)) ; _} ->
+  | { typ=None; init_expr=Some (location, Lambda (return_type, params, modifiers, (body_location, Bound_frame (num_variables, statement)), _)) ; _} ->
     let init_expr = match get_assignable_value assignable with
     | Const_of_value part1 -> Const, part1 (* If a previous attempt at part 2 aborted, skip part 1, ensuring that closure identity is preserved. *)
     | _ ->
@@ -892,7 +892,7 @@ and evaluate_declaration env frame mode location declaration slot =
     let init_expr = evaluate_lambda_part2 env mode init_expr in
     let const_type = type_of_expression (representative_value_of init_expr) in
     initialize_assignable const_type (ast_of init_expr);
-    BoundDeclaration ({ declaration with typ = Some const_type; init_expr = Some (substitute_lambda_aliases (ast_of init_expr)) }, slot))
+    Bound_declaration ({ declaration with typ = Some const_type; init_expr = Some (substitute_lambda_aliases (ast_of init_expr)) }, slot))
     
   | _ -> print_endline (Printf.sprintf "declaration not implemented: %s" (Ast.show_declaration declaration)); assert false
 
@@ -918,7 +918,7 @@ and evaluate_do_while env frame mode location body condition =
   | Fold_consts ->
     let body = evaluate_statement env frame mode body in
     let condition = evaluate_expression env frame mode condition in
-    (location, DoWhile (body, ast_of condition))
+    (location, Do_while (body, ast_of condition))
 
   | Evaluate_const ->
     let rec loop () =
@@ -929,7 +929,7 @@ and evaluate_do_while env frame mode location body condition =
       | _, (_, Bool_literal false) -> ()
       | _ -> raise error_type_mismatch in
     loop ();
-    (location, DoWhile (body, condition))
+    (location, Do_while (body, condition))
 
   | Evaluate_type -> assert false
 

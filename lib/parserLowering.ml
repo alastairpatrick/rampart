@@ -10,13 +10,13 @@ let prelower_for location (init : statement) (cond : expression) (next : express
   location, Compound [
     init;
     location, If (cond,
-      (location, DoWhile ((location, Compound [body; (location, Expression next)]), cond)
+      (location, Do_while ((location, Compound [body; (location, Expression next)]), cond)
       ), (null_location, Compound []));
   ]
 
 let prelower_while (location : location) (cond : expression) (body : statement) : statement =
   location, If (cond,
-    (location, DoWhile (body, cond)
+    (location, Do_while (body, cond)
     ), (null_location, Compound []))
 (*
 let prelower_assignment (location : location) (a : expression) (b : expression) : expression =

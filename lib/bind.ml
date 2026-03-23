@@ -6,9 +6,9 @@ open Slot
 module StringMap = Map.Make(String)
 
 type bind_pass =
-  | OrderDependent
-  | OrderIndependent1
-  | OrderIndependent2
+  | Order_dependent
+  | Order_independent1
+  | Order_independent2
 
 type env = {
   (* The int associated with a value in the slots map is the "scope", which counts the level of lexical nesting.
@@ -52,11 +52,11 @@ let lookup_slot (env : env) (name : string) : slot =
   | Not_found -> raise (error_unbound_identifier name)
 let num_env_slots (env: env) : int = !(env.num_slots)
 
-let rec bind_order_dependent env = bind_statements env OrderDependent
+let rec bind_order_dependent env = bind_statements env Order_dependent
 
 and bind_order_independent env statements =
-  let env, statements = bind_statements env OrderIndependent1 statements in
-  bind_statements env OrderIndependent2 statements
+  let env, statements = bind_statements env Order_independent1 statements in
+  bind_statements env Order_independent2 statements
 
 and bind_statements (env: env) (pass : bind_pass) = function
   | [] -> env, []
@@ -66,25 +66,25 @@ and bind_statement (env : env) (pass : bind_pass) ((location, statement) : state
   try
     match statement with
     | Declaration { modifiers=modifiers; name=name; typ; init_expr=init_expr } ->
-      assert (pass != OrderIndependent2);
+      assert (pass != Order_independent2);
       let typ = Option.map (bind_const_type env pass) typ in
       let _, init_expr = bind_opt env pass init_expr in
       let env, slot = declare_slot env name modifiers.mut in
-      env, (location, BoundDeclaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
+      env, (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
 
-    | BoundDeclaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
+    | Bound_declaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
       let typ = Option.map (bind_const_type env pass) typ in
       let _, init_expr = bind_opt env pass init_expr in
-      env, (location, BoundDeclaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
+      env, (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
 
     | Expression expr ->
       let env, expr = bind env pass expr in env, (location, Expression expr)
 
-    | Compound statements -> if pass == OrderIndependent1 then env, (location, statement) else
+    | Compound statements -> if pass == Order_independent1 then env, (location, statement) else
       let _, statements = bind_order_dependent (new_scope env) statements in env, (location, Compound statements)
 
-    | OrderIndependent statements -> if pass == OrderIndependent1 then env, (location, statement) else
-      let _, statements = bind_order_independent (new_scope env) statements in env, (location, OrderIndependent statements)
+    | Order_independent statements -> if pass == Order_independent1 then env, (location, statement) else
+      let _, statements = bind_order_independent (new_scope env) statements in env, (location, Order_independent statements)
 
     | If (c, a, b) ->
       let _, c = bind env pass c in
@@ -92,15 +92,15 @@ and bind_statement (env : env) (pass : bind_pass) ((location, statement) : state
       let _, b = bind_statement env pass b in
       env, (location, If (c, a, b))
 
-    | DoWhile (body, cond) ->
+    | Do_while (body, cond) ->
       let _, body = bind_statement env pass body in
       let _, cond = bind env pass cond in
-      env, (location, DoWhile (body, cond))
+      env, (location, Do_while (body, cond))
 
     | Return expr ->
       let _, expr = bind env pass expr in env, (location, Return expr)
 
-    | BoundFrame _ -> assert false
+    | Bound_frame _ -> assert false
   with
     Error message -> raise (Located_error (location, message))
   
@@ -132,26 +132,26 @@ and bind env pass ((location, expr) : expression) : env * expression =
     env, (location, Assignment (a, b))
   
   | Let Identifier name ->
-    assert (pass != OrderIndependent2);
+    assert (pass != Order_independent2);
     let env, slot = declare_slot env name false in
     env, (location, Bound_let (Identifier name, slot))
 
   | In (a, b) ->
-    if pass == OrderIndependent1 then env, (location, expr) else
-    let in_env, a = bind env OrderDependent a in
-    let _, b = bind in_env OrderDependent b in
+    if pass == Order_independent1 then env, (location, expr) else
+    let in_env, a = bind env Order_dependent a in
+    let _, b = bind in_env Order_dependent b in
     env, (location, In (a, b))
 
   | Match (a, b, c, d, _) ->
-    if pass == OrderIndependent1 then env, (location, expr) else
-    let in_env, a = bind env OrderDependent a in
-    let _, b = bind env OrderDependent b in
-    let _, c = bind in_env OrderDependent c in
-    let _, d = bind in_env OrderDependent d in
+    if pass == Order_independent1 then env, (location, expr) else
+    let in_env, a = bind env Order_dependent a in
+    let _, b = bind env Order_dependent b in
+    let _, c = bind in_env Order_dependent c in
+    let _, d = bind in_env Order_dependent d in
     env, (location, Match (a, b, c, d, new_slot in_env false))
 
   | Let Any ->
-    assert (pass != OrderIndependent2);
+    assert (pass != Order_independent2);
     env, (location, Bound_let (Any, unbindable_slot))
 
   | Fall_through (a, b) ->
@@ -160,7 +160,7 @@ and bind env pass ((location, expr) : expression) : env * expression =
     env, (location, Fall_through (a, b))
 
   | Identifier name ->
-    if pass == OrderIndependent1 then env, (location, expr) else
+    if pass == Order_independent1 then env, (location, expr) else
     let slot = lookup_slot env name in
     env, (location, Bound_identifier (name, slot))
 
@@ -193,11 +193,11 @@ and bind env pass ((location, expr) : expression) : env * expression =
     
   | Lambda (return_type, params, modifiers, statement, _) ->
     let return_type = bind_const_type env pass return_type in
-    if pass == OrderIndependent1 then env, (location, expr) else
+    if pass == Order_independent1 then env, (location, expr) else
     let frame_env = new_frame env in
     let frame_env, params = bind_order_dependent frame_env params in
-    let _, statement = bind_statement (new_scope frame_env) OrderDependent statement in
-    env, (location, Lambda (return_type, params, modifiers, (location, BoundFrame (!(frame_env.num_slots), statement)), None))
+    let _, statement = bind_statement (new_scope frame_env) Order_dependent statement in
+    env, (location, Lambda (return_type, params, modifiers, (location, Bound_frame (!(frame_env.num_slots), statement)), None))
 
   | Call (callable, arg_exprs, pure) ->
     let _, callable = bind env pass callable in
@@ -229,5 +229,5 @@ and bind_expressions env pass exprs =
   List.map (fun expr -> let _, expr = bind env pass expr in expr) exprs
 
 let bind_program (env : env) (statement : statement) : int * statement =
-  let _, statement = bind_statement env OrderDependent statement in
+  let _, statement = bind_statement env Order_dependent statement in
   !(env.num_slots), statement

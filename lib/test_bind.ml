@@ -22,14 +22,14 @@ let%expect_test _ =
   parse "bool a = true; bool b = a;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
-        (BoundDeclaration
+        (Bound_declaration
          ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Bool))))) (name a)
           (init_expr ((@1 (Bool_literal true)))))
          (0 0)))
        (@1
-        (BoundDeclaration
+        (Bound_declaration
          ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Bool))))) (name b)
           (init_expr ((@1 (Bound_identifier a (0 0))))))
          (1 0))))))
@@ -39,7 +39,7 @@ let%expect_test _ =
   parse "let a = [1, 2, 3];";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -53,9 +53,9 @@ let%expect_test _ =
   parse "int[] x;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
-        (BoundDeclaration
+        (Bound_declaration
          ((modifiers ())
           (typ ((Unevaluated_type (@1 (Index (@1 (Type Int)) ()))))) (name x)
           (init_expr ()))
@@ -66,9 +66,9 @@ let%expect_test _ =
   parse "int[] x; let y = x[0];";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
-        (BoundDeclaration
+        (Bound_declaration
          ((modifiers ())
           (typ ((Unevaluated_type (@1 (Index (@1 (Type Int)) ()))))) (name x)
           (init_expr ()))
@@ -84,7 +84,7 @@ let%expect_test _ =
   parse "let z = [1,2][1];";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -99,14 +99,15 @@ let%expect_test _ =
 parse "let x;";
   [% expect{|
     (@1
-     (OrderIndependent ((@1 (Expression (@1 (Bound_let (Identifier x) (0 0))))))))
+     (Order_independent
+      ((@1 (Expression (@1 (Bound_let (Identifier x) (0 0))))))))
     |}]
 
 let%expect_test _ =
   parse "let a = true; let b = a;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -123,7 +124,7 @@ let%expect_test _ =
   parse "let b = a; let a = true;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -140,7 +141,7 @@ let%expect_test _ =
   parse "(let a, let b);";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -153,7 +154,7 @@ let%expect_test _ =
   parse "(let a, let b) = (1, 2);";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -169,9 +170,9 @@ let%expect_test _ =
   parse "(int, int) x = (1, 2);";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
-        (BoundDeclaration
+        (Bound_declaration
          ((modifiers ())
           (typ
            ((Unevaluated_type (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int))))))))
@@ -184,7 +185,7 @@ let%expect_test _ =
   parse "{ let a = true; let b = a; }";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Compound
          ((@1
@@ -211,15 +212,15 @@ let%expect_test _ =
   parse "int main() { let a = true; let b = a; }";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
-        (BoundDeclaration
+        (Bound_declaration
          ((modifiers ()) (typ ()) (name main)
           (init_expr
            ((@1
              (Lambda (Unevaluated_type (@1 (Type Int))) () ()
               (@1
-               (BoundFrame 2
+               (Bound_frame 2
                 (@1
                  (Compound
                   ((@1
@@ -240,25 +241,25 @@ let%expect_test _ =
   parse "int foo(int x) {int y = x;}";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
-        (BoundDeclaration
+        (Bound_declaration
          ((modifiers ()) (typ ()) (name foo)
           (init_expr
            ((@1
              (Lambda (Unevaluated_type (@1 (Type Int)))
               ((@1
-                (BoundDeclaration
+                (Bound_declaration
                  ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int)))))
                   (name x) (init_expr ()))
                  (0 1))))
               ()
               (@1
-               (BoundFrame 2
+               (Bound_frame 2
                 (@1
                  (Compound
                   ((@1
-                    (BoundDeclaration
+                    (Bound_declaration
                      ((modifiers ()) (typ ((Unevaluated_type (@1 (Type Int)))))
                       (name y) (init_expr ((@1 (Bound_identifier x (0 1))))))
                      (1 1))))))))
@@ -274,7 +275,7 @@ let%expect_test _ =
   parse "let _ = 1;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1 (Assignment (@1 (Bound_let Any (-1 -1))) (@1 (Int_literal 1)))))))))
@@ -284,7 +285,7 @@ let%expect_test _ =
   parse "let a in a;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -296,7 +297,7 @@ let%expect_test _ =
   parse "let a ~ 1 in a;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -308,7 +309,7 @@ let%expect_test _ =
   parse "let a ~ true when a in a;";
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@1
         (Expression
          (@1
@@ -327,21 +328,21 @@ let%expect_test _ =
   |};
   [% expect{|
     (@1
-     (OrderIndependent
+     (Order_independent
       ((@2
-        (BoundDeclaration
+        (Bound_declaration
          ((modifiers ()) (typ ()) (name fib)
           (init_expr
            ((@2
              (Lambda (Unevaluated_type (@2 (Type Int)))
               ((@2
-                (BoundDeclaration
+                (Bound_declaration
                  ((modifiers ()) (typ ((Unevaluated_type (@2 (Type Int)))))
                   (name n) (init_expr ()))
                  (0 1))))
               ()
               (@2
-               (BoundFrame 1
+               (Bound_frame 1
                 (@2
                  (Compound
                   ((@3
