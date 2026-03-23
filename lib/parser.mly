@@ -18,7 +18,7 @@
 %token FALSE FOR
 %token GREATER GREATER_EQUALS
 %token IF IN INT
-%token LBRACKET LESS LESS_EQUALS LCURLY LET LOGICAL_AND LOGICAL_OR LPAREN
+%token LARROW LBRACKET LESS LESS_EQUALS LCURLY LET LOGICAL_AND LOGICAL_OR LPAREN
 %token SHIFT_LEFT SHIFT_RIGHT
 %token MINUS MODULO MUT
 %token NOT_EQUALS
@@ -153,7 +153,13 @@ logical_or_expr
   | a=logical_or_expr LOGICAL_OR b=logical_and_expr         { loc $loc, Binary_op (Logical_or, a, b) }
   ;
 
-binary_expr: e=logical_or_expr {e}
+function_type_expr
+  : e=logical_or_expr                                       { e }
+  | rt=function_type_expr LARROW LPAREN ps=exprs0 RPAREN
+    m=function_modifiers                                    { loc $loc, Type (Function (Unevaluated_type rt, List.map (fun e -> Unevaluated_type e) ps, m)) }
+  ;
+
+binary_expr: e=function_type_expr {e}
 
 conditional_expr
   : e=binary_expr                                           { e }

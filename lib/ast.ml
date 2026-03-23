@@ -56,28 +56,28 @@ and const_type_expression =
   | Type
 
 and expression_inner =
-  | Type of const_type_expression
-  | Type_of of expression
   | Arity of expression
-  | Int_literal of int64
-  | Bool_literal of bool
   | Assignment of expression * expression
-  | Let of pattern
-  | In of expression * expression
-  | Match of (* pattern: *) expression * expression * (* condition: *) expression * (* body: *) expression * (* temp_slot: *) slot
-  | Fall_through of expression * expression
-  | Identifier of string
+  | Binary_op of binary_op * expression * expression
+  | Bool_literal of bool
   | Bound_identifier of string * slot
   | Bound_let of pattern * slot
-  | Binary_op of binary_op * expression * expression
-  | Unary_op of unary_op * expression
-  | Conditional of expression * expression * expression
-  | Tuple of expression list
   | Call of expression * expression list * function_modifiers
-  | Lambda of (* return_type: *) const_type_expression * (* params: *) statement list * function_modifiers * (* body: *) statement * closure option
+  | Conditional of expression * expression * expression
   | Dynamic_array of expression array * (* element_type: *) const_type_expression option
+  | Fall_through of expression * expression
+  | Identifier of string
   | Index of expression * (* subscript: *) expression option
+  | In of expression * expression
+  | Int_literal of int64
+  | Lambda of (* return_type: *) const_type_expression * (* params: *) statement list * function_modifiers * (* body: *) statement * closure option
+  | Let of pattern
+  | Match of (* pattern: *) expression * expression * (* condition: *) expression * (* body: *) expression * (* temp_slot: *) slot
   | Statement of statement
+  | Tuple of expression list
+  | Type of const_type_expression
+  | Type_of of expression
+  | Unary_op of unary_op * expression
   
 and expression = location * expression_inner
 

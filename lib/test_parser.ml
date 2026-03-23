@@ -190,32 +190,47 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int (int, bool);";
+  parse "int <- (int, bool);";
   [% expect{|
     (@1
      (Order_independent
       ((@1
         (Expression
-         (@1 (Call (@1 (Type Int)) ((@1 (Type Int)) (@1 (Type Bool))) ())))))))
+         (@1
+          (Type
+           (Function (Unevaluated_type (@1 (Type Int)))
+            ((Unevaluated_type (@1 (Type Int)))
+             (Unevaluated_type (@1 (Type Bool))))
+            ()))))))))
     |}]
 
 let%expect_test _ =
-  parse "int(int) pure;";
+  parse "int <- (int) pure;";
   [% expect{|
     (@1
      (Order_independent
-      ((@1 (Expression (@1 (Call (@1 (Type Int)) ((@1 (Type Int))) ((pure)))))))))
+      ((@1
+        (Expression
+         (@1
+          (Type
+           (Function (Unevaluated_type (@1 (Type Int)))
+            ((Unevaluated_type (@1 (Type Int)))) ((pure))))))))))
     |}]
 
 let%expect_test _ =
-  parse "int(int) const;";
+  parse "int <- (int) const;";
   [% expect{|
     (@1
      (Order_independent
-      ((@1 (Expression (@1 (Call (@1 (Type Int)) ((@1 (Type Int))) ((const)))))))))
+      ((@1
+        (Expression
+         (@1
+          (Type
+           (Function (Unevaluated_type (@1 (Type Int)))
+            ((Unevaluated_type (@1 (Type Int)))) ((const))))))))))
     |}]
 
-    (* Declarations *)
+(* Declarations *)
 
 let%expect_test _ =
   parse "int x;";
@@ -363,7 +378,7 @@ let%expect_test _ =
            (@1 (Binary_op Plus (@1 (Identifier a)) (@1 (Int_literal 1)))))))))))
     |}]
 
-  (* Lambdas & calls *)
+(* Lambdas & calls *)
 
 let%expect_test _ =
   parse "int \\ (a, b) {};";
@@ -585,7 +600,7 @@ let%expect_test _ =
   [% expect{| (@1 (Order_independent ((@1 (Return (@1 (Int_literal 7))))))) |}]
 
 
-  (* Control flow Statements *)
+(* Control flow Statements *)
 
 let%expect_test _ =
   parse "if condition {}";

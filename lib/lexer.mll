@@ -47,6 +47,7 @@ rule token = parse
   | "<<" skip_eols                    { count_eols lexbuf; SHIFT_LEFT }
   | ">>" skip_eols                    { count_eols lexbuf; SHIFT_RIGHT }
   | ">=" skip_eols                    { count_eols lexbuf; GREATER_EQUALS }
+  | "<-" skip_eols                    { count_eols lexbuf; LARROW }
   | "->" skip_eols                    { count_eols lexbuf; RARROW }
   | "&&" skip_eols                    { count_eols lexbuf; LOGICAL_AND }
   | skip_eols "||" skip_eols          { count_eols lexbuf; LOGICAL_OR }

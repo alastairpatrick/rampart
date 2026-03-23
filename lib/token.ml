@@ -29,6 +29,7 @@ let string_of_token (token : token) : string = match token with
   | IN -> "'in' keyword"
   | INT -> "'int' keyword"
   | INT_LIT _ -> "integer literal"
+  | LARROW -> "'<- symbol'"
   | LESS -> "'<' symbol"
   | LESS_EQUALS -> "'<=' symbol"
   | LBRACKET -> "'[' symbol"
