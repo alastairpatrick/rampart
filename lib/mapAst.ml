@@ -7,7 +7,7 @@ let rec map_statement (sf : statement -> statement) (ef : expression -> expressi
 
   | Bound_declaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
     let typ = match typ with
-    | Unevaluated_type type_expr -> Unevaluated_type (map_expression sf ef type_expr)
+    | Unevaluated type_expr -> Unevaluated (map_expression sf ef type_expr)
     | _ -> typ in
     sf (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=Option.map (map_expression sf ef) init_expr }, slot))
 
@@ -89,7 +89,7 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
     
 and map_const_type (sf : statement -> statement) (ef : expression -> expression) (const_type : const_type_expression) : const_type_expression =
   match const_type with
-  | Unevaluated_type type_expr -> Unevaluated_type (map_expression sf ef type_expr)
+  | Unevaluated type_expr -> Unevaluated (map_expression sf ef type_expr)
   | _ -> const_type
 
 let reduce_statement (sf : 'acc -> statement -> 'acc) (ef : 'acc -> expression -> 'acc) (acc : 'acc) (stmt : statement) : 'acc =

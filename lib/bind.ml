@@ -220,9 +220,9 @@ and bind env pass ((location, expr) : expression) : env * expression =
 
 and bind_const_type env pass const_type =
   match const_type with
-  | Unevaluated_type type_expr ->
+  | Unevaluated type_expr ->
     let _, type_expr = bind env pass type_expr in
-    Unevaluated_type type_expr
+    Unevaluated type_expr
   | _ -> const_type
 
 and bind_expressions env pass exprs =

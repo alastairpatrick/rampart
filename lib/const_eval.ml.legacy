@@ -199,7 +199,7 @@ and evaluate_const_type env frame expression : const_type_expression =
 
 and normalize_const_type env frame const_type : const_type_expression =
   match const_type with
-  | Unevaluated_type expression -> evaluate_const_type env frame expression
+  | Unevaluated expression -> evaluate_const_type env frame expression
   | _ -> const_type
 
 and evaluate_const_protect f =

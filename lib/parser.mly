@@ -48,7 +48,7 @@ skip_eols
   ;
  
 param
-  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; typ=Unevaluated_type t; name=n; init_expr=None} }
+  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; typ=Unevaluated t; name=n; init_expr=None} }
   ;
 
 params0 : es=separated_list(COMMA, param)   { es };
@@ -156,7 +156,7 @@ logical_or_expr
 function_type_expr
   : e=logical_or_expr                                       { e }
   | rt=function_type_expr LARROW LPAREN ps=exprs0 RPAREN
-    m=function_modifiers                                    { loc $loc, Type (Function (Unevaluated_type rt, List.map (fun e -> Unevaluated_type e) ps, m)) }
+    m=function_modifiers                                    { loc $loc, Type (Function (Unevaluated rt, List.map (fun e -> Unevaluated e) ps, m)) }
   ;
 
 binary_expr: e=function_type_expr {e}
@@ -200,7 +200,7 @@ lambda_body
 lambda_expr
   : e=fallback_expr                                         { e }
   | rt=primary_expr AMPERSAND LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Unevaluated_type rt, ps, lm, b, None) }
+    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Unevaluated rt, ps, lm, b, None) }
   | AMPERSAND LPAREN ps=params0 RPAREN
     lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Deduced, ps, lm, b, None) }
   ;
@@ -230,9 +230,9 @@ initialize
   ;
 
 declaration
-  : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; typ=Unevaluated_type t; name=n; init_expr=v} }
+  : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; typ=Unevaluated t; name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; typ=Deduced; name=n; init_expr=Some (loc $loc, Lambda (Unevaluated_type t, ps, lm, b, None)) } }
+    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; typ=Deduced; name=n; init_expr=Some (loc $loc, Lambda (Unevaluated t, ps, lm, b, None)) } }
   | MUT d=declaration                                           { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;
 

@@ -25,12 +25,12 @@ let%expect_test _ =
      (Order_independent
       ((@1
         (Bound_declaration
-         ((modifiers ()) (typ (Unevaluated_type (@1 (Type Bool)))) (name a)
+         ((modifiers ()) (typ (Unevaluated (@1 (Type Bool)))) (name a)
           (init_expr ((@1 (Bool_literal true)))))
          (0 0)))
        (@1
         (Bound_declaration
-         ((modifiers ()) (typ (Unevaluated_type (@1 (Type Bool)))) (name b)
+         ((modifiers ()) (typ (Unevaluated (@1 (Type Bool)))) (name b)
           (init_expr ((@1 (Bound_identifier a (0 0))))))
          (1 0))))))
     |}]
@@ -57,7 +57,7 @@ let%expect_test _ =
      (Order_independent
       ((@1
         (Bound_declaration
-         ((modifiers ()) (typ (Unevaluated_type (@1 (Index (@1 (Type Int)) ()))))
+         ((modifiers ()) (typ (Unevaluated (@1 (Index (@1 (Type Int)) ()))))
           (name x) (init_expr ()))
          (0 0))))))
     |}]
@@ -69,7 +69,7 @@ let%expect_test _ =
      (Order_independent
       ((@1
         (Bound_declaration
-         ((modifiers ()) (typ (Unevaluated_type (@1 (Index (@1 (Type Int)) ()))))
+         ((modifiers ()) (typ (Unevaluated (@1 (Index (@1 (Type Int)) ()))))
           (name x) (init_expr ()))
          (0 0)))
        (@1
@@ -174,7 +174,7 @@ let%expect_test _ =
       ((@1
         (Bound_declaration
          ((modifiers ())
-          (typ (Unevaluated_type (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int)))))))
+          (typ (Unevaluated (@1 (Tuple ((@1 (Type Int)) (@1 (Type Int)))))))
           (name x)
           (init_expr ((@1 (Tuple ((@1 (Int_literal 1)) (@1 (Int_literal 2))))))))
          (0 0))))))
@@ -217,7 +217,7 @@ let%expect_test _ =
          ((modifiers ()) (typ Deduced) (name main)
           (init_expr
            ((@1
-             (Lambda (Unevaluated_type (@1 (Type Int))) () ()
+             (Lambda (Unevaluated (@1 (Type Int))) () ()
               (@1
                (Bound_frame 2
                 (@1
@@ -246,11 +246,11 @@ let%expect_test _ =
          ((modifiers ()) (typ Deduced) (name foo)
           (init_expr
            ((@1
-             (Lambda (Unevaluated_type (@1 (Type Int)))
+             (Lambda (Unevaluated (@1 (Type Int)))
               ((@1
                 (Bound_declaration
-                 ((modifiers ()) (typ (Unevaluated_type (@1 (Type Int))))
-                  (name x) (init_expr ()))
+                 ((modifiers ()) (typ (Unevaluated (@1 (Type Int)))) (name x)
+                  (init_expr ()))
                  (0 1))))
               ()
               (@1
@@ -259,7 +259,7 @@ let%expect_test _ =
                  (Compound
                   ((@1
                     (Bound_declaration
-                     ((modifiers ()) (typ (Unevaluated_type (@1 (Type Int))))
+                     ((modifiers ()) (typ (Unevaluated (@1 (Type Int))))
                       (name y) (init_expr ((@1 (Bound_identifier x (0 1))))))
                      (1 1))))))))
               ())))))
@@ -333,11 +333,11 @@ let%expect_test _ =
          ((modifiers ()) (typ Deduced) (name fib)
           (init_expr
            ((@2
-             (Lambda (Unevaluated_type (@2 (Type Int)))
+             (Lambda (Unevaluated (@2 (Type Int)))
               ((@2
                 (Bound_declaration
-                 ((modifiers ()) (typ (Unevaluated_type (@2 (Type Int))))
-                  (name n) (init_expr ()))
+                 ((modifiers ()) (typ (Unevaluated (@2 (Type Int)))) (name n)
+                  (init_expr ()))
                  (0 1))))
               ()
               (@2
