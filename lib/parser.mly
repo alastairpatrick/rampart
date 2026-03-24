@@ -48,7 +48,7 @@ skip_eols
   ;
  
 param
-  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; typ=Some (Unevaluated_type t); name=n; init_expr=None} }
+  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; typ=Unevaluated_type t; name=n; init_expr=None} }
   ;
 
 params0 : es=separated_list(COMMA, param)   { es };
@@ -76,7 +76,7 @@ primary_expr
   | LET p=pattern                                           { loc $loc, Let p }
   | ANY                                                     { loc $loc, Let Any }
   | LPAREN es=exprs0 RPAREN                                 { make_tuple_node (loc $loc) es }
-  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, Dynamic_array (Array.of_list es, None) }
+  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, Dynamic_array (Array.of_list es, Deduced) }
   | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, Type_of e }
   | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
   ;
@@ -230,9 +230,9 @@ initialize
   ;
 
 declaration
-  : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; typ=Some (Unevaluated_type t); name=n; init_expr=v} }
+  : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; typ=Unevaluated_type t; name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; typ=None; name=n; init_expr=Some (loc $loc, Lambda (Unevaluated_type t, ps, lm, b, None)) } }
+    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; typ=Deduced; name=n; init_expr=Some (loc $loc, Lambda (Unevaluated_type t, ps, lm, b, None)) } }
   | MUT d=declaration                                           { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;
 

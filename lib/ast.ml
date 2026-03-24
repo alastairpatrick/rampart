@@ -65,7 +65,7 @@ and expression_inner =
   | Bound_let of pattern * slot
   | Call of expression * expression list * function_modifiers
   | Conditional of expression * expression * expression
-  | Dynamic_array of expression array * (* element_type: *) const_type_expression option
+  | Dynamic_array of expression array * (* element_type: *) const_type_expression
   | Fall_through of expression * expression
   | Identifier of string
   | Index of expression * (* subscript: *) expression option
@@ -88,7 +88,7 @@ and declaration_modifiers = {
 
 and declaration = {
   modifiers: declaration_modifiers;
-  typ: const_type_expression option;
+  typ: const_type_expression;
   name: string;
   init_expr: expression option;
 }

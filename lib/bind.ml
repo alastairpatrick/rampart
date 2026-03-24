@@ -67,13 +67,13 @@ and bind_statement (env : env) (pass : bind_pass) ((location, statement) : state
     match statement with
     | Declaration { modifiers=modifiers; name=name; typ; init_expr=init_expr } ->
       assert (pass != Order_independent2);
-      let typ = Option.map (bind_const_type env pass) typ in
+      let typ = bind_const_type env pass typ in
       let _, init_expr = bind_opt env pass init_expr in
       let env, slot = declare_slot env name modifiers.mut in
       env, (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
 
     | Bound_declaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
-      let typ = Option.map (bind_const_type env pass) typ in
+      let typ = bind_const_type env pass typ in
       let _, init_expr = bind_opt env pass init_expr in
       env, (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
 
@@ -206,7 +206,7 @@ and bind env pass ((location, expr) : expression) : env * expression =
 
   | Dynamic_array (es, t) ->
     let es = Array.map (fun e -> let _, e = bind env pass e in e) es in
-    let t = Option.map (bind_const_type env pass) t in
+    let t = bind_const_type env pass t in
     env, (location, Dynamic_array (es, t))
 
   | Index (a, b) ->

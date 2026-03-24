@@ -3,12 +3,11 @@ open Ast
 let rec map_statement (sf : statement -> statement) (ef : expression -> expression) ((location, statement) : statement) : statement =
   match statement with
   | Declaration { modifiers=modifiers; name=name; typ; init_expr=init_expr } ->
-    sf (location, Declaration { modifiers=modifiers; name=name; typ=Option.map (map_const_type sf ef) typ; init_expr=Option.map (map_expression sf ef) init_expr })
+    sf (location, Declaration { modifiers=modifiers; name=name; typ=map_const_type sf ef typ; init_expr=Option.map (map_expression sf ef) init_expr })
 
   | Bound_declaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
     let typ = match typ with
-    | None -> None
-    | Some (Unevaluated_type type_expr) -> Some (Unevaluated_type (map_expression sf ef type_expr))
+    | Unevaluated_type type_expr -> Unevaluated_type (map_expression sf ef type_expr)
     | _ -> typ in
     sf (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=Option.map (map_expression sf ef) init_expr }, slot))
 
@@ -75,7 +74,7 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
     ef (location, (Call (map_expression sf ef callable, List.map (map_expression sf ef) arg_exprs, pure)))
 
   | Dynamic_array (es, t) ->
-    ef (location, (Dynamic_array (Array.map (map_expression sf ef) es, Option.map (map_const_type sf ef) t)))
+    ef (location, (Dynamic_array (Array.map (map_expression sf ef) es, map_const_type sf ef t)))
   | Index (a, b) ->
     ef (location, (Index (map_expression sf ef a, Option.map (map_expression sf ef) b)))
 

@@ -54,7 +54,7 @@ let rec const_values_equal (a : expression) (b : expression) : bool =
       List.for_all2 const_values_equal a_elements b_elements
     with Invalid_argument _ -> false)
   (* Invariant on dynamic arrays of constant value: all elements have the type designated by the element type field, which is never None. *)
-  | (_, Dynamic_array (a_elements, Some a_type)), (_, Dynamic_array (b_elements, Some b_type)) ->
+  | (_, Dynamic_array (a_elements, a_type)), (_, Dynamic_array (b_elements, b_type)) ->
     (try
       Array.for_all2 const_values_equal a_elements b_elements && a_type = b_type
     with Invalid_argument _ -> false)
@@ -89,10 +89,10 @@ let rec type_of_expression ((location, expression): expression) : const_type_exp
   | Type _ -> Type
   | Tuple elements -> Tuple (List.map type_of_expression elements)
   | Type_of _ -> Type
-  | Dynamic_array (_, Some element_type) -> Dynamic_array element_type
+  | Dynamic_array (_, element_type) -> Dynamic_array element_type
   | Lambda (return_type, params, modifiers, _, _) ->
     let param_types = List.map (fun (_, param) -> match param with
-      | Bound_declaration ({typ=Some param_type; _}, _) -> param_type
+      | Bound_declaration ({typ=param_type; _}, _) -> param_type
       | _ -> assert false) params in
     Function (return_type, param_types, modifiers)
   | _ -> print_endline (Printf.sprintf "expression not implemented: %s" (Ast.show_expression (location, expression))); assert false (* TODO: implement for more expressions as needed *)
@@ -104,7 +104,7 @@ let rec default_value const_type : expression =
   | (Tuple elements) ->
     (null_location, Tuple (List.map (fun element -> default_value element) elements))
   | (Dynamic_array element_type) ->
-    (null_location, Dynamic_array ([| |], Some element_type))
+    (null_location, Dynamic_array ([| |], element_type))
   | _ -> raise error_no_default_value
   
 let rec representative_value_of_type (const_type: const_type_expression) : expression =
@@ -114,12 +114,12 @@ let rec representative_value_of_type (const_type: const_type_expression) : expre
     | Type -> (null_location, Type Representative)
     | Function (return_type, param_types, modifiers) ->
       (null_location, Lambda (return_type,
-        List.map (fun param_type -> (null_location, Bound_declaration ({typ=Some param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
+        List.map (fun param_type -> (null_location, Bound_declaration ({typ=param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
         modifiers, (null_location, Compound []), None))
     | Tuple elements ->
       (null_location, Tuple (List.map (fun element -> representative_value_of_type element) elements))
     | Dynamic_array element_type ->
-      (null_location, Dynamic_array ([| |], Some element_type))
+      (null_location, Dynamic_array ([| |], element_type))
     | _ -> raise (error_internal (Printf.sprintf "representative value not implemented for type expression: %s" (Ast.show_const_type_expression const_type))) 
   in
     if (not (is_const_value representative_value)) then
