@@ -47,6 +47,7 @@ and function_modifiers = {
 
 and const_type_expression =
   | Bool
+  | Deduced
   | Dynamic_array of (* element_type: *) const_type_expression
   | Int
   | Function of (* return_type: *) const_type_expression * (* param_types: *) const_type_expression list * (* modifiers: *) function_modifiers

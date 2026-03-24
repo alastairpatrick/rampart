@@ -59,6 +59,7 @@ rule token = parse
   | '}'                               { RCURLY }
   | skip_eols ',' skip_eols           { count_eols lexbuf; COMMA }
   | skip_eols "|" skip_eols           { count_eols lexbuf; PIPE }
+  | '&' skip_eols                     { count_eols lexbuf; AMPERSAND }
   | "!" skip_eols                     { count_eols lexbuf; BANG }
   | "~" skip_eols                     { count_eols lexbuf; TILDE }
   | '=' skip_eols                     { count_eols lexbuf; ASSIGN }
@@ -67,7 +68,6 @@ rule token = parse
   | '*' skip_eols                     { count_eols lexbuf; TIMES }
   | "%" skip_eols                     { count_eols lexbuf; MODULO }
   | '/' skip_eols                     { count_eols lexbuf; DIV }
-  | '\\' skip_eols                    { count_eols lexbuf; BACKSLASH }
   | '?' skip_eols                     { count_eols lexbuf; QUESTION }
   | ':' skip_eols                     { count_eols lexbuf; COLON }
   | '<' skip_eols                     { count_eols lexbuf; LESS }

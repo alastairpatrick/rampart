@@ -381,15 +381,7 @@ let%expect_test _ =
 (* Lambdas & calls *)
 
 let%expect_test _ =
-  parse "int \\ (a, b) {};";
-  [% expect{|
-    Error line 1, characters 5-6: unexpected '\' symbol
-    Error line 1, character 15: unexpected '}' symbol
-    (@1 (Order_independent ()))
-    |}]
-
-let%expect_test _ =
-  parse "\\int() {};";
+  parse "int&() {};";
   [% expect{|
     (@1
      (Order_independent
@@ -400,7 +392,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "\\int() pure {};";
+  parse "int&() pure {};";
   [% expect{|
     (@1
      (Order_independent
@@ -412,7 +404,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "\\int() const {};";
+  parse "int&() const {};";
   [% expect{|
     (@1
      (Order_independent
@@ -424,7 +416,15 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "\\int(int a) const -> let b=a+1 in b;";
+  parse "&() {};";
+  [% expect{|
+    (@1
+     (Order_independent
+      ((@1 (Expression (@1 (Lambda Deduced () () (@1 (Compound ())) ())))))))
+    |}]
+
+let%expect_test _ =
+  parse "int&(int a) const -> let b=a+1 in b;";
 
   [% expect{|
     (@1
@@ -450,15 +450,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "int\\ (int a, int b) {};";
-  [% expect{|
-    Error line 1, characters 4-5: unexpected '\' symbol
-    Error line 1, character 22: unexpected '}' symbol
-    (@1 (Order_independent ()))
-    |}]
-
-let%expect_test _ =
-  parse "\\int(int a, int b) {};";
+  parse "int&(int a, int b) {};";
   [% expect{|
     (@1
      (Order_independent
@@ -478,7 +470,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "\\int(int a, int b) pure {};";
+  parse "int&(int a, int b) pure {};";
   [% expect{|
     (@1
      (Order_independent
@@ -498,7 +490,7 @@ let%expect_test _ =
     |}]
 
 let%expect_test _ =
-  parse "\\int(int a, int b) const {};";
+  parse "int&(int a, int b) const {};";
   [% expect{|
     (@1
      (Order_independent
@@ -949,7 +941,7 @@ let%expect_test _ =
 
 let%expect_test _ =
   parse {|
-    \int(
+    int&(
       int a
     ) {};
   |};

@@ -10,8 +10,8 @@
 %token <int64> INT_LIT
 
 (* Please keep these in alphabetic order *)
-%token ANY ARITY ASSIGN
-%token BACKSLASH BANG BITWISE_OR BITWISE_AND BITWISE_NOT BITWISE_XOR BOOL
+%token AMPERSAND ANY ARITY ASSIGN
+%token BANG BITWISE_OR BITWISE_AND BITWISE_NOT BITWISE_XOR BOOL
 %token COLON COMMA CONST
 %token DIV DO
 %token ELSE EOF EOL EQUALS
@@ -199,8 +199,10 @@ lambda_body
 
 lambda_expr
   : e=fallback_expr                                         { e }
-  | BACKSLASH rt=primary_expr LPAREN ps=params0 RPAREN
+  | rt=primary_expr AMPERSAND LPAREN ps=params0 RPAREN
     lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Unevaluated_type rt, ps, lm, b, None) }
+  | AMPERSAND LPAREN ps=params0 RPAREN
+    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Deduced, ps, lm, b, None) }
   ;
 
 expr: e=lambda_expr                                         { e }

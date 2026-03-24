@@ -2,10 +2,10 @@ open Parser
 
 (* Please keep these in alphabetic order *)
 let string_of_token (token : token) : string = match token with
+  | AMPERSAND -> "'&' symbol"
   | ANY -> "'any' keyword"
   | ARITY -> "'arity' keyword"
   | ASSIGN -> "'=' symbol"
-  | BACKSLASH -> "'\\' symbol"
   | BANG -> "'!' symbol"
   | BITWISE_AND -> "'band' keyword"
   | BITWISE_NOT -> "'bnot' keyword"
