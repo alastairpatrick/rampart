@@ -1,3 +1,5 @@
+(* This is an obselete prototype. *)
+
 open Bind
 open Const
 open Const_eval

@@ -1,4 +1,4 @@
-**Rampart Design (Updated)**
+**Rampart Design (Obselete)**
 
 This document describes the current design of Rampart's compile-time constant
 evaluation (CTCE), `pure` / `const` function semantics, and the compiler passes
