@@ -1,5 +1,9 @@
 open Ast
 
+(* Map only the child expressions and nested const_type_expressions of a const_type.
+   This helper does not transform the top-level const_type node itself; that is
+   the responsibility of the caller. This makes it safe to build non-self-looping
+   recursion for AST rewrites. *)
 let map_const_type_children (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) (typ: const_type_expression) : const_type_expression =
   match typ with
   | Bool
@@ -40,6 +44,11 @@ let map_statement_children (sf: statement -> statement) (ef : expression -> expr
   | Return expr ->
     location, Return (ef expr)
 
+(* Map only the child statements and expressions of a expression node.
+   The current expression node is reconstructed from the mapped children.
+   This function does not invoke ef on the current node itself, preserving
+   the child-only traversal invariant.
+*)
 let map_expression_children (sf : statement -> statement) (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) ((location, expr) : expression) : expression =
   match expr with
   | Bool_literal _
@@ -83,8 +92,12 @@ let map_expression_children (sf : statement -> statement) (ef : expression -> ex
   | Unary_op (op, a) ->
     location, Unary_op (op, ef a)
   
+(* Map statement nodes with a full traversal. All nodes in the tree, including the one passed to map_statement, are transformed.
+*)
 let rec map_statement (sf : statement -> statement) (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) (stmt : statement) : statement =
   sf (map_statement_children (map_statement sf ef tf) (map_expression sf ef tf) tf stmt)
 
+(* Map expression nodes with a full traversal. All nodes in the tree, including the one passed to map_statement, are transformed.
+*)
 and map_expression (sf : statement -> statement) (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) (expr : expression) : expression =
   ef (map_expression_children (map_statement sf ef tf) (map_expression sf ef tf) tf expr)
