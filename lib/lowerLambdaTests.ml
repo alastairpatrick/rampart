@@ -45,42 +45,59 @@ let%expect_test _ =
 
 (* descends into nested nested lambdas *)
 let%expect_test _ =
-  evaluate_declarations "(int<-(int)) & () -> (int&(int x) -> x);";
+  evaluate_declarations "int&(int x) -> (int&(int x) -> x)(x);";
   [% expect{|
     (@1
      (Order_independent
       ((@1
         (Expression
          (@1
-          (Lambda
-           (Unevaluated
-            (@1
-             (Type
-              (Function (Unevaluated (@1 (Type Int)))
-               ((Unevaluated (@1 (Type Int)))) ()))))
+          (Lambda (Unevaluated (@1 (Type Int)))
            ((@1
+             (Bound_declaration
+              ((modifiers ()) (typ (Unevaluated (@1 (Type Int)))) (name x)
+               (init_expr ()))
+              (0 1)))
+            (@1
              (Bound_declaration
               ((modifiers ()) (typ (Pointer Opaque)) (name $closure)
                (init_expr ()))
-              (0 1))))
+              (1 1))))
            ()
            (@1
-            (Bound_frame 1
+            (Bound_frame 2
              (@1
               (Return
                (@1
-                (Lambda (Unevaluated (@1 (Type Int)))
-                 ((@1
-                   (Bound_declaration
-                    ((modifiers ()) (typ (Unevaluated (@1 (Type Int)))) (name x)
-                     (init_expr ()))
-                    (0 2)))
-                  (@1
-                   (Bound_declaration
-                    ((modifiers ()) (typ (Pointer Opaque)) (name $closure)
-                     (init_expr ()))
-                    (1 2))))
-                 ()
+                (Call
                  (@1
-                  (Bound_frame 2 (@1 (Return (@1 (Bound_identifier x (0 2))))))))))))))))))))
+                  (Lambda (Unevaluated (@1 (Type Int)))
+                   ((@1
+                     (Bound_declaration
+                      ((modifiers ()) (typ (Unevaluated (@1 (Type Int))))
+                       (name x) (init_expr ()))
+                      (0 2)))
+                    (@1
+                     (Bound_declaration
+                      ((modifiers ()) (typ (Pointer Opaque)) (name $closure)
+                       (init_expr ()))
+                      (1 2))))
+                   ()
+                   (@1
+                    (Bound_frame 2 (@1 (Return (@1 (Bound_identifier x (0 2)))))))))
+                 ((@1 (Bound_identifier x (0 1)))) ())))))))))))))
+    |}]
+
+(* adds closure to function type *)
+let%expect_test _ =
+  evaluate_declarations "int<-(int);";
+  [% expect{|
+    (@1
+     (Order_independent
+      ((@1
+        (Expression
+         (@1
+          (Type
+           (Function (Unevaluated (@1 (Type Int)))
+            ((Unevaluated (@1 (Type Int))) (Pointer Opaque)) ()))))))))
     |}]

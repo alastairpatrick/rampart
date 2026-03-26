@@ -23,7 +23,15 @@ type accumulator = {
   top_frame: frame;
 }
 
-let rec visit_expression (frame : frame) ((location, expr): expression) : expression =
+let rec visit_const_type (frame : frame) (typ: const_type_expression) : const_type_expression =
+  traverse_const_type (visit_expression frame) (visit_const_type frame) (match typ with
+    | Function (return_type, param_types, modifiers) ->
+      let param_types = param_types @ [Pointer Opaque] in (* add an extra parameter for the closure *)
+      Function (return_type, param_types, modifiers)
+    | _ -> typ)
+
+and visit_expression (frame : frame) ((location, expr): expression) : expression =
+  let descend_expression frame expression = traverse_expression (visit_statement frame) (visit_expression frame) (visit_const_type frame) expression in
   match expr with
   | Lambda (return_type, params, modifiers, ((_, Bound_frame (num_variables, _)) as stmt)) ->
     let num_params = List.length params in
@@ -38,12 +46,12 @@ let rec visit_expression (frame : frame) ((location, expr): expression) : expres
     let params = params @ [
       (location, Bound_declaration ({typ=(Pointer Opaque); init_expr=None; name="$closure"; modifiers=empty_declaration_modifiers}, {index=closure_index; depth=lambda_frame.depth; mut=false}))
     ] in
-    location, Lambda (return_type, params, modifiers, visit_statement lambda_frame stmt)
-  | _ -> location, expr
+    descend_expression lambda_frame (location, Lambda (return_type, params, modifiers, stmt))
+  | _ -> descend_expression frame (location, expr)
 
 and visit_statement (frame : frame) (stmt: statement) : statement =
-  traverse_statement (visit_statement frame) (visit_expression frame) stmt
+  traverse_statement (visit_statement frame) (visit_expression frame) (visit_const_type frame) stmt
 
 let lower_lambda_pass (statement : statement) (num_globals : int): statement =
   let top_frame = make_global_frame num_globals in
-  traverse_statement (visit_statement top_frame) (visit_expression top_frame) statement
+  visit_statement top_frame statement
