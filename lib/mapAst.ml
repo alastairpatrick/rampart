@@ -1,6 +1,6 @@
 open Ast
 
-let traverse_const_type (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) (typ: const_type_expression) : const_type_expression =
+let map_const_type_children (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) (typ: const_type_expression) : const_type_expression =
   match typ with
   | Bool
   | Deduced
@@ -19,16 +19,16 @@ let traverse_const_type (ef : expression -> expression) (tf : const_type_express
     Tuple (List.map tf element_types)
   | Unevaluated type_expr -> Unevaluated (ef type_expr)
 
-let traverse_statement (sf: statement -> statement) (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) ((location, stmt): statement) : statement =
+let map_statement_children (sf: statement -> statement) (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) ((location, stmt): statement) : statement =
   match stmt with
   | Bound_declaration (({ typ; init_expr; _ } as decl), slot) ->
-    location, Bound_declaration ({ decl with typ = traverse_const_type ef tf typ; init_expr=Option.map ef init_expr }, slot)
+    location, Bound_declaration ({ decl with typ = map_const_type_children ef tf typ; init_expr=Option.map ef init_expr }, slot)
   | Bound_frame (num_variables, body) ->
     location, Bound_frame (num_variables, sf body)
   | Compound statements ->
     location, Compound (List.map sf statements)
   | Declaration ({ typ; init_expr; _ } as decl) ->
-    location, Declaration { decl with typ = traverse_const_type ef tf typ; init_expr=Option.map ef init_expr }
+    location, Declaration { decl with typ = map_const_type_children ef tf typ; init_expr=Option.map ef init_expr }
   | Do_while (body, cond) ->
     location, Do_while (sf body, ef cond)
   | Expression expr ->
@@ -40,7 +40,7 @@ let traverse_statement (sf: statement -> statement) (ef : expression -> expressi
   | Return expr ->
     location, Return (ef expr)
 
-let traverse_expression (sf : statement -> statement) (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) ((location, expr) : expression) : expression =
+let map_expression_children (sf : statement -> statement) (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) ((location, expr) : expression) : expression =
   match expr with
   | Bool_literal _
   | Bound_identifier _
@@ -61,7 +61,7 @@ let traverse_expression (sf : statement -> statement) (ef : expression -> expres
   | Conditional (c, a, b) ->
     location, Conditional (ef c, ef a, ef b)
   | Dynamic_array (es, t) ->
-    location, Dynamic_array (Array.map ef es, traverse_const_type ef tf t)
+    location, Dynamic_array (Array.map ef es, map_const_type_children ef tf t)
   | Fall_through (a, b) ->
     location, Fall_through (ef a, ef b)
   | In (a, b) ->
@@ -69,7 +69,7 @@ let traverse_expression (sf : statement -> statement) (ef : expression -> expres
   | Index (a, b) ->
     location, Index (ef a, Option.map ef b)
   | Lambda (return_type, params, modifiers, statement) ->
-    location, Lambda (traverse_const_type ef tf return_type, List.map (traverse_statement sf ef tf) params, modifiers, sf statement)
+    location, Lambda (map_const_type_children ef tf return_type, List.map (map_statement_children sf ef tf) params, modifiers, sf statement)
   | Match (a, b, c, d, s) ->
     location, Match (ef a, ef b, ef c, ef d, s)
   | Statement s ->
@@ -84,7 +84,7 @@ let traverse_expression (sf : statement -> statement) (ef : expression -> expres
     location, Unary_op (op, ef a)
   
 let rec map_statement (sf : statement -> statement) (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) (stmt : statement) : statement =
-  sf (traverse_statement (map_statement sf ef tf) (map_expression sf ef tf) tf stmt)
+  sf (map_statement_children (map_statement sf ef tf) (map_expression sf ef tf) tf stmt)
 
 and map_expression (sf : statement -> statement) (ef : expression -> expression) (tf : const_type_expression -> const_type_expression) (expr : expression) : expression =
-  ef (traverse_expression (map_statement sf ef tf) (map_expression sf ef tf) tf expr)
+  ef (map_expression_children (map_statement sf ef tf) (map_expression sf ef tf) tf expr)

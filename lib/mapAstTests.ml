@@ -4,7 +4,7 @@ open MapAst
 
 let%expect_test _ =
   Sexplib.Sexp.output_hum stdout (Ast.sexp_of_expression
-    (traverse_expression
+    (map_expression_children
     (fun _ -> assert false)
     (fun (l, e) -> 
       match e with
