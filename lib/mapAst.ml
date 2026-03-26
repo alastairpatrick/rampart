@@ -67,8 +67,8 @@ and map_expression (sf : statement -> statement) (ef : expression -> expression)
   | Arity e ->
     ef (location, (Arity (map_expression sf ef e)))
 
-  | Lambda (return_type, params, modifiers, statement, closure) ->
-    ef (location, (Lambda (map_const_type sf ef return_type, List.map (map_statement sf ef) params, modifiers, map_statement sf ef statement, closure)))
+  | Lambda (return_type, params, modifiers, statement) ->
+    ef (location, (Lambda (map_const_type sf ef return_type, List.map (map_statement sf ef) params, modifiers, map_statement sf ef statement)))
 
   | Call (callable, arg_exprs, pure) ->
     ef (location, (Call (map_expression sf ef callable, List.map (map_expression sf ef) arg_exprs, pure)))

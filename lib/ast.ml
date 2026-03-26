@@ -1,15 +1,8 @@
 open Location
-open Sexplib
 open Sexplib.Std
 open Slot
 
 type external_closure = ..
-
-type closure = (* identity: *) int * external_closure
-
-let closure_of_sexp _ : closure = assert false
-let sexp_of_closure (identity, _) : Sexp.t = Sexp.Atom (string_of_int identity)
-let pp_closure _ _ = ()
 
 type binary_op =
   | Plus
@@ -71,7 +64,7 @@ and expression_inner =
   | Index of expression * (* subscript: *) expression option
   | In of expression * expression
   | Int_literal of int64
-  | Lambda of (* return_type: *) const_type_expression * (* params: *) statement list * function_modifiers * (* body: *) statement * closure option
+  | Lambda of (* return_type: *) const_type_expression * (* params: *) statement list * function_modifiers * (* body: *) statement
   | Let of pattern
   | Match of (* pattern: *) expression * expression * (* condition: *) expression * (* body: *) expression * (* temp_slot: *) slot
   | Statement of statement

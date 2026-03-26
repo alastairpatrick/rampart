@@ -58,8 +58,8 @@ let rec const_values_equal (a : expression) (b : expression) : bool =
     (try
       Array.for_all2 const_values_equal a_elements b_elements && a_type = b_type
     with Invalid_argument _ -> false)
-  | (_, Lambda (_, _, _, _, Some (a_identity, _))), (_, Lambda (_, _, _, _, Some (b_identity, _))) ->
-    a_identity = b_identity
+  | (_, Lambda (_, _, _, _)), (_, Lambda (_, _, _, _)) ->
+    assert false; (* TODO *)
   | _ -> a = b
 
 let rec is_const_value (expression : expression) : bool =
@@ -90,7 +90,7 @@ let rec type_of_expression ((location, expression): expression) : const_type_exp
   | Tuple elements -> Tuple (List.map type_of_expression elements)
   | Type_of _ -> Type
   | Dynamic_array (_, element_type) -> Dynamic_array element_type
-  | Lambda (return_type, params, modifiers, _, _) ->
+  | Lambda (return_type, params, modifiers, _) ->
     let param_types = List.map (fun (_, param) -> match param with
       | Bound_declaration ({typ=param_type; _}, _) -> param_type
       | _ -> assert false) params in
@@ -115,7 +115,7 @@ let rec representative_value_of_type (const_type: const_type_expression) : expre
     | Function (return_type, param_types, modifiers) ->
       (null_location, Lambda (return_type,
         List.map (fun param_type -> (null_location, Bound_declaration ({typ=param_type; init_expr=None; name=""; modifiers=empty_declaration_modifiers}, {index=0; depth=0; mut=false}))) param_types,
-        modifiers, (null_location, Compound []), None))
+        modifiers, (null_location, Compound [])))
     | Tuple elements ->
       (null_location, Tuple (List.map (fun element -> representative_value_of_type element) elements))
     | Dynamic_array element_type ->

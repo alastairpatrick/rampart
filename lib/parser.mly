@@ -200,9 +200,9 @@ lambda_body
 lambda_expr
   : e=fallback_expr                                         { e }
   | rt=primary_expr AMPERSAND LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Unevaluated rt, ps, lm, b, None) }
+    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Unevaluated rt, ps, lm, b) }
   | AMPERSAND LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Deduced, ps, lm, b, None) }
+    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Deduced, ps, lm, b) }
   ;
 
 expr: e=lambda_expr                                         { e }
@@ -232,7 +232,7 @@ initialize
 declaration
   : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; typ=Unevaluated t; name=n; init_expr=v} }
   | t=expr n=ID LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; typ=Deduced; name=n; init_expr=Some (loc $loc, Lambda (Unevaluated t, ps, lm, b, None)) } }
+    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; typ=Deduced; name=n; init_expr=Some (loc $loc, Lambda (Unevaluated t, ps, lm, b)) } }
   | MUT d=declaration                                           { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
   ;
 

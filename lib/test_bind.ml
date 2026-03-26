@@ -231,8 +231,7 @@ let%expect_test _ =
                     (Expression
                      (@1
                       (Assignment (@1 (Bound_let (Identifier b) (1 1)))
-                       (@1 (Bound_identifier a (0 1))))))))))))
-              ())))))
+                       (@1 (Bound_identifier a (0 1)))))))))))))))))
          (0 0))))))
     |}]
 
@@ -261,8 +260,7 @@ let%expect_test _ =
                     (Bound_declaration
                      ((modifiers ()) (typ (Unevaluated (@1 (Type Int))))
                       (name y) (init_expr ((@1 (Bound_identifier x (0 1))))))
-                     (1 1))))))))
-              ())))))
+                     (1 1)))))))))))))
          (0 0))))))
     |}]
 
@@ -373,7 +371,6 @@ let%expect_test _ =
                          ((@5
                            (Binary_op Minus (@5 (Bound_identifier n (0 1)))
                             (@5 (Int_literal 1)))))
-                         ())))))))))))
-              ())))))
+                         ()))))))))))))))))
          (0 0))))))
     |}]
