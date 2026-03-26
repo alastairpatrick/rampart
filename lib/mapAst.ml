@@ -1,113 +1,75 @@
 open Ast
-    
-let rec map_statement (sf : statement -> statement) (ef : expression -> expression) ((location, statement) : statement) : statement =
-  match statement with
-  | Declaration { modifiers=modifiers; name=name; typ; init_expr=init_expr } ->
-    sf (location, Declaration { modifiers=modifiers; name=name; typ=map_const_type sf ef typ; init_expr=Option.map (map_expression sf ef) init_expr })
 
-  | Bound_declaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
-    let typ = match typ with
-    | Unevaluated type_expr -> Unevaluated (map_expression sf ef type_expr)
-    | _ -> typ in
-    sf (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=Option.map (map_expression sf ef) init_expr }, slot))
+let traverse_const_type (ef : expression -> expression) (typ: const_type_expression) : const_type_expression =
+  match typ with
+  | Unevaluated type_expr -> Unevaluated (ef type_expr)
+  | _ -> typ
 
-  | Expression expr ->
-    sf (location, Expression (map_expression sf ef expr))
-
-  | Compound statements ->
-    let statements = List.map (map_statement sf ef) statements in sf (location, Compound statements)
-
-  | Order_independent statements ->
-    let statements = List.map (map_statement sf ef) statements in sf (location, Order_independent statements)
-
-  | If (c, a, b) ->
-    sf (location, If (map_expression sf ef c, map_statement sf ef a, map_statement sf ef b))
-
-  | Do_while (body, cond) ->
-    sf (location, Do_while (map_statement sf ef body, map_expression sf ef cond))
-
-  | Return expr ->
-    sf (location, Return (map_expression sf ef expr))
-
+let traverse_statement (sf: statement -> statement) (ef : expression -> expression) ((location, stmt): statement) : statement =
+  match stmt with
+  | Bound_declaration (({ typ; init_expr; _ } as decl), slot) ->
+    location, Bound_declaration ({ decl with typ = traverse_const_type ef typ; init_expr=Option.map ef init_expr }, slot)
   | Bound_frame (num_variables, body) ->
-    sf (location, Bound_frame (num_variables, map_statement sf ef body))
+    location, Bound_frame (num_variables, sf body)
+  | Compound statements ->
+    location, Compound (List.map sf statements)
+  | Declaration ({ typ; init_expr; _ } as decl) ->
+    location, Declaration { decl with typ = traverse_const_type ef typ; init_expr=Option.map ef init_expr }
+  | Do_while (body, cond) ->
+    location, Do_while (sf body, ef cond)
+  | Expression expr ->
+    location, Expression (ef expr)
+  | If (c, a, b) ->
+    location, If (ef c, sf a, sf b)
+  | Order_independent statements ->
+    location, Order_independent (List.map sf statements)
+  | Return expr ->
+    location, Return (ef expr)
 
-and map_expression (sf : statement -> statement) (ef : expression -> expression) ((location, expr) : expression) : expression =
+let traverse_expression (sf : statement -> statement) (ef : expression -> expression) ((location, expr) : expression) : expression =
   match expr with
   | Bool_literal _
   | Bound_identifier _
   | Bound_let _
   | Identifier _
   | Int_literal _
-  | Let Any
-  | Let Identifier _
+  | Let _
   | Type _ ->
-    ef (location, expr)
-  
-  | Assignment (a, b) ->
-    ef (location, (Assignment (map_expression sf ef a, map_expression sf ef b)))
-
-  | In (a, b) ->
-    ef (location, (In (map_expression sf ef a, map_expression sf ef b)))
-
-  | Binary_op (op, a, b) ->
-    ef (location, (Binary_op (op, map_expression sf ef a, map_expression sf ef b)))
-
-  | Unary_op (op, a) ->
-    ef (location, (Unary_op (op, map_expression sf ef a)))
-  | Conditional (c, a, b) ->
-    ef (location, (Conditional (map_expression sf ef c, map_expression sf ef a, map_expression sf ef b)))
-
-  | Tuple es ->
-    ef (location, (Tuple (List.map (map_expression sf ef) es)))
-
-  | Type_of e ->
-    ef (location, (Type_of (map_expression sf ef e)))
+    location, expr
 
   | Arity e ->
-    ef (location, (Arity (map_expression sf ef e)))
-
-  | Lambda (return_type, params, modifiers, statement) ->
-    ef (location, (Lambda (map_const_type sf ef return_type, List.map (map_statement sf ef) params, modifiers, map_statement sf ef statement)))
-
+    location, Arity (ef e)
+  | Assignment (a, b) ->
+    location, Assignment (ef a, ef b)
+  | Binary_op (op, a, b) ->
+    location, Binary_op (op, ef a, ef b)
   | Call (callable, arg_exprs, pure) ->
-    ef (location, (Call (map_expression sf ef callable, List.map (map_expression sf ef) arg_exprs, pure)))
-
+    location, Call (ef callable, List.map ef arg_exprs, pure)
+  | Conditional (c, a, b) ->
+    location, Conditional (ef c, ef a, ef b)
   | Dynamic_array (es, t) ->
-    ef (location, (Dynamic_array (Array.map (map_expression sf ef) es, map_const_type sf ef t)))
-  | Index (a, b) ->
-    ef (location, (Index (map_expression sf ef a, Option.map (map_expression sf ef) b)))
-
+    location, Dynamic_array (Array.map ef es, traverse_const_type ef t)
   | Fall_through (a, b) ->
-    ef (location, (Fall_through (map_expression sf ef a, map_expression sf ef b)))
-
+    location, Fall_through (ef a, ef b)
+  | In (a, b) ->
+    location, In (ef a, ef b)
+  | Index (a, b) ->
+    location, Index (ef a, Option.map ef b)
+  | Lambda (return_type, params, modifiers, statement) ->
+    location, Lambda (traverse_const_type ef return_type, List.map (traverse_statement sf ef) params, modifiers, sf statement)
   | Match (a, b, c, d, s) ->
-    ef (location, (Match (map_expression sf ef a, map_expression sf ef b, map_expression sf ef c, map_expression sf ef d, s)))
-
+    location, Match (ef a, ef b, ef c, ef d, s)
   | Statement s ->
-    ef (location, Statement (map_statement sf ef s))
-    
-and map_const_type (sf : statement -> statement) (ef : expression -> expression) (const_type : const_type_expression) : const_type_expression =
-  match const_type with
-  | Unevaluated type_expr -> Unevaluated (map_expression sf ef type_expr)
-  | _ -> const_type
-
-let reduce_statement (sf : 'acc -> statement -> 'acc) (ef : 'acc -> expression -> 'acc) (acc : 'acc) (stmt : statement) : 'acc =
-  let acc = ref acc in
-  map_statement (fun s -> acc := sf !acc s; s) (fun e -> acc := ef !acc e; e) stmt |> ignore;
-  !acc
-
-let reduce_expression (sf : 'acc -> statement -> 'acc) (ef : 'acc -> expression -> 'acc) (acc : 'acc) (expr : expression) : 'acc =
-  let acc = ref acc in
-  map_expression (fun s -> acc := sf !acc s; s) (fun e -> acc := ef !acc e; e) expr |> ignore;
-  !acc
+    location, Statement (sf s)
+  | Type_of e ->
+    location, Type_of (ef e)
+  | Tuple es ->
+    location, Tuple (List.map ef es)
+  | Unary_op (op, a) ->
+    location, Unary_op (op, ef a)
   
-let reduce_map_expression (sf : 'acc -> statement -> 'acc * statement) (ef : 'acc -> expression -> 'acc * expression) (acc : 'acc) (expr : expression) : 'acc * expression =
-  let acc = ref acc in
-  let expr = map_expression (fun s -> let s = sf !acc s in acc := fst s; snd s) (fun e -> let e = ef !acc e in acc := fst e; snd e) expr in
-  !acc, expr
+let rec map_statement (sf : statement -> statement) (ef : expression -> expression) (stmt : statement) : statement =
+  sf (traverse_statement (map_statement sf ef) (map_expression sf ef) stmt)
 
-let reduce_map_statement (sf : 'acc -> statement -> 'acc * statement) (ef : 'acc -> expression -> 'acc * expression) (acc : 'acc) (stmt : statement) : 'acc * statement =
-  let acc = ref acc in
-  let stmt = map_statement (fun s -> let s = sf !acc s in acc := fst s; snd s) (fun e -> let e = ef !acc e in acc := fst e; snd e) stmt in
-  !acc, stmt
+and map_expression (sf : statement -> statement) (ef : expression -> expression) (expr : expression) : expression =
+  ef (traverse_expression (map_statement sf ef) (map_expression sf ef) expr)

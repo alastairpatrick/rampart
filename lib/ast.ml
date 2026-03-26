@@ -44,6 +44,8 @@ and const_type_expression =
   | Dynamic_array of (* element_type: *) const_type_expression
   | Int
   | Function of (* return_type: *) const_type_expression * (* param_types: *) const_type_expression list * (* modifiers: *) function_modifiers
+  | Opaque (* (Pointer Opaque) roughly corresponds to void* in C *)
+  | Pointer of const_type_expression
   | Representative (* Uninstantiable type, used as a representative value for type values. *)
   | Tuple of const_type_expression list
   | Unevaluated of expression (* Represents types before they are evaluated to actual const_type values. *)

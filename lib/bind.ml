@@ -196,6 +196,10 @@ and bind env pass ((location, expr) : expression) : env * expression =
     if pass == Order_independent1 then env, (location, expr) else
     let frame_env = new_frame env in
     let frame_env, params = bind_order_dependent frame_env params in
+
+    (* The bind pass allocates a slot that will later be used by the lambda lowering pass, to hold the closure.*)
+    let frame_env, _ = declare_slot frame_env "$closure" false in
+
     let _, statement = bind_statement (new_scope frame_env) Order_dependent statement in
     env, (location, Lambda (return_type, params, modifiers, (location, Bound_frame (!(frame_env.num_slots), statement))))
 

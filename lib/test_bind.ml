@@ -219,19 +219,19 @@ let%expect_test _ =
            ((@1
              (Lambda (Unevaluated (@1 (Type Int))) () ()
               (@1
-               (Bound_frame 2
+               (Bound_frame 3
                 (@1
                  (Compound
                   ((@1
                     (Expression
                      (@1
-                      (Assignment (@1 (Bound_let (Identifier a) (0 1)))
+                      (Assignment (@1 (Bound_let (Identifier a) (1 1)))
                        (@1 (Bool_literal true))))))
                    (@1
                     (Expression
                      (@1
-                      (Assignment (@1 (Bound_let (Identifier b) (1 1)))
-                       (@1 (Bound_identifier a (0 1)))))))))))))))))
+                      (Assignment (@1 (Bound_let (Identifier b) (2 1)))
+                       (@1 (Bound_identifier a (1 1)))))))))))))))))
          (0 0))))))
     |}]
 
@@ -253,14 +253,14 @@ let%expect_test _ =
                  (0 1))))
               ()
               (@1
-               (Bound_frame 2
+               (Bound_frame 3
                 (@1
                  (Compound
                   ((@1
                     (Bound_declaration
                      ((modifiers ()) (typ (Unevaluated (@1 (Type Int))))
                       (name y) (init_expr ((@1 (Bound_identifier x (0 1))))))
-                     (1 1)))))))))))))
+                     (2 1)))))))))))))
          (0 0))))))
     |}]
 
@@ -339,7 +339,7 @@ let%expect_test _ =
                  (0 1))))
               ()
               (@2
-               (Bound_frame 1
+               (Bound_frame 2
                 (@2
                  (Compound
                   ((@3
