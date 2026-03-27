@@ -30,7 +30,9 @@ and lower_expression (frame : frame) ((location, expr): expression) : expression
   let lower_expression_children frame expr = map_expression_children (lower_statement frame) (lower_expression frame) (lower_const_type frame) expr in
   match expr with
   | Lambda (return_type, params, modifiers, ((_, Bound_frame (_, _)) as stmt)) ->
-    let num_params = List.length params in
+    let closure_index = List.length params in
+    let params = (List.map (lower_statement frame) params) in
+    let return_type = lower_const_type frame return_type in
     let lambda_frame = {
       depth = frame.depth + 1;
       (*enclosing_frame = Some frame;
@@ -38,13 +40,10 @@ and lower_expression (frame : frame) ((location, expr): expression) : expression
       pure = modifiers.pure;
       const = modifiers.const;*)
     } in
-    let closure_index = num_params in
-    let params = (List.map (lower_statement frame) params) @ [
-      (location, Bound_declaration ({typ=(Pointer Opaque); init_expr=None; name="$closure"; modifiers=empty_declaration_modifiers}, {index=closure_index; depth=lambda_frame.depth; mut=false}))
-    ] in
-    let return_type = lower_const_type frame return_type in
     let stmt = lower_statement lambda_frame stmt in
-    location, Lambda (return_type, params, modifiers, stmt)
+    location, Lambda (return_type, params @ [
+      (location, Bound_declaration ({typ=(Pointer Opaque); init_expr=None; name="$closure"; modifiers=empty_declaration_modifiers}, {index=closure_index; depth=lambda_frame.depth; mut=false}))
+      ], modifiers, stmt)
 
   | _ -> lower_expression_children frame (location, expr)
 
