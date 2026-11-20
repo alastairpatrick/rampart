@@ -1,237 +1,162 @@
-open Ast
-open Error
 open Location
 open Slot
 
 module StringMap = Map.Make(String)
 
-type bind_pass =
-  | Order_dependent
-  | Order_independent1
-  | Order_independent2
-
-type env = {
-  (* The int associated with a value in the slots map is the "scope", which counts the level of lexical nesting.
-  In contrast, the depth associated with the slot itself counts the level of _frame_ nesting. *)
-  slots: (int*slot) StringMap.t;
-  scope: int;
-  frame: int;
-  num_slots: int ref;
+type bind_mode = {
+  let_valid: bool;  (* whether a 'let' declaration is valid in this context *)
+  assignable: bool;  (* whether the expression is on the left hand side of an assignment *)
 }
 
-exception Redeclaration_error of location * string
-exception Unbound_identifier_error of location * string
+type env = {
+  (* The int associated with a value in the slots map counts the level of lexical nesting.
+  In contrast, the depth associated with the slot itself counts the level of _frame_ nesting. *)
+  slots: (int * slot) StringMap.t;
+  scope: int;
+  frame: int;
+  num_slots: int;
+  diagnostic : (Diagnostic.diagnostic_type -> location -> string -> unit)
+}
 
-let error_redeclaration name = Error (Printf.sprintf "redeclaration of identifier '%s'" name)
-let error_unbound_identifier name = Error (Printf.sprintf "unbound identifier '%s'" name)
-
-let top_scope () : env = { slots=StringMap.empty; scope=0; frame=0; num_slots=ref 0 }
+let top_scope diagnostic : env = { slots=StringMap.empty; scope=0; frame=0; num_slots=0; diagnostic }
 let new_scope env : env = { env with scope=env.scope+1 }
-let new_frame env : env = { env with scope=env.scope+1; frame=env.frame+1; num_slots=ref 0 }
+let new_frame env : env = { env with scope=env.scope+1; frame=env.frame+1; num_slots=0 }
 
-let new_slot env mut : slot =
-  env.num_slots := 1 + !(env.num_slots);
-  { index = !(env.num_slots) - 1; depth = env.frame; mut }
+let new_slot env mut : env * slot =
+  { env with num_slots=env.num_slots+1 }, { index = env.num_slots; depth = env.frame; mut }
 
-let find_slot (env : env) (name : string) : slot =
-  let _, slot = StringMap.find name env.slots in slot
+let find_slot (env : env) (name : string) : slot option =
+  match StringMap.find_opt name env.slots with
+  | Some (_, slot) -> Some slot
+  | _ -> None
 
 let add_slot (env : env) (name : string) (slot : slot) : env =
   { env with slots=StringMap.add name (env.scope, slot) env.slots }
 
-let declare_slot (env : env) (name : string) (mut : bool) : env * slot =
-  let slot = new_slot env mut in
+let declare_slot (env : env) (name : string) (mut : bool) : (env * slot) option =
   match StringMap.find_opt name env.slots with
-  | Some (existing_scope, _) when existing_scope = env.scope -> raise (error_redeclaration name)
-  | _ -> (add_slot env name slot), slot
+  | Some (scope, _) when scope = env.scope -> None
+  | _ ->
+      let env, slot = new_slot env mut in
+      Some (add_slot env name slot, slot)
 
-let lookup_slot (env : env) (name : string) : slot =
-  try
-    find_slot env name
-  with
-  | Not_found -> raise (error_unbound_identifier name)
-let num_env_slots (env: env) : int = !(env.num_slots)
+let num_env_slots (env: env) : int = env.num_slots
 
-let rec bind_order_dependent env = bind_statements env Order_dependent
-
-and bind_order_independent env statements =
-  let env, statements = bind_statements env Order_independent1 statements in
-  bind_statements env Order_independent2 statements
-
-and bind_statements (env: env) (pass : bind_pass) = function
+let rec bind_statements env (ss : Ast.stat list) : env * Ast.stat list =
+  match ss with
   | [] -> env, []
-  | h::t -> let env, h = bind_statement env pass h in let env, t = bind_statements env pass t in env, h::t
+  | s::rest ->
+    let env, s = bind_statement env s in
+    let env, rest = bind_statements env rest in
+    env, s :: rest
 
-and bind_statement (env : env) (pass : bind_pass) ((location, statement) : statement) : env * statement =
-  try
-    match statement with
-    | Declaration { modifiers=modifiers; name=name; typ; init_expr=init_expr } ->
-      assert (pass != Order_independent2);
-      let typ = bind_const_type env pass typ in
-      let _, init_expr = bind_opt env pass init_expr in
-      let env, slot = declare_slot env name modifiers.mut in
-      env, (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
+and bind_statement env { u; loc } : env * Ast.stat =
+  match u with
+  | Ast.Expr e ->
+    let env, e = bind_expression env {let_valid=true; assignable=false} e in
+    env, { u = Ast.Expr e; loc }
+  | Ast.Compound ss ->
+    let _, ss = bind_statements (new_scope env) ss in
+    env, { u = Ast.Compound ss; loc }
+  | Ast.Conditional (cond, cons, alt) ->
+    let _, cond = bind_expression env {let_valid=false; assignable=false} cond in
+    let _, cons = bind_statement env cons in
+    let _, alt = bind_statement env alt in
+    env, { u = Ast.Conditional (cond, cons, alt); loc }
 
-    | Bound_declaration ({ modifiers=modifiers; name=name; typ=typ; init_expr=init_expr }, slot) ->
-      let typ = bind_const_type env pass typ in
-      let _, init_expr = bind_opt env pass init_expr in
-      env, (location, Bound_declaration ({ modifiers=modifiers; name=name; typ; init_expr=init_expr }, slot))
+and bind_parameters env (params: Ast.parameter list) : env * Ast.parameter list =
+  match params with
+  | [] -> env, []
+  | (loc, id, typ)::rest ->
+    let typ = bind_type env typ in
+    let env = match declare_slot env id false with
+      | Some (env, _) ->
+        env
+      | None ->
+        env.diagnostic Diagnostic.Error loc (Printf.sprintf "Parameter '%s' redeclared" id);
+        env
+    in
+    let env, rest = bind_parameters env rest in
+    env, (loc, id, typ) :: rest
 
-    | Expression expr ->
-      let env, expr = bind env pass expr in env, (location, Expression expr)
-
-    | Compound statements -> if pass == Order_independent1 then env, (location, statement) else
-      let _, statements = bind_order_dependent (new_scope env) statements in env, (location, Compound statements)
-
-    | Order_independent statements -> if pass == Order_independent1 then env, (location, statement) else
-      let _, statements = bind_order_independent (new_scope env) statements in env, (location, Order_independent statements)
-
-    | If (c, a, b) ->
-      let _, c = bind env pass c in
-      let _, a = bind_statement env pass a in
-      let _, b = bind_statement env pass b in
-      env, (location, If (c, a, b))
-
-    | Do_while (body, cond) ->
-      let _, body = bind_statement env pass body in
-      let _, cond = bind env pass cond in
-      env, (location, Do_while (body, cond))
-
-    | Return expr ->
-      let _, expr = bind env pass expr in env, (location, Return expr)
-
-    | Bound_frame _ -> assert false
-  with
-    Error message -> raise (Located_error (location, message))
-  
-and bind_switch_cases env pass cases =
-  List.map (fun (location, pattern, condition, stat) ->
-    let env, pattern = bind_opt env pass pattern in
-    let _, condition = bind_opt env pass condition in
-    let _, stat = bind_statement env pass stat in
-    (location, pattern, condition, stat)) cases
-
-and bind_opt env pass (expr : expression option) : env * expression option =
-  match expr with
-  | Some expr ->
-    let env, expr = bind env pass expr in env, Some expr
-  | None -> env, None
-
-and bind env pass ((location, expr) : expression) : env * expression =
-  match expr with
-  | Bool_literal _
-  | Bound_identifier _
-  | Bound_let _
-  | Int_literal _
-  | Type _
-         -> env, (location, expr)
-  
-  | Assignment (a, b) ->
-    let _, b = bind env pass b in
-    let env, a = bind env pass a in
-    env, (location, Assignment (a, b))
-  
-  | Let Identifier name ->
-    assert (pass != Order_independent2);
-    let env, slot = declare_slot env name false in
-    env, (location, Bound_let (Identifier name, slot))
-
-  | In (a, b) ->
-    if pass == Order_independent1 then env, (location, expr) else
-    let in_env, a = bind env Order_dependent a in
-    let _, b = bind in_env Order_dependent b in
-    env, (location, In (a, b))
-
-  | Match (a, b, c, d, _) ->
-    if pass == Order_independent1 then env, (location, expr) else
-    let in_env, a = bind env Order_dependent a in
-    let _, b = bind env Order_dependent b in
-    let _, c = bind in_env Order_dependent c in
-    let _, d = bind in_env Order_dependent d in
-    env, (location, Match (a, b, c, d, new_slot in_env false))
-
-  | Let Any ->
-    assert (pass != Order_independent2);
-    env, (location, Bound_let (Any, unbindable_slot))
-
-  | Fall_through (a, b) ->
-    let _, a = bind env pass a in
-    let _, b = bind env pass b in
-    env, (location, Fall_through (a, b))
-
-  | Identifier name ->
-    if pass == Order_independent1 then env, (location, expr) else
-    let slot = lookup_slot env name in
-    env, (location, Bound_identifier (name, slot))
-
-  | Binary_op (op, a, b) ->
-    let _, a = bind env pass a in
-    let _, b = bind env pass b in
-    env, (location, Binary_op (op, a, b))
-
-  | Unary_op (op, a) ->
-    let _, a = bind env pass a in
-    env, (location, Unary_op (op, a))
-  | Conditional (c, a, b) ->
-    let _, c = bind env pass c in
-    let _, a = bind env pass a in
-    let _, b = bind env pass b in
-    env, (location, Conditional (c, a, b))
-
+and bind_expression env (mode : bind_mode) { typ; loc; u } : env * Ast.expr =
+  match u with
+  | Ast.Bool _
+  | Ast.Int _
+  | BoundIdentifier _
+  | BoundLet _ ->
+    env, { typ; loc; u }
+  | Identifier id ->
+    (match find_slot env id with
+    | Some slot -> env, { typ; loc; u = Ast.BoundIdentifier (id, slot) }
+    | None ->
+      env.diagnostic Diagnostic.Error loc (Printf.sprintf "Identifier '%s' not found" id);
+      env, { typ; loc; u = Ast.BoundIdentifier (id, unbindable_slot) }
+    )
+  | Let (id, mut) ->
+    if not mode.let_valid then
+      (env.diagnostic Diagnostic.Error loc (Printf.sprintf "Declaration of identifier '%s' is invalid in this context" id);
+      env, { typ; loc; u = Ast.BoundLet (id, unbindable_slot) })
+    else
+      (match declare_slot env id mut with
+      | Some (env, slot) -> env, { typ; loc; u = Ast.BoundLet (id, slot) }
+      | None ->
+        env.diagnostic Diagnostic.Error loc (Printf.sprintf "Identifier '%s' already declared in this scope" id);
+        env, { typ; loc; u = Ast.BoundLet (id, unbindable_slot) }
+      )
+  | Convert (e, t) ->
+    let env, e = bind_expression env mode e in
+    let t = bind_type env t in
+    env, { typ; loc; u = Ast.Convert (e, t) }
   | Tuple es ->
-    (* All BoundLets in the tuple must be added to the surrounding environment *)
-    let env, es = List.fold_left (fun (env, es) e -> let env, e = bind env pass e in (env, e::es)) (env, []) es in
-    env, (location, Tuple (List.rev es))
+    let env, es = List.fold_left (fun (env, es) e ->
+      let env, e = bind_expression env mode e in
+      env, e::es
+    ) (env, []) es in
+    env, { typ; loc; u = Ast.Tuple (List.rev es) }
+  | _ when mode.assignable ->
+    env.diagnostic Diagnostic.Error loc "This expression may not appear on the left hand side of an assignment";
+    env, { typ; loc; u }
 
-  | Type_of e ->
-    let _, e = bind env pass e in
-    env, (location, Type_of e)
+  | Assignment (op, lhs, rhs) ->
+    let lhs_env, lhs = bind_expression env {mode with assignable=true} lhs in
+    let _, rhs = bind_expression env {let_valid=false; assignable=false} rhs in
+    lhs_env, { typ; loc; u = Ast.Assignment (op, lhs, rhs) }
+  | In (e1, e2) ->
+    let in_env = new_scope env in
+    let in_env, e1 = bind_expression in_env {let_valid=true; assignable=false} e1 in
+    let _, e2 = bind_expression in_env {let_valid=false; assignable=false} e2 in
+    env, { typ; loc; u = Ast.In (e1, e2) }
+  | BinOp (op, a, b) ->
+    let _, a = bind_expression env {let_valid=false; assignable=false} a in
+    let _, b = bind_expression env {let_valid=false; assignable=false} b in
+    env, { typ; loc; u = Ast.BinOp (op, a, b) }
+  | UnOp (op, e) ->
+    let _, e = bind_expression env {let_valid=false; assignable=false} e in
+    env, { typ; loc; u = Ast.UnOp (op, e) }
+  | Function (params, ret, body) ->
+    let ret = Option.map (bind_type env) ret in
+    let new_env = new_frame env in
+    let new_env, params = bind_parameters new_env params in
+    let _, body = bind_statement new_env body in
+    env, { typ; loc; u = Ast.Function (params, ret, body) }
+  | Call (f, args) ->
+    let _, f = bind_expression env {let_valid=false; assignable=false} f in
+    let _, args = List.fold_left (fun (env, args) arg ->
+      let _, arg = bind_expression env {let_valid=false; assignable=false} arg in
+      env, arg::args
+    ) (env, []) args in
+    env, { typ; loc; u = Ast.Call (f, List.rev args) }
 
-  | Arity e ->
-    let _, e = bind env pass e in
-    env, (location, Arity e)
-    
-  | Lambda (return_type, params, modifiers, statement) ->
-    let return_type = bind_const_type env pass return_type in
-    if pass == Order_independent1 then env, (location, expr) else
-    let frame_env = new_frame env in
-    let frame_env, params = bind_order_dependent frame_env params in
-
-    (* The bind pass allocates a slot that will later be used by the lambda lowering pass, to hold the closure.*)
-    let frame_env, _ = declare_slot frame_env "$closure" false in
-
-    let _, statement = bind_statement (new_scope frame_env) Order_dependent statement in
-    env, (location, Lambda (return_type, params, modifiers, (location, Bound_frame (!(frame_env.num_slots), statement))))
-
-  | Call (callable, arg_exprs, pure) ->
-    let _, callable = bind env pass callable in
-    let arg_exprs = bind_expressions env pass arg_exprs in
-    env, (location, Call (callable, arg_exprs, pure))
-
-  | Dynamic_array (es, t) ->
-    let es = Array.map (fun e -> let _, e = bind env pass e in e) es in
-    let t = bind_const_type env pass t in
-    env, (location, Dynamic_array (es, t))
-
-  | Index (a, b) ->
-    let _, a = bind env pass a in
-    let _, b = bind_opt env pass b in
-    env, (location, Index (a, b))
-
-  | Statement s ->
-    let _, s = bind_statement env pass s in
-    env, (location, Statement s)
-
-and bind_const_type env pass const_type =
-  match const_type with
-  | Unevaluated type_expr ->
-    let _, type_expr = bind env pass type_expr in
-    Unevaluated type_expr
-  | _ -> const_type
-
-and bind_expressions env pass exprs =
-  List.map (fun expr -> let _, expr = bind env pass expr in expr) exprs
-
-let bind_program (env : env) (statement : statement) : int * statement =
-  let _, statement = bind_statement env Order_dependent statement in
-  !(env.num_slots), statement
+and bind_type env typ : Ast.typ =
+  match typ with
+  | Ast.BoolT
+  | Ast.IntT _
+  | Ast.UIntT _ ->
+    typ
+  | Ast.TupleT ts -> Ast.TupleT (List.map (bind_type env) ts)
+  | Ast.FunctionT (params, ret) ->
+    let params = List.map (fun t -> bind_type env t) params in
+    let ret = bind_type env ret in
+    Ast.FunctionT (params, ret)
+  

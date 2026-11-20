@@ -1,271 +1,140 @@
-/* File parser.mly */
 %{
-    open Ast
-    open Location
-    open ParserLowering
-    open Slot
-    let loc ((s: Lexing.position), (e: Lexing.position)) : location = make_location s e
+open Ast
+let nop_stat = { u = Compound []; loc = Location.null_location }
 %}
-%token <string> ID
-%token <int64> INT_LIT
 
-(* Please keep these in alphabetic order *)
-%token AMPERSAND ANY ARITY ASSIGN
-%token BANG BITWISE_OR BITWISE_AND BITWISE_NOT BITWISE_XOR BOOL
-%token COLON COMMA CONST
-%token DIV DO
+%token<string> ID
+%token<int64> UINT_LIT
+
+(* Keep in alphabetic order, grouped by first letter *)
+%token ARROW
+%token BOOL
+%token COLON COMMA
 %token ELSE EOF EOL EQUALS
-%token FALSE FOR
-%token GREATER GREATER_EQUALS
+%token FALSE
+%token FUN
 %token IF IN INT
-%token LARROW LBRACKET LESS LESS_EQUALS LCURLY LET LOGICAL_AND LOGICAL_OR LPAREN
-%token SHIFT_LEFT SHIFT_RIGHT
-%token MINUS MODULO MUT
-%token NOT_EQUALS
-%token PIPE PLUS PURE
-%token QUESTION
-%token RARROW RBRACKET RETURN RCURLY RPAREN
-%token SEMI
-%token TILDE TIMES TRUE TYPE TYPEOF
-%token VOID
-%token WHEN WHILE
+%token LCURLY LET LPAREN
+%token MINUS MINUS_EQUALS MUT
+%token OVER OVER_EQUALS
+%token PLUS PLUS_EQUALS
+%token RCURLY RPAREN
+%token TIMES TIMES_EQUALS TRUE
 
-%start main             /* the entry point */
+%right IN
+%right EQUALS TIMES_EQUALS PLUS_EQUALS OVER_EQUALS MINUS_EQUALS
+%nonassoc COLON
+%nonassoc ARROW
+%left MINUS PLUS
+%left OVER TIMES
+%right UNARY
+%right LPAREN
+ 
+%type<file> main
+%type<expr_variant> expr_variant
+%type<expr> expr
+%type<stat_variant> stat_variant
+%type<stat> stat
 
-%type <statement> main
-%type <expression> expr
-%type <statement> compound_stat
+%start main
 
 %%
 
-s_delimiter
-  : SEMI                                    { () }
-  | EOL                                     { () }
-  ;
+%inline comma
+  : COMMA EOL*                                      {}
 
-skip_eols
-  : EOL*                                    { () }
-  ;
- 
+%inline lparen
+  : LPAREN EOL*                                     {}
+
+%inline rparen
+  : RPAREN                                          {}
+
+typ
+  : BOOL                                            { BoolT }
+  | INT                                             { IntT 64 }
+  | lparen ts=separated_list(comma, typ) rparen     { match ts with [singleton] -> singleton | _ -> TupleT ts }
+
+%inline bin_op
+  : PLUS                                            { Add }
+  | MINUS                                           { Subtract }
+  | TIMES                                           { Multiply }
+  | OVER                                            { Divide }
+
+un_op
+  : MINUS                                           { Negate }
+
+%inline assignment_op
+  : PLUS_EQUALS                                     { Some Add }
+  | MINUS_EQUALS                                    { Some Subtract }
+  | TIMES_EQUALS                                    { Some Multiply }
+  | OVER_EQUALS                                     { Some Divide }
+  | EQUALS                                          { None }
+
+stat_seq
+  : ss=list(terminated(stat, EOL+))                 { ss }
+
+compound
+  : LCURLY RCURLY                                   { Compound [] }
+  | LCURLY EOL+ ss=stat_seq RCURLY                  { Compound ss }
+
 param
-  : t=expr n=ID                             { loc $loc, Declaration {modifiers=empty_declaration_modifiers; typ=Unevaluated t; name=n; init_expr=None} }
-  ;
+  : id=ID COLON t=typ                               { ($loc, id, t) }
 
-params0 : es=separated_list(COMMA, param)   { es };
+func_body
+  : b=compound_stat                                 { b }
+  | ARROW b=expr                                    { {u = Compound [{u = Expr b; loc = $loc}]; loc = $loc} }
 
-pattern
-  : n=ID                                    { Identifier n }
-  | ANY                                     { Any }
-  ;
+return_type
+  : COLON t=typ                                     { t }
 
-function_modifiers
-  : /* empty */                               { empty_function_modifiers }
-  | function_modifiers PURE                   { { $1 with pure = true } }
-  | function_modifiers CONST                  { { $1 with const = true } }
-  ;
+func
+  : lparen params=separated_list(comma, param)
+    rparen return_type=return_type? EOL*
+    body=func_body                                  { Function (params, return_type, body) }
 
-primary_expr
-  : VOID                                                    { loc $loc, Type (Tuple []) }                     
-  | INT                                                     { loc $loc, Type Int }
-  | BOOL                                                    { loc $loc, Type Bool }
-  | TYPE                                                    { loc $loc, Type Type }
-  | v=INT_LIT                                               { loc $loc, Int_literal v }
-  | TRUE                                                    { loc $loc, Bool_literal true }
-  | FALSE                                                   { loc $loc, Bool_literal false }
-  | n=ID                                                    { loc $loc, Identifier n }
-  | LET p=pattern                                           { loc $loc, Let p }
-  | ANY                                                     { loc $loc, Let Any }
-  | LPAREN es=exprs0 RPAREN                                 { make_tuple_node (loc $loc) es }
-  | LBRACKET es=exprs0 RBRACKET                             { loc $loc, Dynamic_array (Array.of_list es, Deduced) }
-  | TYPEOF LPAREN e=expr RPAREN                             { loc $loc, Type_of e }
-  | ARITY LPAREN e=expr RPAREN                              { loc $loc, Arity e }
-  ;
+%inline expr_variant
+  : n=UINT_LIT                                      { Int n }
+  | FALSE                                           { Bool false }
+  | TRUE                                            { Bool true }
+  | id=ID                                           { Identifier id }
+  | lparen es=separated_list(comma, expr) rparen    { match es with [{u=singleton; _}] -> singleton | _ -> Tuple es }
+  | a=expr op=bin_op EOL* b=expr                    { BinOp (op, a, b) }
+  | op=un_op e=expr %prec UNARY                     { UnOp (op, e) }
+  | LET id=ID                                       { Let (id, false) }
+  | MUT id=ID                                       { Let (id, true) }
+  | e=expr COLON t=typ                              { Convert (e, t) }
+  | a=expr IN EOL* b=expr                           { In (a, b) }
+  | a=expr op=assignment_op EOL* b=expr             { Assignment (op, a, b) }
+  | FUN f=func                                      { f }
+  | f=expr lparen
+    args=separated_list(comma, expr) rparen         { Call (f, args) }
 
-postfix_expr
-  : e=primary_expr                                          { e }
-  | f=postfix_expr LPAREN es=exprs0 RPAREN
-    lm=function_modifiers                                   { loc $loc, Call (f, es, lm) }
-  | a=postfix_expr LBRACKET e=expr? RBRACKET                { loc $loc, Index (a, e) }
-  ;
+expr
+  : e=expr_variant                                  { {typ = void_type; loc = $loc; u = e} }
 
-unary_expr
-  : e=postfix_expr                                          { e }
-  | MINUS e=postfix_expr                                    { loc $loc, Unary_op (Negate, e) }
-  | BANG e=postfix_expr                                     { loc $loc, Unary_op (Logical_not, e) }
-  | BITWISE_NOT e=postfix_expr                              { loc $loc, Unary_op (Bitwise_invert, e) }
-  ;
+%inline stat_variant
+  : FUN id=ID f=func                                { Expr {
+                                                      u = Assignment (None, {typ = void_type; loc = $loc; u = Let (id, false)}, {typ = void_type; loc = $loc; u = f});
+                                                      typ = void_type;
+                                                      loc = $loc
+                                                    } }
+  | e=expr                                          { Expr e }
+  | s=compound                                      { s }
+  | IF condition=expr EOL* consequent=compound_stat { Conditional (condition, consequent, nop_stat) }
+  | IF condition=expr EOL* consequent=compound_stat
+    EOL* ELSE EOL* alternative=compound_stat        { Conditional (condition, consequent, alternative) }
 
-multiplicative_expr
-  : e=unary_expr                                            { e }
-  | a=multiplicative_expr TIMES b=unary_expr                { loc $loc, Binary_op (Times, a, b) }
-  | a=multiplicative_expr DIV b=unary_expr                  { loc $loc, Binary_op (Div, a, b) }
-  | a=multiplicative_expr MODULO b=unary_expr               { loc $loc, Binary_op (Modulo, a, b) }
-  ;
-
-additive_expr
-  : e = multiplicative_expr                                 { e }
-  | a=additive_expr PLUS b=multiplicative_expr              { loc $loc, Binary_op (Plus, a, b) }
-  | a=additive_expr MINUS b=multiplicative_expr             { loc $loc, Binary_op (Minus, a, b) }
-  ;
-
-shift_expr
-  : e = additive_expr                                       { e }
-  | a=shift_expr SHIFT_LEFT b=additive_expr                 { loc $loc, Binary_op (Shift_left, a, b) }
-  | a=shift_expr SHIFT_RIGHT b=additive_expr                { loc $loc, Binary_op (Shift_right, a, b) }
-  ;
-
-relational_expr
-  : e=shift_expr                                            { e }
-  | a=relational_expr LESS b=shift_expr                    { loc $loc, Binary_op (Less, a, b) }
-  | a=relational_expr LESS_EQUALS b=shift_expr             { loc $loc, Binary_op (Less_equals, a, b) }
-  | a=relational_expr GREATER b=shift_expr                 { loc $loc, Binary_op (Greater, a, b) }
-  | a=relational_expr GREATER_EQUALS b=shift_expr          { loc $loc, Binary_op (Greater_equals, a, b) }
-;
-
-equality_expr
-  : e=relational_expr                                       { e }
-  | a=equality_expr EQUALS b=relational_expr                { loc $loc, Binary_op (Equals, a, b) }
-  | a=equality_expr NOT_EQUALS b=relational_expr            { loc $loc, Binary_op (Not_equals, a, b) }
-  ;
-
-bitwise_and_expr
-  : e=equality_expr                                         { e }
-  | a=bitwise_and_expr BITWISE_AND b=equality_expr          { loc $loc, Binary_op (Bitwise_and, a, b) }
-  ;
-
-bitwise_xor_expr
-  : e=bitwise_and_expr                                      { e }
-  | a=bitwise_xor_expr BITWISE_XOR b=bitwise_and_expr       { loc $loc, Binary_op (Bitwise_xor, a, b) }
-  ;
-
-bitwise_or_expr
-  : e=bitwise_xor_expr                                      { e }
-  | a=bitwise_or_expr BITWISE_OR b=bitwise_xor_expr         { loc $loc, Binary_op (Bitwise_or, a, b) }
-  ;
-
-logical_and_expr
-  : e=bitwise_or_expr                                       { e }
-  | a=logical_and_expr LOGICAL_AND b=bitwise_or_expr        { loc $loc, Binary_op (Logical_and, a, b) }
-  ;
-
-logical_or_expr
-  : e=logical_and_expr                                      { e }
-  | a=logical_or_expr LOGICAL_OR b=logical_and_expr         { loc $loc, Binary_op (Logical_or, a, b) }
-  ;
-
-function_type_expr
-  : e=logical_or_expr                                       { e }
-  | rt=function_type_expr LARROW LPAREN ps=exprs0 RPAREN
-    m=function_modifiers                                    { loc $loc, Type (Function (Unevaluated rt, List.map (fun e -> Unevaluated e) ps, m)) }
-  ;
-
-binary_expr: e=function_type_expr {e}
-
-conditional_expr
-  : e=binary_expr                                           { e }
-  | c=binary_expr QUESTION a=expr COLON b=conditional_expr  { loc $loc, Conditional (c, a, b) }
-  ;
-
-assign_expr
-  : e=conditional_expr                                      { e }
-  | a=postfix_expr ASSIGN b=assign_expr                     { loc $loc, Assignment (a, b) }
-  ;
-
-when_expr
-  : WHEN p=assign_expr                                      { p }
-  ;
-
-expr_or_stat
-  : e=in_expr                                               { e }
-  | s=compound_stat                                         { loc $loc, Statement s }
-  ;
-
-in_expr
-  : a=assign_expr IN skip_eols b=expr_or_stat               { loc $loc, In (a, b) }
-  | a=primary_expr TILDE b=assign_expr c=when_expr?
-    IN skip_eols d=expr_or_stat                             { loc $loc, Match (a, b, Option.value ~default:(loc $loc, Bool_literal true) c, d, unbindable_slot) }
-  | e=assign_expr                                           { e }
-  ;
-
-fallback_expr
-  : e=in_expr                                               { e }
-  | a=fallback_expr PIPE b=in_expr                          { loc $loc, Fall_through (a, b) }
-  ;
-
-lambda_body
-  : b=compound_stat                                         { b }
-  | RARROW e=in_expr                                        { loc $loc, Return e }
-  ;
-
-lambda_expr
-  : e=fallback_expr                                         { e }
-  | rt=primary_expr AMPERSAND LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Unevaluated rt, ps, lm, b) }
-  | AMPERSAND LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=lambda_body                     { loc $loc, Lambda (Deduced, ps, lm, b) }
-  ;
-
-expr: e=lambda_expr                                         { e }
-
-labeled_expr
-  : e=expr ID?                                              { e }
-  ;
-
-exprs1
-  : e=labeled_expr                                          { [e] }
-  | e=labeled_expr COMMA es=exprs1                          { e :: es }
-  ;                             
-
-exprs0
-  : /* empty */                                             { [] }
-  | es=exprs1                                               { es }
-  ;
-
-else_clause
-  : ELSE b=compound_stat                                    { b }
-  ;
-
-initialize
-  : ASSIGN v=expr                                           { v }
-  ;
-
-declaration
-  : t=expr n=ID v=initialize? s_delimiter                       { {modifiers=empty_declaration_modifiers; typ=Unevaluated t; name=n; init_expr=v} }
-  | t=expr n=ID LPAREN ps=params0 RPAREN
-    lm=function_modifiers b=compound_stat                       { {modifiers=empty_declaration_modifiers; typ=Deduced; name=n; init_expr=Some (loc $loc, Lambda (Unevaluated t, ps, lm, b)) } }
-  | MUT d=declaration                                           { let new_modifiers = { mut=true } in { d with modifiers = new_modifiers } }
-  ;
-
-stat
-  : e=expr s_delimiter                                          { loc $loc, Expression e }
-  | d=declaration                                               { loc $loc, Declaration d }
-  | s=compound_stat                                             { s }
-  | IF c=expr skip_eols a=compound_stat b=else_clause?          { prelower_if (loc($loc)) c a b }
-  | FOR i=stat c=expr s_delimiter n=expr b=compound_stat        { prelower_for (loc($loc)) i c n b }
-  | FOR LPAREN i=stat c=expr s_delimiter n=expr RPAREN
-    b=compound_stat                                             { prelower_for (loc($loc)) i c n b }
-  | WHILE c=expr b=compound_stat                                { prelower_while (loc($loc)) c b }
-  | DO b=compound_stat WHILE c=expr s_delimiter                 { loc $loc, Do_while (b, c) }
-  | RETURN e=expr s_delimiter                                   { loc $loc, Return e }
-  | s=stat EOL                                                  { s }
-  ;
-
-stats0
-  : ss=list(stat) { ss }
-  ;
-
-expect_stat
-  : /* empty */                             { () }
-  ;
-
-compound_stats
-  : LCURLY expect_stat ss=stats0 RCURLY     { ss }
-  ;
+%inline stat
+  : s=stat_variant                                  { {u=s; loc = $loc} }
 
 compound_stat
-  : ss=compound_stats                       { (loc $loc, Compound ss) }
-  ;
+  : s=compound                                      { {u=s; loc = $loc} }
+
+main_seq
+  : h=stat EOL+ t=main_seq                          { h :: t }
+  | s=stat EOL* EOF                                 { [s] }
 
 main
-  : skip_eols ss=stats0 EOF                 { (loc $loc, Order_independent ss) }
-  ;
+  : EOL* EOF                                        { [] }
+  | EOL* ss=main_seq                                { ss }
+  

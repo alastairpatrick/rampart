@@ -1,78 +1,87 @@
 {
-  open Parser
-  exception UnexpectedChar of char
-
-  let count_eols lexbuf : unit =
-    String.iter (fun c -> if c = '\n' then Lexing.new_line lexbuf) (Lexing.lexeme lexbuf)
+open Location
+open Parser
 }
-
 
 let id_first = ['A'-'Z' 'a'-'z']
 let id_subs = ['A'-'Z' 'a'-'z' '0'-'9' '_']
-let space = [' ' '\t']*
-let skip_eols = [' ' '\t' '\n' '\r']*
+let space = [' ' '\t']
+let newline = '\r'? '\n'
 
-rule token = parse
-  space                               { token lexbuf }     (* skip blanks *)
-  | '\n'                              { count_eols lexbuf; EOL }
-  | "arity"                           { ARITY }
-  | "band"                            { BITWISE_AND }
-  | "bnot"                            { BITWISE_NOT }
-  | "bor"                             { BITWISE_OR }
-  | "bxor"                            { BITWISE_XOR }
+rule token diagnostic = parse
+    space+
+  | "//" [^'\n']*                     { token diagnostic lexbuf }
+  | "/*"                              { skip diagnostic 1 false lexbuf }
+  | '\\' newline                      { Lexing.new_line lexbuf; token diagnostic lexbuf }
+  | newline                           { Lexing.new_line lexbuf; EOL }
+
   | "bool"                            { BOOL }
-  | "const"                           { CONST }
-  | "do"                              { DO }
-  | skip_eols "else" skip_eols        { count_eols lexbuf; ELSE }
+  | "else"                            { ELSE }
   | "false"                           { FALSE }
-  | "for"                             { FOR }
+  | "fun"                             { FUN }
   | "if"                              { IF }
   | "in"                              { IN }
   | "int"                             { INT }
   | "let"                             { LET }
   | "mut"                             { MUT }
-  | "pure"                            { PURE }
-  | "return"                          { RETURN }
   | "true"                            { TRUE }
-  | "typeof"                          { TYPEOF }
-  | "type"                            { TYPE }
-  | "void"                            { VOID }
-  | "when"                            { WHEN }
-  | "while"                           { WHILE }
+
   | (id_first id_subs*) as lxm        { ID(lxm) }
-  | ['0'-'9']+ as lxm                 { INT_LIT(Int64.of_string lxm) }
-  | "==" skip_eols                    { count_eols lexbuf; EQUALS }
-  | "!=" skip_eols                    { count_eols lexbuf; NOT_EQUALS }
-  | "<=" skip_eols                    { count_eols lexbuf; LESS_EQUALS }
-  | "<<" skip_eols                    { count_eols lexbuf; SHIFT_LEFT }
-  | ">>" skip_eols                    { count_eols lexbuf; SHIFT_RIGHT }
-  | ">=" skip_eols                    { count_eols lexbuf; GREATER_EQUALS }
-  | "<-" skip_eols                    { count_eols lexbuf; LARROW }
-  | "->" skip_eols                    { count_eols lexbuf; RARROW }
-  | "&&" skip_eols                    { count_eols lexbuf; LOGICAL_AND }
-  | skip_eols "||" skip_eols          { count_eols lexbuf; LOGICAL_OR }
-  | '(' skip_eols                     { count_eols lexbuf; LPAREN }
-  | skip_eols ')'                     { count_eols lexbuf; RPAREN }
-  | '[' skip_eols                     { count_eols lexbuf; LBRACKET }
-  | skip_eols ']'                     { count_eols lexbuf; RBRACKET }
-  | '{' skip_eols                     { count_eols lexbuf; LCURLY }
+
+  | ['0'-'9']+ as lxm
+  | '0' ['x' 'X'] ['0'-'9' 'a'-'f' 'A'-'F']+ as lxm
+  | '0' ['o' 'O'] ['0'-'7']+ as lxm
+  | '0' ['b' 'B'] ['0'-'1']+ as lxm   { UINT_LIT (Int64.of_string lxm) }                                        
+
+  | "->"                              { ARROW }
+  | "+="                              { PLUS_EQUALS }
+  | "-="                              { MINUS_EQUALS }
+  | "*="                              { TIMES_EQUALS }
+  | "/="                              { OVER_EQUALS }
+
+  | ':'                               { COLON }
+  | ','                               { COMMA }
+  | '='                               { EQUALS }
+  | '{'                               { LCURLY }
+  | '('                               { LPAREN }
+  | '-'                               { MINUS }
+  | '/'                               { OVER }
+  | '+'                               { PLUS }
   | '}'                               { RCURLY }
-  | skip_eols ',' skip_eols           { count_eols lexbuf; COMMA }
-  | skip_eols "|" skip_eols           { count_eols lexbuf; PIPE }
-  | '&' skip_eols                     { count_eols lexbuf; AMPERSAND }
-  | "!" skip_eols                     { count_eols lexbuf; BANG }
-  | "~" skip_eols                     { count_eols lexbuf; TILDE }
-  | '=' skip_eols                     { count_eols lexbuf; ASSIGN }
-  | '+' skip_eols                     { count_eols lexbuf; PLUS }
-  | '-' skip_eols                     { count_eols lexbuf; MINUS }
-  | '*' skip_eols                     { count_eols lexbuf; TIMES }
-  | "%" skip_eols                     { count_eols lexbuf; MODULO }
-  | '/' skip_eols                     { count_eols lexbuf; DIV }
-  | '?' skip_eols                     { count_eols lexbuf; QUESTION }
-  | ':' skip_eols                     { count_eols lexbuf; COLON }
-  | '<' skip_eols                     { count_eols lexbuf; LESS }
-  | '>' skip_eols                     { count_eols lexbuf; GREATER }
-  | ';'                               { SEMI }
-  | '_'                               { ANY }
-  | _ as lxm                          { raise (UnexpectedChar lxm)  }
+  | ')'                               { RPAREN }
+  | '*'                               { TIMES }
+
+  | _ as lxm                          {
+                                        let location = make_location (Lexing.lexeme_start_p lexbuf) (Lexing.lexeme_end_p lexbuf) in 
+                                        diagnostic Diagnostic.Error location (Printf.sprintf "unexpected token beginning '%s'" (Char.escaped lxm));
+                                        skip diagnostic 0 true lexbuf
+                                      }
+
   | eof                               { EOF }
+
+and skip diagnostic depth recovering = parse
+  | "/*"            { skip diagnostic (depth + 1) recovering lexbuf }
+  | "*/"            {
+                      if depth = 1 && not recovering then
+                        token diagnostic lexbuf
+                      else
+                        skip diagnostic (if depth > 0 then (depth - 1) else 0) recovering lexbuf
+                    }
+  | '\\' newline    {
+                      Lexing.new_line lexbuf;
+                      skip diagnostic depth recovering lexbuf
+                    }
+  | newline         {
+                      Lexing.new_line lexbuf;
+                      if depth = 0 then
+                        EOL
+                      else
+                        skip diagnostic depth recovering lexbuf
+                    }
+  | _               { skip diagnostic depth recovering lexbuf }
+  | eof             {
+                      (if depth > 0 then
+                        let location = make_location (Lexing.lexeme_start_p lexbuf) (Lexing.lexeme_end_p lexbuf) in
+                        diagnostic Diagnostic.Error location "unclosed comment");
+                      EOF
+                    }

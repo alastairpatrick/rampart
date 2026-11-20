@@ -1,152 +1,55 @@
 open Location
-open Sexplib.Std
 open Slot
 
-type external_closure = ..
+type typ =
+  | BoolT
+  | IntT of int
+  | UIntT of int
+  | TupleT of typ list
+  | FunctionT of typ list * typ
 
-type binary_op =
-  | Plus
-  | Minus
-  | Times
-  | Div
-  | Modulo
-  | Equals
-  | Not_equals
-  | Less
-  | Less_equals
-  | Greater
-  | Greater_equals
-  | Logical_and (* operands must be bool, can short-circuit *)
-  | Logical_or (* operands must be bool, can short-circuit *)
-  | Bitwise_and (* int or bool operands *)
-  | Bitwise_or (* int or bool operands *)
-  | Bitwise_xor (* int or bool operands *)
-  | Shift_left   (* int operands only, C "<<" *)
-  | Shift_right  (* int operands only, C ">>"; arithmetic shift like Java *)
+and parameter = location * string * typ
 
-and unary_op =
-  | Negate (* int operand *)
-  | Logical_not (* bool operand *)
-  | Bitwise_invert (* int or bool operand *)
+and bin_op = Add | Subtract | Multiply | Divide
+and un_op = Negate
 
-and pattern =
-  | Any
+and expr_variant =
+  | Bool of bool
+  | Int of int64
+  | Assignment of bin_op option * expr * expr
   | Identifier of string
+  | BoundIdentifier of string * slot
+  | Let of string * bool
+  | BoundLet of string * slot
+  | In of expr * expr
+  | Convert of expr * typ
+  | Tuple of expr list
+  | BinOp of bin_op * expr * expr
+  | UnOp of un_op * expr
+  | Function of parameter list * typ option * stat
+  | Call of expr * expr list
 
-and function_modifiers = {
-  pure: bool [@sexp.bool];
-  const: bool [@sexp.bool];
+and expr2 = {
+  typ: typ;
+  loc: location;
+  u: expr_variant;
 }
 
-and const_type_expression =
-  | Bool
-  | Deduced
-  | Dynamic_array of (* element_type: *) const_type_expression
-  | Int
-  | Function of (* return_type: *) const_type_expression * (* param_types: *) const_type_expression list * (* modifiers: *) function_modifiers
-  | Opaque (* (Pointer Opaque) roughly corresponds to void* in C *)
-  | Pointer of const_type_expression
-  | Representative (* Uninstantiable type, used as a representative value for type values. *)
-  | Tuple of const_type_expression list
-  | Unevaluated of expression (* Represents types before they are evaluated to actual const_type values. *)
-  | Type
+and expr = expr2 [@printer fun fmt (e: expr) -> pp_expr_variant fmt e.u]
 
-and expression_inner =
-  | Arity of expression
-  | Assignment of expression * expression
-  | Binary_op of binary_op * expression * expression
-  | Bool_literal of bool
-  | Bound_identifier of string * slot
-  | Bound_let of pattern * slot
-  | Call of expression * expression list * function_modifiers
-  | Conditional of expression * expression * expression
-  | Dynamic_array of expression array * (* element_type: *) const_type_expression
-  | Fall_through of expression * expression
-  | Identifier of string
-  | Index of expression * (* subscript: *) expression option
-  | In of expression * expression
-  | Int_literal of int64
-  | Lambda of (* return_type: *) const_type_expression * (* params: *) statement list * function_modifiers * (* body: *) statement
-  | Let of pattern
-  | Match of (* pattern: *) expression * expression * (* condition: *) expression * (* body: *) expression * (* temp_slot: *) slot
-  | Statement of statement
-  | Tuple of expression list
-  | Type of const_type_expression
-  | Type_of of expression
-  | Unary_op of unary_op * expression
-  
-and expression = location * expression_inner
+and stat_variant =
+  | Expr of expr
+  | Compound of stat list
+  | Conditional of expr * stat * stat
 
-and declaration_modifiers = {
-  mut: bool [@sexp.bool];
+and stat2 = {
+  loc: location;
+  u: stat_variant;
 }
 
-and declaration = {
-  modifiers: declaration_modifiers;
-  typ: const_type_expression;
-  name: string;
-  init_expr: expression option;
-}
+and stat = stat2 [@printer fun fmt (s: stat) -> pp_stat_variant fmt s.u]
+and file = stat list
 
-and switch_case = location * expression option * expression option * statement
+[@@deriving show { with_path=false }]
 
-and statement_inner =
-  | Expression of expression
-  | Declaration of declaration
-  | Bound_declaration of declaration * slot
-  | Bound_frame of int * statement
-  | Compound of statement list
-  | Order_independent of statement list
-  | If of expression * (* then: *) statement * (* else: *) statement
-  | Do_while of statement * expression
-  | Return of expression
-
-and statement = location * statement_inner
-
-[@@deriving sexp, show]
-
-let empty_declaration_modifiers : declaration_modifiers = { mut = false }
-let empty_function_modifiers : function_modifiers = { pure = false; const = false }
-
-let loc ((s: Lexing.position), (e: Lexing.position)) : location = make_location s e
-
-let expression_location (l, _) = l
-let statement_location (l, _) = l
-
-let sexp_of_statements = [%sexp_of: statement list]
-
-let show_statements = [%show: statement list]
-
-let print_statements stats =
-  Sexplib.Sexp.output_hum stdout (sexp_of_statements stats);
-  flush stdout
-
-let make_tuple_node (location : location) (exprs : expression list) : expression =
-  match exprs with
-  | [expr] -> expr
-  | _ -> location, Tuple exprs
-
-let show_binary_op = function
-  | Plus -> "+"
-  | Minus -> "-"
-  | Times -> "*"
-  | Modulo -> "%"
-  | Div -> "/"
-  | Equals -> "=="
-  | Not_equals -> "!="
-  | Less -> "<"
-  | Less_equals -> "<="
-  | Greater -> ">"
-  | Greater_equals -> ">="
-  | Logical_and -> "&&"
-  | Logical_or -> "||"
-  | Bitwise_and -> "band"
-  | Bitwise_or -> "bor"
-  | Bitwise_xor -> "bxor"
-  | Shift_left -> "<<"
-  | Shift_right -> ">>"
-
-let show_unary_op = function
-  | Negate -> "-"
-  | Logical_not -> "!"
-  | Bitwise_invert -> "bnot"
+let void_type = TupleT []
